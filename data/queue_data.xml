@@ -1,0 +1,60 @@
+<odoo noupdate="1">
+    <!-- Template email pour notification -->
+    <record id="email_ticket_called" model="mail.template">
+        <field name="name">Notification Ticket Appelé</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="subject">Votre ticket est appelé - ${object.service_id.name}</field>
+        <field name="email_from">${(object.service_id.company_id.email or '')|safe}</field>
+        <field name="email_to">${object.customer_email}</field>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Bonjour,</p>
+                <p>Votre ticket <strong>#${object.ticket_number}</strong> pour le service 
+                   <strong>${object.service_id.name}</strong> est maintenant appelé.</p>
+                <p>Veuillez vous présenter au guichet.</p>
+                <br/>
+                <p>Merci de votre patience.</p>
+            </div>
+        </field>
+    </record>
+
+    <!-- Séquence pour les numéros de tickets -->
+    <record id="seq_queue_ticket" model="ir.sequence">
+        <field name="name">Numéro de Ticket File d'Attente</field>
+        <field name="code">queue.ticket.number</field>
+        <field name="padding">3</field>
+        <field name="number_next">1</field>
+        <field name="number_increment">1</field>
+        <field name="use_date_range">True</field>
+    </record>
+
+    <!-- Actions plannifiées -->
+    <record id="ir_cron_cleanup_old_tickets" model="ir.cron">
+        <field name="name">Nettoyage des anciens tickets</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="state">code</field>
+        <field name="code">
+# Supprimer les tickets de plus de 30 jours
+cutoff_date = fields.Datetime.now() - timedelta(days=30)
+old_tickets = model.search([('create_date', '&lt;', cutoff_date)])
+old_tickets.unlink()
+        </field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False"/>
+    </record>
+
+    <!-- Configuration par défaut -->
+    <record id="default_queue_config" model="queue.config">
+        <field name="name">Configuration Système</field>
+        <field name="enable_email_notifications" eval="True"/>
+        <field name="enable_sms_notifications" eval="False"/>
+        <field name="auto_refresh_interval">30</field>
+        <field name="show_estimated_time" eval="True"/>
+        <field name="show_queue_position" eval="True"/>
+        <field name="max_display_tickets">15</field>
+        <field name="allow_ticket_cancellation" eval="True"/>
+        <field name="require_customer_info" eval="False"/>
+    </record>
+</odoo>

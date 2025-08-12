@@ -1,0 +1,42 @@
+<odoo noupdate="1">
+    <record id="email_feedback_request" model="mail.template">
+        <field name="name">Demande de Feedback</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="subject">Votre avis nous intéresse - ${object.service_id.name}</field>
+        <field name="email_from">${(object.service_id.company_id.email or '')|safe}</field>
+        <field name="email_to">${object.customer_email}</field>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px; font-family: Arial, sans-serif;">
+                <p>Bonjour ${object.customer_name or 'Cher(e) Client(e)'},</p>
+                
+                <p>Nous espérons que votre passage pour le service <strong>${object.service_id.name}</strong> 
+                   s'est bien déroulé.</p>
+                
+                <p>Votre avis est important pour nous aider à améliorer nos services.</p>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="${ctx.get('base_url', '')}/queue/feedback/${object.id}" 
+                       style="background-color: #007bff; color: white; padding: 12px 24px; 
+                              text-decoration: none; border-radius: 5px;">
+                        Donner mon Avis
+                    </a>
+                </div>
+                
+                <p><strong>Résumé de votre visite:</strong></p>
+                <ul>
+                    <li>Ticket: #${object.ticket_number}</li>
+                    <li>Service: ${object.service_id.name}</li>
+                    <li>Date: ${object.create_date.strftime('%d/%m/%Y à %H:%M')}</li>
+                    <li>Temps d'attente: ${object.waiting_time} minutes</li>
+                </ul>
+                
+                <p>Merci de votre confiance.</p>
+                
+                <hr style="margin: 20px 0;"/>
+                <p style="font-size: 12px; color: #666;">
+                    Ce message a été envoyé automatiquement, merci de ne pas y répondre directement.
+                </p>
+            </div>
+        </field>
+    </record>
+</odoo>

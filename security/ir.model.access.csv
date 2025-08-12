@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_queue_service_user,queue.service.user,model_queue_service,group_queue_user,1,0,0,0
+access_queue_service_manager,queue.service.manager,model_queue_service,group_queue_manager,1,1,1,1
+access_queue_ticket_user,queue.ticket.user,model_queue_ticket,group_queue_user,1,1,1,0
+access_queue_ticket_manager,queue.ticket.manager,model_queue_ticket,group_queue_manager,1,1,1,1
+access_queue_config_manager,queue.config.manager,model_queue_config,group_queue_manager,1,1,1,1
+access_queue_service_public,queue.service.public,model_queue_service,,1,0,0,0
+access_queue_ticket_public,queue.ticket.public,model_queue_ticket,,1,1,1,0

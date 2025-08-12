@@ -1,0 +1,78 @@
+<odoo>
+    <!-- Services de démonstration -->
+    <record id="demo_service_reception" model="queue.service">
+        <field name="name">Réception / Accueil</field>
+        <field name="description">Service d'accueil et d'information générale</field>
+        <field name="sequence">10</field>
+        <field name="max_tickets_per_day">150</field>
+        <field name="estimated_service_time">5</field>
+        <field name="working_hours_start">8.0</field>
+        <field name="working_hours_end">17.0</field>
+        <field name="is_open">True</field>
+        <field name="current_ticket_number">25</field>
+    </record>
+
+    <record id="demo_service_consultation" model="queue.service">
+        <field name="name">Consultation Médicale</field>
+        <field name="description">Consultations avec les médecins</field>
+        <field name="sequence">20</field>
+        <field name="max_tickets_per_day">50</field>
+        <field name="estimated_service_time">20</field>
+        <field name="working_hours_start">9.0</field>
+        <field name="working_hours_end">18.0</field>
+        <field name="is_open">True</field>
+        <field name="current_ticket_number">12</field>
+    </record>
+
+    <record id="demo_service_pharmacy" model="queue.service">
+        <field name="name">Pharmacie</field>
+        <field name="description">Délivrance des médicaments</field>
+        <field name="sequence">30</field>
+        <field name="max_tickets_per_day">200</field>
+        <field name="estimated_service_time">8</field>
+        <field name="working_hours_start">8.0</field>
+        <field name="working_hours_end">19.0</field>
+        <field name="is_open">True</field>
+        <field name="current_ticket_number">45</field>
+    </record>
+
+    <!-- Tickets de démonstration -->
+    <record id="demo_ticket_1" model="queue.ticket">
+        <field name="service_id" ref="demo_service_reception"/>
+        <field name="ticket_number">26</field>
+        <field name="customer_name">Marie Dubois</field>
+        <field name="customer_phone">+225 01 23 45 67</field>
+        <field name="state">waiting</field>
+        <field name="priority">normal</field>
+    </record>
+
+    <record id="demo_ticket_2" model="queue.ticket">
+        <field name="service_id" ref="demo_service_reception"/>
+        <field name="ticket_number">27</field>
+        <field name="customer_name">Jean Kouame</field>
+        <field name="state">waiting</field>
+        <field name="priority">high</field>
+    </record>
+
+    <record id="demo_ticket_3" model="queue.ticket">
+        <field name="service_id" ref="demo_service_consultation"/>
+        <field name="ticket_number">13</field>
+        <field name="customer_name">Fatou Traoré</field>
+        <field name="customer_email">fatou@email.com</field>
+        <field name="state">called</field>
+        <field name="priority">normal</field>
+    </record>
+
+    <!-- Configuration par défaut -->
+    <record id="demo_queue_config" model="queue.config">
+        <field name="name">Configuration par Défaut</field>
+        <field name="enable_email_notifications">True</field>
+        <field name="enable_sms_notifications">False</field>
+        <field name="auto_refresh_interval">30</field>
+        <field name="show_estimated_time">True</field>
+        <field name="show_queue_position">True</field>
+        <field name="max_display_tickets">10</field>
+        <field name="allow_ticket_cancellation">True</field>
+        <field name="require_customer_info">False</field>
+    </record>
+</odoo>

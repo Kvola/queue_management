@@ -1,0 +1,110 @@
+<odoo>
+    <!-- Menu principal -->
+    <menuitem id="menu_queue_management_root" 
+              name="Files d'Attente" 
+              sequence="50" 
+              web_icon="queue_management,static/description/icon.png"/>
+
+    <!-- Sous-menus -->
+    <menuitem id="menu_queue_dashboard" 
+              name="Tableau de Bord" 
+              parent="menu_queue_management_root" 
+              sequence="10"
+              action="action_queue_dashboard"/>
+
+    <menuitem id="menu_queue_services" 
+              name="Services" 
+              parent="menu_queue_management_root" 
+              sequence="20"
+              action="action_queue_service"/>
+
+    <menuitem id="menu_queue_tickets" 
+              name="Tickets" 
+              parent="menu_queue_management_root" 
+              sequence="30"
+              action="action_queue_ticket"/>
+
+    <menuitem id="menu_queue_reports" 
+              name="Rapports" 
+              parent="menu_queue_management_root" 
+              sequence="40"/>
+
+    <menuitem id="menu_queue_config" 
+              name="Configuration" 
+              parent="menu_queue_management_root" 
+              sequence="50"
+              action="action_queue_config"
+              groups="group_queue_manager"/>
+
+    <!-- Menu Items -->
+    <menuitem id="menu_queue_analytics_root" 
+              name="Analyses Files d'Attente" 
+              parent="menu_queue_management_root" 
+              sequence="30"/>
+
+    <menuitem id="menu_queue_analytics_main" 
+              name="Toutes les Analyses" 
+              parent="menu_queue_analytics_root" 
+              action="action_queue_analytics" 
+              sequence="10"/>
+
+    <menuitem id="menu_queue_analytics_daily" 
+              name="Analyses Quotidiennes" 
+              parent="menu_queue_analytics_root" 
+              action="action_queue_analytics_daily" 
+              sequence="20"/>
+
+    <menuitem id="menu_queue_analytics_weekly" 
+              name="Analyses Hebdomadaires" 
+              parent="menu_queue_analytics_root" 
+              action="action_queue_analytics_weekly" 
+              sequence="30"/>
+
+    <menuitem id="menu_queue_analytics_monthly" 
+              name="Analyses Mensuelles" 
+              parent="menu_queue_analytics_root" 
+              action="action_queue_analytics_monthly" 
+              sequence="40"/>
+
+    <!-- Menu Items pour les rapports -->
+    <menuitem id="menu_queue_reports_root" 
+              name="Rapports" 
+              parent="menu_queue_management_root" 
+              sequence="40"/>
+
+    <menuitem id="menu_queue_report_generator" 
+              name="Générateur de Rapports" 
+              parent="menu_queue_reports_root" 
+              action="action_queue_report_wizard" 
+              sequence="10"/>
+
+    <menuitem id="menu_queue_quick_reports" 
+              name="Rapports Rapides" 
+              parent="menu_queue_reports_root" 
+              sequence="20"/>
+
+    <menuitem id="menu_queue_daily_report" 
+              name="Rapport Quotidien" 
+              parent="menu_queue_quick_reports" 
+              action="action_queue_daily_report_wizard" 
+              sequence="30"/>
+
+    <menuitem id="menu_queue_weekly_report" 
+              name="Rapport Hebdomadaire" 
+              parent="menu_queue_quick_reports" 
+              action="action_queue_weekly_report_wizard" 
+              sequence="40"/>
+
+    <menuitem id="menu_queue_monthly_report" 
+              name="Rapport Mensuel" 
+              parent="menu_queue_quick_reports" 
+              action="action_queue_monthly_report_wizard" 
+              sequence="50"/>
+    
+    <!-- Menu pour les rapports -->
+    <menuitem id="menu_queue_daily_report" 
+              name="Rapport Quotidien" 
+              parent="menu_queue_quick_reports" 
+              sequence="60"
+              action="action_queue_daily_report"/>
+</odoo>

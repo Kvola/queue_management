@@ -1,0 +1,74 @@
+<odoo>
+    <!-- Rapport des statistiques quotidiennes -->
+    <record id="action_queue_daily_report" model="ir.actions.report">
+        <field name="name">Rapport Quotidien Files d'Attente</field>
+        <field name="model">queue.service</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">queue_management.report_daily_queue</field>
+        <field name="report_file">queue_management.report_daily_queue</field>
+        <field name="print_report_name">'Rapport Quotidien - ' + time.strftime('%Y-%m-%d')</field>
+    </record>
+
+    <!-- Template du rapport quotidien -->
+    <template id="report_daily_queue">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="service">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Rapport Quotidien - <span t-field="service.name"/></h2>
+                        <p>Date: <span t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y')"/></p>
+                        
+                        <div class="row mt32">
+                            <div class="col-3">
+                                <h4>Statistiques</h4>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td>Total tickets:</td>
+                                        <td><strong t-field="service.total_tickets_today"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>En attente:</td>
+                                        <td><strong t-field="service.waiting_count"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Temps moyen:</td>
+                                        <td><strong t-field="service.avg_waiting_time"/> min</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Ticket actuel:</td>
+                                        <td><strong t-field="service.current_ticket_number"/></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <h4 class="mt32">Tickets du Jour</h4>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Ticket #</th>
+                                    <th>Client</th>
+                                    <th>Heure</th>
+                                    <th>État</th>
+                                    <th>Priorité</th>
+                                    <th>Temps d'attente</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-set="today_tickets" t-value="service.ticket_ids.filtered(lambda t: t.create_date.date() == datetime.date.today())"/>
+                                <tr t-foreach="today_tickets" t-as="ticket">
+                                    <td><span t-field="ticket.ticket_number"/></td>
+                                    <td><span t-field="ticket.customer_name"/></td>
+                                    <td><span t-field="ticket.created_time" t-options="{'widget': 'datetime'}"/></td>
+                                    <td><span t-field="ticket.state"/></td>
+                                    <td><span t-field="ticket.priority"/></td>
+                                    <td><span t-field="ticket.waiting_time"/> min</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

@@ -1,0 +1,1660 @@
+<odoo>
+    <!-- Template d'accueil avec widgets améliorés -->
+    <template id="queue_home_template" name="Accueil Files d'Attente">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <!-- Hero Section -->
+                    <div class="row mb-5">
+                        <div class="col-12 text-center">
+                            <h1 class="display-4 mb-3">
+                                <i class="fa fa-users text-primary"/> Système de Files d'Attente
+                            </h1>
+                            <p class="lead text-muted">
+                                Prenez votre ticket en ligne et évitez l'attente physique
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Services disponibles -->
+                    <div class="row">
+                        <t t-foreach="services" t-as="service">
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 shadow-sm">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h5 class="card-title mb-0" t-esc="service.name"/>
+                                        <span t-if="service.is_open" class="badge bg-success">Ouvert</span>
+                                        <span t-else="" class="badge bg-danger">Fermé</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="card-text" t-if="service.description" t-esc="service.description"/>
+                                        
+                                        <div class="queue-info mb-3">
+                                            <div class="row text-center">
+                                                <div class="col-4">
+                                                    <div class="stat-box">
+                                                        <h4 class="text-primary mb-0" t-esc="service.waiting_count"/>
+                                                        <small class="text-muted">En attente</small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="stat-box">
+                                                        <h4 class="text-info mb-0">
+                                                            <t t-esc="round(service.avg_waiting_time, 0)"/> min
+                                                        </h4>
+                                                        <small class="text-muted">Attente moy.</small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="stat-box">
+                                                        <h4 class="text-warning mb-0" t-esc="service.total_tickets_today"/>
+                                                        <small class="text-muted">Aujourd'hui</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="text-center">
+                                            <a t-if="service.is_open" 
+                                               t-attf-href="/queue/service/#{service.id}"
+                                               class="btn btn-primary btn-lg w-100">
+                                                <i class="fa fa-ticket"/> Prendre un Ticket
+                                            </a>
+                                            <button t-else="" class="btn btn-secondary btn-lg w-100" disabled="">
+                                                <i class="fa fa-lock"/> Service Fermé
+                                            </button>
+                                        </div>
+
+                                        <div class="mt-2 text-center">
+                                            <small class="text-muted">
+                                                Horaires: <t t-esc="service.working_hours_start"/>h - <t t-esc="service.working_hours_end"/>h
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- Section information -->
+                    <div class="row mt-5">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h5><i class="fa fa-question-circle text-info"/> Comment ça marche ?</h5>
+                                    <div class="row">
+                                        <div class="col-md-3 text-center mb-3">
+                                            <i class="fa fa-mouse-pointer fa-2x text-primary mb-2"/>
+                                            <h6>1. Choisissez</h6>
+                                            <small>Sélectionnez votre service</small>
+                                        </div>
+                                        <div class="col-md-3 text-center mb-3">
+                                            <i class="fa fa-ticket fa-2x text-info mb-2"/>
+                                            <h6>2. Prenez</h6>
+                                            <small>Obtenez votre ticket</small>
+                                        </div>
+                                        <div class="col-md-3 text-center mb-3">
+                                            <i class="fa fa-clock-o fa-2x text-warning mb-2"/>
+                                            <h6>3. Attendez</h6>
+                                            <small>Suivez votre position</small>
+                                        </div>
+                                        <div class="col-md-3 text-center mb-3">
+                                            <i class="fa fa-check fa-2x text-success mb-2"/>
+                                            <h6>4. Présentez-vous</h6>
+                                            <small>Quand appelé</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .stat-box {
+                    padding: 10px;
+                    border-radius: 5px;
+                    background: #f8f9fa;
+                }
+                
+                .card {
+                    transition: transform 0.2s;
+                }
+                
+                .card:hover {
+                    transform: translateY(-5px);
+                }
+            </style>
+        </t>
+    </template>
+    <!-- Template principal des files d'attente -->
+    <template id="queue_main_template" name="Files d'Attente">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row">
+                        <div class="col-12">
+                            <h1 class="text-center mb-4">Files d'Attente</h1>
+                            <p class="text-center text-muted">
+                                Prenez votre ticket en ligne et suivez votre position en temps réel
+                            </p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <t t-foreach="services" t-as="service">
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">
+                                            <t t-esc="service.name"/>
+                                            <span t-if="service.is_open" class="badge badge-success ms-2">Ouvert</span>
+                                            <span t-else="" class="badge badge-danger ms-2">Fermé</span>
+                                        </h5>
+                                        <p class="card-text" t-if="service.description">
+                                            <t t-esc="service.description"/>
+                                        </p>
+                                        <div class="queue-stats mb-3">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <strong><t t-esc="service.waiting_count"/></strong>
+                                                    <br/>
+                                                    <small class="text-muted">En attente</small>
+                                                </div>
+                                                <div class="col-6">
+                                                    <strong><t t-esc="service.avg_waiting_time"/> min</strong>
+                                                    <br/>
+                                                    <small class="text-muted">Attente moyenne</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="text-center">
+                                            <a t-if="service.is_open" 
+                                               t-attf-href="/queue/service/#{service.id}"
+                                               class="btn btn-primary">
+                                                Prendre un Ticket
+                                            </a>
+                                            <button t-else="" class="btn btn-secondary" disabled="">
+                                                Service Fermé
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template détail service -->
+    <template id="queue_service_template" name="File d'Attente Service">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <h1><t t-esc="service.name"/></h1>
+                            <p class="lead" t-if="service.description">
+                                <t t-esc="service.description"/>
+                            </p>
+
+                            <!-- Statistiques -->
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <div class="col-3">
+                                            <h3 class="text-primary" id="waiting-count">
+                                                <t t-esc="service.waiting_count"/>
+                                            </h3>
+                                            <small>En attente</small>
+                                        </div>
+                                        <div class="col-3">
+                                            <h3 class="text-info" id="current-ticket">
+                                                #<t t-esc="service.current_ticket_number"/>
+                                            </h3>
+                                            <small>Ticket actuel</small>
+                                        </div>
+                                        <div class="col-3">
+                                            <h3 class="text-warning" id="avg-wait">
+                                                <t t-esc="service.avg_waiting_time"/> min
+                                            </h3>
+                                            <small>Attente moyenne</small>
+                                        </div>
+                                        <div class="col-3">
+                                            <h3 class="text-success" id="next-ticket">
+                                                #<t t-esc="service.next_ticket_number"/>
+                                            </h3>
+                                            <small>Prochain ticket</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Liste des tickets en attente -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>File d'Attente</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="queue-list">
+                                        <t t-if="waiting_tickets">
+                                            <div class="list-group">
+                                                <t t-foreach="waiting_tickets[:10]" t-as="ticket">
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>Ticket #<t t-esc="ticket.ticket_number"/></strong>
+                                                            <t t-if="ticket.customer_name"> - <t t-esc="ticket.customer_name"/></t>
+                                                        </div>
+                                                        <div>
+                                                            <span class="badge bg-info">
+                                                                ~<t t-esc="ticket.estimated_wait_time"/> min
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="text-center text-muted py-4">
+                                                <i class="fa fa-check-circle fa-3x mb-3"/>
+                                                <p>Aucun client en attente</p>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sidebar - Prendre un ticket -->
+                        <div class="col-lg-4">
+                            <div class="card sticky-top">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">Prendre un Ticket</h5>
+                                </div>
+                                <div class="card-body">
+                                    <!-- Messages d'alerte -->
+                                    <div id="alert-container"></div>
+
+                                    <form id="ticket-form" method="post" t-attf-action="/queue/take_ticket_http">
+                                        <input type="hidden" name="service_id" t-att-value="service.id"/>
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        
+                                        <div class="mb-3">
+                                            <label for="customer_name" class="form-label">Nom (optionnel)</label>
+                                            <input type="text" class="form-control" id="customer_name" name="customer_name"/>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="customer_phone" class="form-label">Téléphone (optionnel)</label>
+                                            <input type="tel" class="form-control" id="customer_phone" name="customer_phone"/>
+                                            <small class="form-text text-muted">
+                                                Pour recevoir des notifications SMS
+                                            </small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="customer_email" class="form-label">Email (optionnel)</label>
+                                            <input type="email" class="form-control" id="customer_email" name="customer_email"/>
+                                            <small class="form-text text-muted">
+                                                Pour recevoir des notifications par email
+                                            </small>
+                                        </div>
+                                        
+                                        <!-- Options de priorité si configurées -->
+                                        <div class="mb-3" t-if="service.allow_priority_selection">
+                                            <label for="priority" class="form-label">Priorité</label>
+                                            <select name="priority" id="priority" class="form-select">
+                                                <option value="normal">Normal</option>
+                                                <option value="high">Priorité</option>
+                                                <option value="urgent">Urgent</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-primary btn-lg w-100" id="take-ticket-btn">
+                                            <i class="fa fa-ticket"/> Prendre mon Ticket
+                                        </button>
+                                    </form>
+
+                                    <!-- Message de confirmation après soumission -->
+                                    <div id="submission-message" class="mt-3" style="display: none;">
+                                        <div class="alert alert-info text-center">
+                                            <i class="fa fa-spinner fa-spin"/> 
+                                            Génération de votre ticket en cours...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section d'information -->
+                            <div class="card mt-3">
+                                <div class="card-body">
+                                    <h6><i class="fa fa-info-circle"/> Information</h6>
+                                    <p class="small text-muted mb-0">
+                                        Cette page se met à jour automatiquement toutes les 30 secondes 
+                                        pour afficher les dernières informations de la file d'attente.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                odoo.define('queue_management.service_detail', function (require) {
+                    'use strict';
+
+                    var publicWidget = require('web.public.widget');
+                    var ajax = require('web.ajax');
+
+                    publicWidget.registry.QueueServiceDetail = publicWidget.Widget.extend({
+                        selector: '#ticket-form',
+                        events: {
+                            'submit': '_onSubmitTicketForm',
+                        },
+
+                        init: function () {
+                            this._super.apply(this, arguments);
+                            this.serviceId = this.$el.find('input[name="service_id"]').val();
+                            this._startAutoRefresh();
+                        },
+
+                        _onSubmitTicketForm: function (ev) {
+                            ev.preventDefault();
+                            var self = this;
+                            var $btn = this.$('#take-ticket-btn');
+                            var $alertContainer = this.$('#alert-container');
+                            
+                            // Désactiver le bouton
+                            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Traitement...');
+                            $alertContainer.empty();
+
+                            // Préparer les données
+                            var formData = {
+                                service_id: parseInt(this.serviceId),
+                                customer_name: this.$('#customer_name').val() || '',
+                                customer_phone: this.$('#customer_phone').val() || '',
+                                customer_email: this.$('#customer_email').val() || ''
+                            };
+
+                            // Envoyer via AJAX JSON
+                            ajax.jsonRpc('/queue/take_ticket', 'call', formData)
+                                .then(function (result) {
+                                    if (result.success) {
+                                        self._showTicketResult(result);
+                                        self._showAlert('success', 'Ticket #' + result.ticket_number + ' créé avec succès!');
+                                    } else {
+                                        self._showAlert('danger', 'Erreur: ' + (result.error || 'Erreur inconnue'));
+                                    }
+                                })
+                                .catch(function (error) {
+                                    console.error('Erreur AJAX:', error);
+                                    self._showAlert('danger', 'Erreur de communication');
+                                })
+                                .finally(function () {
+                                    // Réactiver le bouton
+                                    $btn.prop('disabled', false).html('<i class="fa fa-ticket"></i> Prendre mon Ticket');
+                                });
+                        },
+
+                        _showTicketResult: function (data) {
+                            this.$('#result-ticket-number').text(data.ticket_number);
+                            this.$('#result-position').text(data.position);
+                            this.$('#result-wait-time').text(data.estimated_wait || 'N/A');
+                            
+                            var trackUrl = '/queue/my_ticket/' + data.ticket_number + '/' + this.serviceId;
+                            this.$('#track-ticket-link').attr('href', trackUrl);
+                            
+                            this.$('#ticket-form').hide();
+                            this.$('#ticket-result').show();
+                        },
+
+                        _showAlert: function (type, message) {
+                            var alertClass = 'alert-' + type;
+                            var iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+                            var alertHtml = '<div class="alert ' + alertClass + ' alert-dismissible fade show" role="alert">' +
+                                          '<i class="fa ' + iconClass + '"></i> ' + message +
+                                          '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                                          '</div>';
+                            this.$('#alert-container').html(alertHtml);
+                            
+                            // Auto-masquer après 5 secondes pour les messages de succès
+                            if (type === 'success') {
+                                setTimeout(function () {
+                                    $('.alert').fadeOut();
+                                }, 5000);
+                            }
+                        },
+
+                        _startAutoRefresh: function () {
+                            var self = this;
+                            setInterval(function () {
+                                self._updateQueueStats();
+                            }, 30000);
+                        },
+
+                        _updateQueueStats: function () {
+                            var self = this;
+                            ajax.jsonRpc('/queue/status/' + this.serviceId, 'call', {})
+                                .then(function (response) {
+                                    if (!response.error) {
+                                        self.$('#waiting-count').text(response.waiting_count);
+                                        self.$('#current-ticket').text('#' + response.current_ticket);
+                                        self._updateTicketList(response.tickets);
+                                    }
+                                })
+                                .catch(function (error) {
+                                    console.log('Erreur mise à jour stats:', error);
+                                });
+                        },
+
+                        _updateTicketList: function (tickets) {
+                            var $queueList = this.$('#queue-list');
+                            if (tickets &amp;&amp; tickets.length > 0) {
+                                var html = '<div class="list-group">';
+                                tickets.forEach(function (ticket) {
+                                    html += '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+                                          '<div><strong>Ticket #' + ticket.number + '</strong></div>' +
+                                          '<div><span class="badge bg-info">~' + (ticket.estimated_wait || 'N/A') + ' min</span></div>' +
+                                          '</div>';
+                                });
+                                html += '</div>';
+                                $queueList.html(html);
+                            } else {
+                                $queueList.html('<div class="text-center text-muted py-4">' +
+                                              '<i class="fa fa-check-circle fa-3x mb-3"></i>' +
+                                              '<p>Aucun client en attente</p>' +
+                                              '</div>');
+                            }
+                        },
+                    });
+
+                    return publicWidget.registry.QueueServiceDetail;
+                });
+            </script>
+        </t>
+    </template>
+
+    <!-- Template de suivi de ticket individuel -->
+    <template id="my_ticket_template" name="Mon Ticket">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-8">
+                            <div class="text-center mb-4">
+                                <h1>Mon Ticket</h1>
+                                <h2 class="text-primary">#<span t-esc="ticket.ticket_number"/></h2>
+                                <p class="lead">Service: <span t-esc="service.name"/></p>
+                            </div>
+
+                            <!-- Status Card -->
+                            <div class="card mb-4">
+                                <div class="card-body text-center">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <h4 t-if="ticket.state == 'waiting'" class="text-warning">
+                                                <i class="fa fa-clock-o"/> En Attente
+                                            </h4>
+                                            <h4 t-if="ticket.state == 'called'" class="text-info">
+                                                <i class="fa fa-phone"/> Appelé
+                                            </h4>
+                                            <h4 t-if="ticket.state == 'serving'" class="text-primary">
+                                                <i class="fa fa-user"/> En Service
+                                            </h4>
+                                            <h4 t-if="ticket.state == 'served'" class="text-success">
+                                                <i class="fa fa-check"/> Terminé
+                                            </h4>
+                                        </div>
+                                        <div class="col-md-3" t-if="ticket.state == 'waiting'">
+                                            <h3 class="text-info" id="position-display">-</h3>
+                                            <small>Position dans la file</small>
+                                        </div>
+                                        <div class="col-md-3" t-if="ticket.estimated_wait_time > 0">
+                                            <h3 class="text-warning">
+                                                <span t-esc="ticket.estimated_wait_time"/> min
+                                            </h3>
+                                            <small>Temps d'attente estimé</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <h3 class="text-primary">
+                                                #<span t-esc="service.current_ticket_number"/>
+                                            </h3>
+                                            <small>Ticket actuellement servi</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="card" t-if="ticket.state in ['waiting', 'called']">
+                                <div class="card-body">
+                                    <h5>Actions disponibles</h5>
+                                    <button id="cancel-ticket-btn" class="btn btn-outline-danger"
+                                            t-att-data-ticket-id="ticket.id"
+                                            t-att-data-ticket-number="ticket.ticket_number"
+                                            t-att-data-service-id="service.id">
+                                        <i class="fa fa-times"/> Annuler mon ticket
+                                    </button>
+                                    <p class="text-muted mt-2">
+                                        <small>Vous pouvez annuler votre ticket si vous ne pouvez plus attendre.</small>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Auto-refresh notice -->
+                            <div class="alert alert-info mt-4">
+                                <i class="fa fa-refresh"/> Cette page se met à jour automatiquement toutes les 30 secondes.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                odoo.define('queue_management.my_ticket', function (require) {
+                    'use strict';
+
+                    var publicWidget = require('web.public.widget');
+                    var ajax = require('web.ajax');
+
+                    publicWidget.registry.MyTicketWidget = publicWidget.Widget.extend({
+                        selector: '#wrap',
+                        events: {
+                            'click #cancel-ticket-btn': '_onCancelTicket',
+                        },
+
+                        init: function () {
+                            this._super.apply(this, arguments);
+                            this._startAutoRefresh();
+                        },
+
+                        _onCancelTicket: function (ev) {
+                            var $btn = $(ev.currentTarget);
+                            var ticketNumber = $btn.data('ticket-number');
+                            var serviceId = $btn.data('service-id');
+                            
+                            if (confirm('Êtes-vous sûr de vouloir annuler votre ticket ?')) {
+                                var reason = prompt('Raison de l\'annulation (optionnel):') || '';
+                                
+                                var data = {
+                                    ticket_number: ticketNumber,
+                                    service_id: serviceId,
+                                    reason: reason
+                                };
+
+                                ajax.jsonRpc('/queue/cancel_ticket', 'call', data)
+                                    .then(function (result) {
+                                        if (result.success) {
+                                            alert('Ticket annulé avec succès');
+                                            window.location.reload();
+                                        } else {
+                                            alert('Erreur: ' + result.error);
+                                        }
+                                    })
+                                    .catch(function () {
+                                        alert('Erreur de communication');
+                                    });
+                            }
+                        },
+
+                        _startAutoRefresh: function () {
+                            setInterval(function () {
+                                window.location.reload();
+                            }, 30000);
+                        },
+                    });
+
+                    return publicWidget.registry.MyTicketWidget;
+                });
+            </script>
+        </t>
+    </template>
+
+    <!-- Template pour ticket non trouvé -->
+    <template id="ticket_not_found_template" name="Ticket Non Trouvé">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6 text-center">
+                            <i class="fa fa-exclamation-triangle fa-5x text-warning mb-4"/>
+                            <h1>Ticket Non Trouvé</h1>
+                            <p class="lead">Le ticket que vous cherchez n'existe pas ou a expiré.</p>
+                            <a href="/queue" class="btn btn-primary">
+                                <i class="fa fa-arrow-left"/> Retour aux files d'attente
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template dashboard admin -->
+    <template id="admin_dashboard_template" name="Dashboard Administrateur">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container-fluid mt-4">
+                    <h1 class="mb-4">
+                        <i class="fa fa-dashboard"/> Gestion des Files d'Attente
+                        <small class="text-muted">Interface d'administration</small>
+                    </h1>
+
+                    <div class="row">
+                        <t t-foreach="services" t-as="service">
+                            <div class="col-lg-6 col-xl-4 mb-4">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0" t-esc="service.name"/>
+                                        <div>
+                                            <button class="btn btn-sm btn-toggle-service"
+                                                    t-att-class="'btn-success' if service.is_open else 'btn-danger'"
+                                                    t-att-data-service-id="service.id">
+                                                <span t-if="service.is_open">
+                                                    <i class="fa fa-pause"/> Fermer
+                                                </span>
+                                                <span t-else="">
+                                                    <i class="fa fa-play"/> Ouvrir
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-6 text-center">
+                                                <h3 class="text-primary" t-esc="service.waiting_count"/>
+                                                <small class="text-muted">En attente</small>
+                                            </div>
+                                            <div class="col-6 text-center">
+                                                <h3 class="text-info">
+                                                    #<span t-esc="service.current_ticket_number"/>
+                                                </h3>
+                                                <small class="text-muted">Ticket actuel</small>
+                                            </div>
+                                        </div>
+
+                                        <button class="btn btn-primary btn-sm w-100 btn-generate-ticket mb-3"
+                                                t-att-data-service-id="service.id">
+                                            <i class="fa fa-plus"/> Nouveau Ticket
+                                        </button>
+
+                                        <div class="mt-3">
+                                            <h6>Prochains tickets:</h6>
+                                            <div class="next-tickets-list">
+                                                <t t-set="next_tickets" t-value="service.waiting_ticket_ids.sorted('ticket_number')[:3]"/>
+                                                <t t-foreach="next_tickets" t-as="ticket">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                                                        <div>
+                                                            <strong>#<span t-esc="ticket.ticket_number"/></strong>
+                                                            <t t-if="ticket.customer_name"> - <span t-esc="ticket.customer_name"/></t>
+                                                        </div>
+                                                        <div>
+                                                            <button class="btn btn-sm btn-info btn-call-next"
+                                                                    t-att-data-ticket-id="ticket.id"
+                                                                    t-att-data-ticket-number="ticket.ticket_number">
+                                                                <i class="fa fa-phone"/> Appeler
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                                <div t-if="not next_tickets" class="text-center text-muted py-2">
+                                                    <i class="fa fa-check-circle"/> Aucun ticket en attente
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                odoo.define('queue_management.admin_dashboard', function (require) {
+                    'use strict';
+
+                    var publicWidget = require('web.public.widget');
+                    var ajax = require('web.ajax');
+
+                    publicWidget.registry.AdminDashboard = publicWidget.Widget.extend({
+                        selector: '.container-fluid',
+                        events: {
+                            'click .btn-call-next': '_onCallNext',
+                            'click .btn-generate-ticket': '_onGenerateTicket',
+                            'click .btn-toggle-service': '_onToggleService',
+                        },
+
+                        init: function () {
+                            this._super.apply(this, arguments);
+                            this._startAutoRefresh();
+                        },
+
+                        _onCallNext: function (ev) {
+                            var $btn = $(ev.currentTarget);
+                            var ticketId = $btn.data('ticket-id');
+                            var ticketNumber = $btn.data('ticket-number');
+                            
+                            if (confirm('Appeler le ticket #' + ticketNumber + ' ?')) {
+                                this._adminAction('call_next', ticketId);
+                            }
+                        },
+
+                        _onGenerateTicket: function (ev) {
+                            var serviceId = $(ev.currentTarget).data('service-id');
+                            this._adminAction('generate_ticket', null, serviceId);
+                        },
+
+                        _onToggleService: function (ev) {
+                            var serviceId = $(ev.currentTarget).data('service-id');
+                            this._adminAction('toggle_service', null, serviceId);
+                        },
+
+                        _adminAction: function (action, ticketId, serviceId) {
+                            var self = this;
+                            var data = {
+                                action: action,
+                                ticket_id: ticketId,
+                                service_id: serviceId
+                            };
+
+                            ajax.jsonRpc('/queue/admin/action', 'call', data)
+                                .then(function (result) {
+                                    if (result.success) {
+                                        self._showAlert('success', result.message);
+                                        setTimeout(function () {
+                                            window.location.reload();
+                                        }, 1000);
+                                    } else {
+                                        self._showAlert('danger', result.error);
+                                    }
+                                })
+                                .catch(function () {
+                                    self._showAlert('danger', 'Erreur de communication');
+                                });
+                        },
+
+                        _showAlert: function (type, message) {
+                            var alert = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                                      message +
+                                      '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                                      '</div>';
+                            this.$('h1').after(alert);
+                        },
+
+                        _startAutoRefresh: function () {
+                            setInterval(function () {
+                                window.location.reload();
+                            }, 30000);
+                        },
+                    });
+
+                    return publicWidget.registry.AdminDashboard;
+                });
+            </script>
+        </t>
+    </template>
+
+    <!-- Template d'erreur générique -->
+    <template id="error_template" name="Erreur">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6 text-center">
+                            <i class="fa fa-exclamation-circle fa-5x text-danger mb-4"/>
+                            <h1>Erreur</h1>
+                            <p class="lead" t-esc="error_message"/>
+                            <a href="/queue" class="btn btn-primary">
+                                <i class="fa fa-arrow-left"/> Retour aux files d'attente
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template d'impression de ticket -->
+    <template id="print_ticket_template" name="Ticket à Imprimer">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-md-6">
+                            <!-- Version écran -->
+                            <div class="d-print-none mb-4 text-center">
+                                <h2>Aperçu d'impression</h2>
+                                <button onclick="window.print()" class="btn btn-primary me-3">
+                                    <i class="fa fa-print"/> Imprimer
+                                </button>
+                                <a t-att-href="'/queue/my_ticket/' + str(ticket.ticket_number) + '/' + str(service.id)" 
+                                   class="btn btn-outline-secondary">
+                                    <i class="fa fa-arrow-left"/> Retour au suivi
+                                </a>
+                            </div>
+
+                            <!-- Ticket imprimable -->
+                            <div class="ticket-print border p-4">
+                                <div class="text-center mb-3">
+                                    <h3 t-esc="service.name"/>
+                                    <p class="text-muted mb-0">File d'attente numérique</p>
+                                </div>
+                                
+                                <hr/>
+                                
+                                <div class="text-center mb-4">
+                                    <h1 class="display-3 text-primary mb-0">
+                                        #<t t-esc="ticket.ticket_number"/>
+                                    </h1>
+                                    <p class="text-muted">Numéro de ticket</p>
+                                </div>
+
+                                <div class="row text-center mb-4">
+                                    <div class="col-6">
+                                        <strong>Position:</strong><br/>
+                                        <span class="h4" t-esc="position"/>
+                                    </div>
+                                    <div class="col-6">
+                                        <strong>Attente estimée:</strong><br/>
+                                        <span class="h4"><t t-esc="ticket.estimated_wait_time"/> min</span>
+                                    </div>
+                                </div>
+
+                                <div t-if="ticket.customer_name or ticket.customer_phone" class="mb-3">
+                                    <strong>Client:</strong>
+                                    <div t-if="ticket.customer_name" t-esc="ticket.customer_name"/>
+                                    <div t-if="ticket.customer_phone" t-esc="ticket.customer_phone"/>
+                                </div>
+
+                                <hr/>
+
+                                <div class="small text-center text-muted">
+                                    <p class="mb-1">Créé le: <t t-esc="ticket.created_time.strftime('%d/%m/%Y à %H:%M')"/></p>
+                                    <p class="mb-1">Imprimé le: <t t-esc="print_time.strftime('%d/%m/%Y à %H:%M')"/></p>
+                                    <p class="mb-0">Gardez ce ticket jusqu'à ce que vous soyez appelé</p>
+                                </div>
+
+                                <!-- QR Code pour le suivi -->
+                                <div class="text-center mt-3" t-if="ticket.qr_code">
+                                    <div class="qr-code-container">
+                                        <img t-attf-src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&amp;data=#{ticket.qr_code}" 
+                                             alt="QR Code" class="border"/>
+                                    </div>
+                                    <small class="text-muted d-block mt-1">Scannez pour suivre votre ticket</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                @media print {
+                    .ticket-print {
+                        border: 2px solid #000 !important;
+                        page-break-inside: avoid;
+                        width: 100%;
+                        max-width: none;
+                        font-size: 14px;
+                    }
+                    
+                    .display-3 {
+                        font-size: 3rem !important;
+                    }
+                    
+                    .qr-code-container img {
+                        max-width: 80px !important;
+                        height: auto !important;
+                    }
+                }
+                
+                .ticket-print {
+                    background: white;
+                    max-width: 400px;
+                    margin: 0 auto;
+                }
+            </style>
+        </t>
+    </template>
+
+    <!-- Template de formulaire de feedback -->
+    <template id="feedback_form_template" name="Formulaire de Feedback">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6">
+                            <div class="text-center mb-4">
+                                <i class="fa fa-star fa-3x text-warning mb-3"/>
+                                <h1>Évaluez votre expérience</h1>
+                                <p class="lead">Service: <strong t-esc="service.name"/></p>
+                                <p class="text-muted">Ticket #<t t-esc="ticket.ticket_number"/></p>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-body">
+                                    <form method="post" t-attf-action="/queue/feedback/#{ticket.id}">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        
+                                        <div class="mb-4">
+                                            <label class="form-label">Comment évaluez-vous notre service ?</label>
+                                            <div class="rating-stars text-center">
+                                                <input type="radio" name="rating" value="1" id="star1"/>
+                                                <label for="star1" class="star">⭐</label>
+                                                
+                                                <input type="radio" name="rating" value="2" id="star2"/>
+                                                <label for="star2" class="star">⭐</label>
+                                                
+                                                <input type="radio" name="rating" value="3" id="star3"/>
+                                                <label for="star3" class="star">⭐</label>
+                                                
+                                                <input type="radio" name="rating" value="4" id="star4"/>
+                                                <label for="star4" class="star">⭐</label>
+                                                
+                                                <input type="radio" name="rating" value="5" id="star5"/>
+                                                <label for="star5" class="star">⭐</label>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-4">
+                                            <label for="feedback" class="form-label">Commentaires (optionnel)</label>
+                                            <textarea name="feedback" id="feedback" class="form-control" rows="4" 
+                                                      placeholder="Partagez votre expérience et vos suggestions..."></textarea>
+                                        </div>
+
+                                        <div class="text-center">
+                                            <button type="submit" class="btn btn-success btn-lg">
+                                                <i class="fa fa-paper-plane"/> Envoyer mon évaluation
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="text-center mt-3">
+                                <a href="/queue" class="btn btn-outline-secondary">
+                                    <i class="fa fa-arrow-left"/> Retour aux services
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .rating-stars {
+                    font-size: 2rem;
+                }
+                
+                .rating-stars input[type="radio"] {
+                    display: none;
+                }
+                
+                .rating-stars label.star {
+                    cursor: pointer;
+                    margin: 0 5px;
+                    transition: all 0.2s ease;
+                    filter: grayscale(100%);
+                }
+                
+                .rating-stars label.star:hover,
+                .rating-stars input[type="radio"]:checked ~ label.star,
+                .rating-stars input[type="radio"]:checked + label.star {
+                    filter: grayscale(0%);
+                    transform: scale(1.2);
+                }
+                
+                .rating-stars input[type="radio"]:checked + label.star ~ label.star {
+                    filter: grayscale(100%);
+                    transform: scale(1);
+                }
+            </style>
+
+            <script>
+                odoo.define('queue_management.feedback_form', function (require) {
+                    'use strict';
+
+                    var publicWidget = require('web.public.widget');
+
+                    publicWidget.registry.FeedbackForm = publicWidget.Widget.extend({
+                        selector: '.rating-stars',
+                        events: {
+                            'change input[type="radio"]': '_onRatingChange',
+                            'mouseover label.star': '_onStarHover',
+                            'mouseout': '_onStarsMouseOut',
+                        },
+
+                        _onRatingChange: function (ev) {
+                            var rating = $(ev.target).val();
+                            this._highlightStars(rating);
+                        },
+
+                        _onStarHover: function (ev) {
+                            var starValue = $(ev.target).prev('input').val();
+                            this._highlightStars(starValue, true);
+                        },
+
+                        _onStarsMouseOut: function () {
+                            var checkedValue = this.$('input[type="radio"]:checked').val();
+                            this._highlightStars(checkedValue || 0);
+                        },
+
+                        _highlightStars: function (rating, isHover) {
+                            var self = this;
+                            this.$('label.star').each(function (index) {
+                                var starValue = index + 1;
+                                var $star = $(this);
+                                
+                                if (starValue &lt;= rating) {
+                                    $star.css({
+                                        'filter': 'grayscale(0%)',
+                                        'transform': isHover ? 'scale(1.3)' : 'scale(1.2)'
+                                    });
+                                } else {
+                                    $star.css({
+                                        'filter': 'grayscale(100%)',
+                                        'transform': 'scale(1)'
+                                    });
+                                }
+                            });
+                        },
+                    });
+
+                    return publicWidget.registry.FeedbackForm;
+                });
+            </script>
+        </t>
+    </template>
+
+    <!-- Template de remerciement après feedback -->
+    <template id="feedback_thanks_template" name="Merci pour votre Feedback">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6 text-center">
+                            <i class="fa fa-heart fa-5x text-danger mb-4"/>
+                            <h1>Merci pour votre évaluation !</h1>
+                            <p class="lead">Votre retour nous aide à améliorer nos services.</p>
+                            
+                            <div class="card mt-4">
+                                <div class="card-body">
+                                    <h5>Récapitulatif de votre visite</h5>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <strong>Service:</strong><br/>
+                                            <t t-esc="service.name"/>
+                                        </div>
+                                        <div class="col-6">
+                                            <strong>Ticket:</strong><br/>
+                                            #<t t-esc="ticket.ticket_number"/>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <strong>Temps d'attente:</strong><br/>
+                                            <t t-esc="round(ticket.waiting_time, 1)"/> min
+                                        </div>
+                                        <div class="col-6">
+                                            <strong>Votre note:</strong><br/>
+                                            <span t-if="ticket.rating == '1'">⭐</span>
+                                            <span t-if="ticket.rating == '2'">⭐⭐</span>
+                                            <span t-if="ticket.rating == '3'">⭐⭐⭐</span>
+                                            <span t-if="ticket.rating == '4'">⭐⭐⭐⭐</span>
+                                            <span t-if="ticket.rating == '5'">⭐⭐⭐⭐⭐</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <a href="/queue" class="btn btn-primary mt-4">
+                                <i class="fa fa-home"/> Retour à l'accueil
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template de confirmation de ticket -->
+    <template id="ticket_confirmation_template" name="Confirmation de Ticket">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6">
+                            <div class="text-center mb-4">
+                                <i class="fa fa-check-circle fa-5x text-success mb-3"/>
+                                <h1 class="text-success">Ticket Créé !</h1>
+                                <h2 class="text-primary">#<span t-esc="ticket.ticket_number"/></h2>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fa fa-ticket"/> Votre Ticket
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center mb-4">
+                                        <div class="col-6">
+                                            <h4 class="text-primary">
+                                                #<span t-esc="ticket.ticket_number"/>
+                                            </h4>
+                                            <small class="text-muted">Numéro de ticket</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <h4 class="text-info">
+                                                <span t-esc="position"/>
+                                            </h4>
+                                            <small class="text-muted">Position dans la file</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="row text-center mb-4">
+                                        <div class="col-6">
+                                            <h4 class="text-warning">
+                                                ~<span t-esc="ticket.estimated_wait_time"/> min
+                                            </h4>
+                                            <small class="text-muted">Temps d'attente estimé</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <h4 class="text-success">
+                                                <span t-esc="service.name"/>
+                                            </h4>
+                                            <small class="text-muted">Service</small>
+                                        </div>
+                                    </div>
+
+                                    <div t-if="ticket.customer_name or ticket.customer_phone" class="mb-3">
+                                        <h6>Informations client :</h6>
+                                        <div t-if="ticket.customer_name">
+                                            <strong>Nom :</strong> <span t-esc="ticket.customer_name"/>
+                                        </div>
+                                        <div t-if="ticket.customer_phone">
+                                            <strong>Téléphone :</strong> <span t-esc="ticket.customer_phone"/>
+                                        </div>
+                                        <div t-if="ticket.customer_email">
+                                            <strong>Email :</strong> <span t-esc="ticket.customer_email"/>
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-info">
+                                        <i class="fa fa-info-circle"/> 
+                                        <strong>Important :</strong> Gardez ce numéro de ticket et présentez-vous quand votre numéro sera appelé.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <a t-att-href="track_url" class="btn btn-outline-primary w-100">
+                                        <i class="fa fa-search"/> Suivre mon ticket
+                                    </a>
+                                </div>
+                                <div class="col-6">
+                                    <a t-attf-href="/queue/print_ticket/#{ticket.id}" 
+                                       class="btn btn-outline-secondary w-100"
+                                       target="_blank">
+                                        <i class="fa fa-print"/> Imprimer
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <a href="/queue" class="btn btn-link">
+                                    <i class="fa fa-arrow-left"/> Retour aux services
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                // Auto-redirect vers le suivi après 10 secondes
+                setTimeout(function() {
+                    if (confirm('Voulez-vous être redirigé vers le suivi de votre ticket ?')) {
+                        window.location.href = '<t t-esc="track_url"/>';
+                    }
+                }, 10000);
+            </script>
+        </t>
+    </template>
+
+    <!-- Template de confirmation de ticket avec résultat JavaScript -->
+    <template id="ticket_result_template" name="Résultat Ticket">
+        <div id="ticket-result" style="display: none;">
+            <div class="alert alert-success text-center">
+                <h4><i class="fa fa-check-circle"/> Ticket Créé !</h4>
+                <div class="row">
+                    <div class="col-4">
+                        <strong>Ticket:</strong><br/>
+                        #<span id="result-ticket-number">-</span>
+                    </div>
+                    <div class="col-4">
+                        <strong>Position:</strong><br/>
+                        <span id="result-position">-</span>
+                    </div>
+                    <div class="col-4">
+                        <strong>Attente:</strong><br/>
+                        ~<span id="result-wait-time">-</span> min
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <a id="track-ticket-link" href="#" class="btn btn-primary btn-sm">
+                        <i class="fa fa-search"/> Suivre mon ticket
+                    </a>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Template de recherche de ticket -->
+    <template id="ticket_lookup_template" name="Recherche de Ticket">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6">
+                            <div class="text-center mb-4">
+                                <i class="fa fa-search fa-3x text-primary mb-3"/>
+                                <h1>Retrouver mon Ticket</h1>
+                                <p class="lead">Entrez votre numéro de ticket pour le suivre</p>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-body">
+                                    <form id="lookup-form" method="get">
+                                        <div class="mb-3">
+                                            <label for="ticket_number" class="form-label">Numéro de Ticket</label>
+                                            <input type="number" class="form-control form-control-lg" 
+                                                   id="ticket_number" name="ticket_number" 
+                                                   placeholder="Ex: 123" required="" min="1"/>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="service_select" class="form-label">Service</label>
+                                            <select id="service_select" name="service_id" class="form-select" required="">
+                                                <option value="">Sélectionnez un service</option>
+                                                <t t-foreach="services" t-as="service">
+                                                    <option t-att-value="service.id" t-esc="service.name"/>
+                                                </t>
+                                            </select>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                                            <i class="fa fa-search"/> Rechercher mon Ticket
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <a href="/queue" class="btn btn-outline-secondary">
+                                    <i class="fa fa-arrow-left"/> Retour aux services
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                document.getElementById('lookup-form').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var ticketNumber = document.getElementById('ticket_number').value;
+                    var serviceId = document.getElementById('service_select').value;
+                    
+                    if (ticketNumber &amp;&amp; serviceId) {
+                        window.location.href = '/queue/my_ticket/' + ticketNumber + '/' + serviceId;
+                    } else {
+                        alert('Veuillez remplir tous les champs');
+                    }
+                });
+            </script>
+        </t>
+    </template>
+
+    <!-- Template pour état de service fermé -->
+    <template id="service_closed_template" name="Service Fermé">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6 text-center">
+                            <i class="fa fa-clock-o fa-5x text-warning mb-4"/>
+                            <h1>Service Fermé</h1>
+                            <p class="lead">
+                                Le service <strong t-esc="service.name"/> est actuellement fermé.
+                            </p>
+                            
+                            <div class="card mt-4">
+                                <div class="card-body">
+                                    <h6>Horaires de service :</h6>
+                                    <p class="mb-0">
+                                        <i class="fa fa-clock-o"/> 
+                                        <t t-esc="service.working_hours_start"/>h00 - <t t-esc="service.working_hours_end"/>h00
+                                    </p>
+                                    
+                                    <div t-if="service.break_time_start and service.break_time_end" class="mt-2">
+                                        <small class="text-muted">
+                                            Pause : <t t-esc="service.break_time_start"/>h - <t t-esc="service.break_time_end"/>h
+                                        </small>
+                                    </div>
+                                    
+                                    <div t-if="service.lunch_break_start and service.lunch_break_end" class="mt-1">
+                                        <small class="text-muted">
+                                            Déjeuner : <t t-esc="service.lunch_break_start"/>h - <t t-esc="service.lunch_break_end"/>h
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <a href="/queue" class="btn btn-primary mt-4">
+                                <i class="fa fa-arrow-left"/> Voir les autres services
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template de notification système -->
+    <template id="system_notification_template" name="Notification Système">
+        <div class="alert alert-dismissible fade show" role="alert">
+            <i class="fa fa-bell"/> 
+            <strong t-esc="title"/>
+            <span t-esc="message"/>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"/>
+        </div>
+    </template>
+
+    <!-- Template pour les statistiques de service -->
+    <template id="service_stats_template" name="Statistiques de Service">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row">
+                        <div class="col-12">
+                            <h1>
+                                <i class="fa fa-bar-chart"/> Statistiques - <span t-esc="service.name"/>
+                            </h1>
+                            
+                            <div class="row mt-4">
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h3 class="text-primary" t-esc="stats.total_tickets"/>
+                                            <small class="text-muted">Total tickets</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h3 class="text-success" t-esc="stats.served_tickets"/>
+                                            <small class="text-muted">Servis</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h3 class="text-warning" t-esc="round(stats.avg_waiting_time, 1)"/>
+                                            <small class="text-muted">Attente moy. (min)</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h3 class="text-info" t-esc="round(stats.satisfaction_rate, 1)"/>%
+                                            <small class="text-muted">Satisfaction</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Répartition des tickets</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="progress mb-2">
+                                                <div class="progress-bar bg-success" 
+                                                     t-attf-style="width: #{stats.served_tickets / stats.total_tickets * 100 if stats.total_tickets else 0}%">
+                                                    Servis
+                                                </div>
+                                                <div class="progress-bar bg-danger" 
+                                                     t-attf-style="width: #{stats.cancelled_tickets / stats.total_tickets * 100 if stats.total_tickets else 0}%">
+                                                    Annulés
+                                                </div>
+                                                <div class="progress-bar bg-warning" 
+                                                     t-attf-style="width: #{stats.no_show_tickets / stats.total_tickets * 100 if stats.total_tickets else 0}%">
+                                                    Absents
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">
+                                                Servis: <t t-esc="stats.served_tickets"/> | 
+                                                Annulés: <t t-esc="stats.cancelled_tickets"/> | 
+                                                Absents: <t t-esc="stats.no_show_tickets"/>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Performance</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <small class="text-muted">Temps de service moyen</small>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-info" 
+                                                         t-attf-style="width: #{min(stats.avg_service_time / 30 * 100, 100)}%">
+                                                        <t t-esc="round(stats.avg_service_time, 1)"/> min
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <small class="text-muted">Note moyenne du service</small>
+                                                <div class="h5">
+                                                    <t t-if="service.average_rating > 0">
+                                                        <span t-esc="round(service.average_rating, 1)"/>/5 
+                                                        <span class="text-warning">
+                                                            <t t-foreach="range(int(service.average_rating))" t-as="star">⭐</t>
+                                                        </span>
+                                                    </t>
+                                                    <span t-else="" class="text-muted">Pas encore d'évaluations</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template pour écran d'affichage public -->
+    <template id="public_display_template" name="Affichage Public">
+        <t t-call="website.layout">
+            <div id="wrap" class="bg-dark text-white">
+                <div class="container-fluid py-4">
+                    <div class="row mb-4">
+                        <div class="col-12 text-center">
+                            <h1 class="display-3">
+                                <i class="fa fa-desktop"/> Affichage Public
+                            </h1>
+                            <p class="lead">Files d'attente en temps réel</p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <t t-foreach="services" t-as="service">
+                            <div class="col-lg-6 mb-4">
+                                <div class="card bg-primary text-white h-100">
+                                    <div class="card-header">
+                                        <h3 class="mb-0" t-esc="service.name"/>
+                                        <span t-if="service.is_open" class="badge bg-success">OUVERT</span>
+                                        <span t-else="" class="badge bg-danger">FERMÉ</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row text-center">
+                                            <div class="col-6">
+                                                <h1 class="display-4">
+                                                    #<span t-esc="service.current_ticket_number"/>
+                                                </h1>
+                                                <h5>Ticket Actuel</h5>
+                                            </div>
+                                            <div class="col-6">
+                                                <h1 class="display-4 text-warning">
+                                                    <span t-esc="service.waiting_count"/>
+                                                </h1>
+                                                <h5>En Attente</h5>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-4">
+                                            <h6>Prochains tickets :</h6>
+                                            <div class="next-tickets">
+                                                <t t-set="next_tickets" t-value="service.waiting_ticket_ids.sorted('ticket_number')[:5]"/>
+                                                <t t-foreach="next_tickets" t-as="ticket">
+                                                    <span class="badge bg-light text-dark me-2 mb-2 fs-6">
+                                                        #<t t-esc="ticket.ticket_number"/>
+                                                    </span>
+                                                </t>
+                                                <div t-if="not next_tickets" class="text-center py-3">
+                                                    <i class="fa fa-check-circle fa-2x"/>
+                                                    <p class="mt-2">Aucun ticket en attente</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-12 text-center">
+                            <p class="text-light">
+                                <i class="fa fa-refresh"/> Mise à jour automatique toutes les 10 secondes
+                            </p>
+                            <small class="text-muted">
+                                Dernière mise à jour : <span id="last-update"></span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                odoo.define('queue_management.public_display', function (require) {
+                    'use strict';
+
+                    var publicWidget = require('web.public.widget');
+
+                    publicWidget.registry.PublicDisplay = publicWidget.Widget.extend({
+                        selector: '#wrap',
+
+                        init: function () {
+                            this._super.apply(this, arguments);
+                            this._updateTimestamp();
+                            this._startAutoRefresh();
+                        },
+
+                        _updateTimestamp: function () {
+                            var now = new Date();
+                            var timeString = now.toLocaleTimeString();
+                            document.getElementById('last-update').textContent = timeString;
+                        },
+
+                        _startAutoRefresh: function () {
+                            var self = this;
+                            setInterval(function () {
+                                window.location.reload();
+                            }, 10000); // Refresh toutes les 10 secondes
+                        },
+                    });
+
+                    return publicWidget.registry.PublicDisplay;
+                });
+            </script>
+
+            <style>
+                body {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                }
+                
+                .card {
+                    backdrop-filter: blur(10px);
+                    border: none;
+                }
+                
+                .display-4 {
+                    font-weight: bold;
+                    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                }
+                
+                .next-tickets .badge {
+                    font-size: 1.1em;
+                    padding: 8px 12px;
+                }
+            </style>
+        </t>
+    </template>
+
+    <!-- Template pour page de maintenance -->
+    <template id="maintenance_template" name="Maintenance">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6 text-center">
+                            <i class="fa fa-wrench fa-5x text-warning mb-4"/>
+                            <h1>Maintenance en Cours</h1>
+                            <p class="lead">
+                                Le système de files d'attente est temporairement indisponible pour maintenance.
+                            </p>
+                            <div class="alert alert-info">
+                                <i class="fa fa-info-circle"/> 
+                                Nous nous excusons pour la gêne occasionnée. Le service sera rétabli sous peu.
+                            </div>
+                            <a href="/" class="btn btn-primary">
+                                <i class="fa fa-home"/> Retour à l'accueil
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template de configuration publique -->
+    <template id="public_config_template" name="Configuration Publique">
+        <div id="queue-config" class="d-none">
+            <script type="application/json">
+                {
+                    "auto_refresh_interval": 30000,
+                    "sound_notifications": true,
+                    "show_customer_names": false,
+                    "max_display_tickets": 10,
+                    "language": "fr"
+                }
+            </script>
+        </div>
+    </template>
+</odoo>

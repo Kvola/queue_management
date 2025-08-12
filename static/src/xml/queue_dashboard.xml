@@ -1,0 +1,167 @@
+<templates>
+    <t t-name="queue_management.QueueDashboardMain" owl="1">
+        <div class="o_queue_dashboard">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-12">
+                        <h2 class="mb-4">Dashboard File d'Attente</h2>
+                        
+                        <!-- Loading State -->
+                        <div t-if="state.isLoading" class="text-center p-5">
+                            <i class="fa fa-spinner fa-spin fa-2x"/>
+                            <p class="mt-2">Chargement des données...</p>
+                        </div>
+
+                        <!-- Dashboard Content -->
+                        <div t-elif="isDataLoaded" class="dashboard-content">
+                            
+                            <!-- Services actifs -->
+                            <div t-if="dashboardData.services" class="row mb-4">
+                                <div class="col-12">
+                                    <h3>Services Actifs</h3>
+                                    <div class="row">
+                                        <div t-foreach="dashboardData.services" t-as="service" t-key="service.id"
+                                             class="col-md-6 col-lg-4 mb-3">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h5 t-esc="service.name"/>
+                                                </div>
+                                                <div class="card-body">
+                                                    <p><strong>File d'attente:</strong> <span t-esc="service.waiting_count"/> personnes</p>
+                                                    <p><strong>En cours:</strong> <span t-esc="service.serving_count"/> tickets</p>
+                                                    <button class="btn btn-primary btn-sm" 
+                                                            t-att-data-service-id="service.id"
+                                                            t-on-click="onGenerateTicket">
+                                                        Générer Ticket
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tickets en attente -->
+                            <div t-if="dashboardData.waiting_tickets" class="row mb-4">
+                                <div class="col-12">
+                                    <h3>Tickets en Attente</h3>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Numéro</th>
+                                                    <th>Service</th>
+                                                    <th>Heure d'arrivée</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr t-foreach="dashboardData.waiting_tickets" t-as="ticket" t-key="ticket.id">
+                                                    <td t-esc="ticket.number"/>
+                                                    <td t-esc="ticket.service_name"/>
+                                                    <td t-esc="ticket.created_time"/>
+                                                    <td>
+                                                        <button class="btn btn-success btn-sm" 
+                                                                t-att-data-ticket-id="ticket.id"
+                                                                t-on-click="onCallNext">
+                                                            Appeler
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tickets en cours -->
+                            <div t-if="dashboardData.serving_tickets" class="row mb-4">
+                                <div class="col-12">
+                                    <h3>Tickets en Cours de Service</h3>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Numéro</th>
+                                                    <th>Service</th>
+                                                    <th>Agent</th>
+                                                    <th>Durée</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr t-foreach="dashboardData.serving_tickets" t-as="ticket" t-key="ticket.id">
+                                                    <td t-esc="ticket.number"/>
+                                                    <td t-esc="ticket.service_name"/>
+                                                    <td t-esc="ticket.agent_name"/>
+                                                    <td t-esc="ticket.service_duration"/>
+                                                    <td>
+                                                        <button class="btn btn-warning btn-sm" 
+                                                                t-att-data-ticket-id="ticket.id"
+                                                                t-on-click="onCompleteService">
+                                                            Terminer
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Statistiques -->
+                            <div t-if="dashboardData.stats" class="row">
+                                <div class="col-12">
+                                    <h3>Statistiques du Jour</h3>
+                                    <div class="row">
+                                        <div class="col-md-3 mb-3">
+                                            <div class="card bg-primary text-white">
+                                                <div class="card-body text-center">
+                                                    <h2 t-esc="dashboardData.stats.total_tickets"/>
+                                                    <p>Total Tickets</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <div class="card bg-success text-white">
+                                                <div class="card-body text-center">
+                                                    <h2 t-esc="dashboardData.stats.completed_tickets"/>
+                                                    <p>Terminés</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <div class="card bg-warning text-white">
+                                                <div class="card-body text-center">
+                                                    <h2 t-esc="dashboardData.stats.waiting_tickets"/>
+                                                    <p>En Attente</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <div class="card bg-info text-white">
+                                                <div class="card-body text-center">
+                                                    <h2 t-esc="dashboardData.stats.average_wait_time"/>
+                                                    <p>Temps Moyen (min)</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Empty State -->
+                        <div t-else="" class="text-center p-5">
+                            <i class="fa fa-inbox fa-3x text-muted"/>
+                            <h4 class="mt-3">Aucune donnée disponible</h4>
+                            <p>Le dashboard sera actualisé automatiquement.</p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

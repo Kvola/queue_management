@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vue Tree/List pour Queue Analytics -->
+    <record id="view_queue_analytics_tree" model="ir.ui.view">
+        <field name="name">queue.analytics.tree</field>
+        <field name="model">queue.analytics</field>
+        <field name="arch" type="xml">
+            <tree string="Analyses des Files d'Attente" create="false" delete="false">
+                <field name="date"/>
+                <field name="period"/>
+                <field name="service_id"/>
+                <field name="total_tickets"/>
+                <field name="served_tickets"/>
+                <field name="cancelled_tickets"/>
+                <field name="no_show_tickets"/>
+                <field name="avg_waiting_time" widget="float_time"/>
+                <field name="avg_service_time" widget="float_time"/>
+                <field name="satisfaction_rate" widget="percentage"/>
+                <field name="peak_hour_start" widget="float_time"/>
+                <field name="peak_hour_end" widget="float_time"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vue Form pour Queue Analytics -->
+    <record id="view_queue_analytics_form" model="ir.ui.view">
+        <field name="name">queue.analytics.form</field>
+        <field name="model">queue.analytics</field>
+        <field name="arch" type="xml">
+            <form string="Analyse File d'Attente" create="false" delete="false">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="period" readonly="1"/>
+                            <span> - </span>
+                            <field name="date" readonly="1"/>
+                        </h1>
+                        <h2>
+                            <field name="service_id" readonly="1"/>
+                        </h2>
+                    </div>
+                    
+                    <group>
+                        <group string="Informations Générales">
+                            <field name="date" readonly="1"/>
+                            <field name="period" readonly="1"/>
+                            <field name="service_id" readonly="1"/>
+                        </group>
+                        
+                        <group string="Métriques de Performance">
+                            <field name="total_tickets" readonly="1"/>
+                            <field name="served_tickets" readonly="1"/>
+                            <field name="cancelled_tickets" readonly="1"/>
+                            <field name="no_show_tickets" readonly="1"/>
+                            <field name="satisfaction_rate" widget="percentage" readonly="1"/>
+                        </group>
+                    </group>
+                    
+                    <group>
+                        <group string="Temps Moyens">
+                            <field name="avg_waiting_time" widget="float_time" readonly="1"/>
+                            <field name="avg_service_time" widget="float_time" readonly="1"/>
+                        </group>
+                        
+                        <group string="Heure de Pointe">
+                            <field name="peak_hour_start" widget="float_time" readonly="1"/>
+                            <field name="peak_hour_end" widget="float_time" readonly="1"/>
+                            <field name="peak_tickets_count" readonly="1"/>
+                        </group>
+                    </group>
+                    
+                    <notebook>
+                        <page string="Distribution Horaire" name="hourly_distribution">
+                            <field name="hourly_distribution" readonly="1" widget="ace" options="{'mode': 'json'}"/>
+                        </page>
+                        <page string="Tendance Quotidienne" name="daily_trend">
+                            <field name="daily_trend" readonly="1" widget="ace" options="{'mode': 'json'}"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vue Search pour Queue Analytics -->
+    <record id="view_queue_analytics_search" model="ir.ui.view">
+        <field name="name">queue.analytics.search</field>
+        <field name="model">queue.analytics</field>
+        <field name="arch" type="xml">
+            <search string="Recherche Analyses">
+                <field name="date"/>
+                <field name="service_id"/>
+                <field name="period"/>
+                
+                <filter name="today" string="Aujourd'hui" 
+                        domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="this_week" string="Cette Semaine" 
+                        domain="[('date', '>=', (context_today() - datetime.timedelta(days=context_today().weekday())).strftime('%Y-%m-%d'))]"/>
+                <filter name="this_month" string="Ce Mois" 
+                        domain="[('date', '>=', context_today().strftime('%Y-%m-01'))]"/>
+                
+                <separator/>
+                <filter name="daily_period" string="Analyses Quotidiennes" domain="[('period', '=', 'daily')]"/>
+                <filter name="weekly_period" string="Analyses Hebdomadaires" domain="[('period', '=', 'weekly')]"/>
+                <filter name="monthly_period" string="Analyses Mensuelles" domain="[('period', '=', 'monthly')]"/>
+                
+                <separator/>
+                <filter name="high_satisfaction" string="Satisfaction > 80%" 
+                        domain="[('satisfaction_rate', '>', 80)]"/>
+                <filter name="low_satisfaction" string="Satisfaction &lt; 60%" 
+                        domain="[('satisfaction_rate', '&lt;', 60)]"/>
+                
+                <group expand="0" string="Grouper Par">
+                    <filter string="Service" name="group_service" context="{'group_by': 'service_id'}"/>
+                    <filter string="Période" name="group_period" context="{'group_by': 'period'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Vue Kanban pour Queue Analytics -->
+    <record id="view_queue_analytics_kanban" model="ir.ui.view">
+        <field name="name">queue.analytics.kanban</field>
+        <field name="model">queue.analytics</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_dashboard" create="false" delete="false">
+                <field name="date"/>
+                <field name="period"/>
+                <field name="service_id"/>
+                <field name="total_tickets"/>
+                <field name="served_tickets"/>
+                <field name="satisfaction_rate"/>
+                <field name="avg_waiting_time"/>
+                
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card oe_kanban_global_click">
+                            <div class="o_kanban_card_header">
+                                <div class="o_kanban_card_header_title">
+                                    <div class="o_primary">
+                                        <field name="service_id"/>
+                                    </div>
+                                    <div class="o_secondary">
+                                        <field name="date"/> - <field name="period"/>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="o_kanban_card_content">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <button class="btn btn-primary btn-sm" type="object" name="action_view_details">
+                                            <i class="fa fa-bar-chart"/> Détails
+                                        </button>
+                                    </div>
+                                    <div class="col-6 text-right">
+                                        <span class="badge badge-pill badge-info">
+                                            <t t-esc="record.total_tickets.value"/> tickets
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="o_kanban_card_footer">
+                                <div class="row">
+                                    <div class="col-4">
+                                        <div class="o_field_widget o_field_integer">
+                                            <strong t-esc="record.served_tickets.value"/>
+                                            <br/><small>Servis</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="o_field_widget o_field_percentage">
+                                            <strong t-esc="Math.round(record.satisfaction_rate.value)"/>%
+                                            <br/><small>Satisfaction</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="o_field_widget o_field_float">
+                                            <strong t-esc="Math.round(record.avg_waiting_time.value)"/>min
+                                            <br/><small>Attente Moy.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Vue Pivot pour Queue Analytics -->
+    <record id="view_queue_analytics_pivot" model="ir.ui.view">
+        <field name="name">queue.analytics.pivot</field>
+        <field name="model">queue.analytics</field>
+        <field name="arch" type="xml">
+            <pivot string="Analyse Pivot">
+                <field name="service_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="total_tickets" type="measure"/>
+                <field name="served_tickets" type="measure"/>
+                <field name="satisfaction_rate" type="measure"/>
+                <field name="avg_waiting_time" type="measure"/>
+                <field name="avg_service_time" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- Vue Graph pour Queue Analytics -->
+    <record id="view_queue_analytics_graph" model="ir.ui.view">
+        <field name="name">queue.analytics.graph</field>
+        <field name="model">queue.analytics</field>
+        <field name="arch" type="xml">
+            <graph string="Graphiques d'Analyse" type="line">
+                <field name="date" interval="day"/>
+                <field name="total_tickets" type="measure"/>
+                <field name="served_tickets" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Vue Calendar pour Queue Analytics -->
+    <record id="view_queue_analytics_calendar" model="ir.ui.view">
+        <field name="name">queue.analytics.calendar</field>
+        <field name="model">queue.analytics</field>
+        <field name="arch" type="xml">
+            <calendar string="Calendrier des Analyses" date_start="date" mode="month" color="service_id">
+                <field name="service_id"/>
+                <field name="total_tickets"/>
+                <field name="satisfaction_rate"/>
+            </calendar>
+        </field>
+    </record>
+
+    <!-- Action principale pour Queue Analytics -->
+    <record id="action_queue_analytics" model="ir.actions.act_window">
+        <field name="name">Analyses des Files d'Attente</field>
+        <field name="res_model">queue.analytics</field>
+        <field name="view_mode">kanban,tree,form,graph,pivot,calendar</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_service': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucune analyse trouvée !
+            </p>
+            <p>
+                Les analyses sont générées automatiquement à partir des données des files d'attente.
+                <br/>
+                Utilisez le bouton "Générer Analyses" pour créer des rapports personnalisés.
+            </p>
+        </field>
+    </record>
+
+    <!-- Actions spécifiques par période -->
+    <record id="action_queue_analytics_daily" model="ir.actions.act_window">
+        <field name="name">Analyses Quotidiennes</field>
+        <field name="res_model">queue.analytics</field>
+        <field name="view_mode">tree,kanban,form,graph</field>
+        <field name="domain">[('period', '=', 'daily')]</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_service': 1}</field>
+    </record>
+
+    <record id="action_queue_analytics_weekly" model="ir.actions.act_window">
+        <field name="name">Analyses Hebdomadaires</field>
+        <field name="res_model">queue.analytics</field>
+        <field name="view_mode">tree,kanban,form,graph</field>
+        <field name="domain">[('period', '=', 'weekly')]</field>
+        <field name="context">{'search_default_group_service': 1}</field>
+    </record>
+
+    <record id="action_queue_analytics_monthly" model="ir.actions.act_window">
+        <field name="name">Analyses Mensuelles</field>
+        <field name="res_model">queue.analytics</field>
+        <field name="view_mode">tree,kanban,form,graph</field>
+        <field name="domain">[('period', '=', 'monthly')]</field>
+        <field name="context">{'search_default_group_service': 1}</field>
+    </record>
+</odoo>

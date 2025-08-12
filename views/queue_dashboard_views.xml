@@ -1,0 +1,8 @@
+<odoo>
+    <!-- Actions -->
+    <record id="action_queue_dashboard" model="ir.actions.client">
+        <field name="name">Tableau de Bord Files d'Attente</field>
+        <field name="tag">queue_dashboard_action</field>
+        <field name="target">current</field>
+    </record>
+</odoo>

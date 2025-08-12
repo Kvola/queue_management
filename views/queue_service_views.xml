@@ -1,0 +1,251 @@
+<odoo>
+    <!-- Vue formulaire Service corrigée -->
+    <record id="view_queue_service_form" model="ir.ui.view">
+        <field name="name">queue.service.form</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <!-- Option 1: Bouton direct vers la méthode du modèle (Recommandé) -->
+                    <button name="action_generate_quick_ticket" string="Nouveau Ticket" 
+                            type="object" class="btn-primary"
+                            invisible="not is_open"/>
+                    <field name="is_open" widget="boolean_toggle"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Nom du service..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group name="basic_info">
+                            <field name="description"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group name="config">
+                            <field name="max_tickets_per_day"/>
+                            <field name="estimated_service_time"/>
+                            <field name="working_hours_start" widget="float_time"/>
+                            <field name="working_hours_end" widget="float_time"/>
+                        </group>
+                    </group>
+                    
+                    <!-- Ajout d'une section d'état du service -->
+                    <group string="État du Service">
+                        <group name="current_status">
+                            <field name="current_ticket_number"/>
+                            <field name="next_ticket_number"/>
+                            <field name="waiting_count"/>
+                        </group>
+                        <group name="stats">
+                            <field name="total_tickets_today"/>
+                            <field name="avg_waiting_time"/>
+                            <field name="average_rating" widget="float" digits="[16,1]"/>
+                        </group>
+                    </group>
+                    
+                    <notebook>
+                        <page string="Tickets en Attente">
+                            <field name="waiting_ticket_ids">
+                                <tree>
+                                    <field name="ticket_number"/>
+                                    <field name="display_name"/>
+                                    <field name="customer_name"/>
+                                    <field name="customer_phone"/>
+                                    <field name="created_time"/>
+                                    <field name="estimated_wait_time"/>
+                                    <field name="priority"/>
+                                    <field name="state" decoration-info="state=='waiting'" 
+                                           decoration-warning="state=='called'"/>
+                                    <button name="action_call_next" string="Appeler" 
+                                            type="object" icon="fa-phone" 
+                                            invisible="state != 'waiting'"/>
+                                    <button name="action_start_service" string="Commencer" 
+                                            type="object" icon="fa-play"
+                                            invisible="state != 'called'"/>
+                                    <button name="action_complete_service" string="Terminer" 
+                                            type="object" icon="fa-check"
+                                            invisible="state != 'serving'"/>
+                                    <button name="action_no_show" string="Absent" 
+                                            type="object" icon="fa-times"
+                                            invisible="state not in ['waiting', 'called']"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Tous les Tickets">
+                            <field name="ticket_ids">
+                                <tree decoration-muted="state in ('cancelled', 'no_show')"
+                                      decoration-success="state=='served'"
+                                      decoration-info="state=='waiting'"
+                                      decoration-warning="state in ('called', 'serving')">
+                                    <field name="ticket_number"/>
+                                    <field name="display_name"/>
+                                    <field name="customer_name"/>
+                                    <field name="created_time"/>
+                                    <field name="called_time"/>
+                                    <field name="completed_time"/>
+                                    <field name="state"/>
+                                    <field name="waiting_time"/>
+                                    <field name="service_time"/>
+                                    <field name="priority"/>
+                                    <field name="rating"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Configuration Avancée">
+                            <group>
+                                <group name="online_booking">
+                                    <field name="allow_online_booking"/>
+                                    <field name="booking_advance_days" 
+                                           invisible="not allow_online_booking"/>
+                                </group>
+                                <group name="breaks">
+                                    <field name="break_time_start" widget="float_time"/>
+                                    <field name="break_time_end" widget="float_time"/>
+                                    <field name="lunch_break_start" widget="float_time"/>
+                                    <field name="lunch_break_end" widget="float_time"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vue arbre améliorée -->
+    <record id="view_queue_service_tree" model="ir.ui.view">
+        <field name="name">queue.service.tree</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <tree decoration-muted="not active" decoration-success="is_open">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="is_open" widget="boolean_toggle"/>
+                <field name="waiting_count"/>
+                <field name="current_ticket_number"/>
+                <field name="total_tickets_today"/>
+                <field name="avg_waiting_time" digits="[16,1]"/>
+                <field name="average_rating" digits="[16,1]"/>
+                <field name="active" invisible="1"/>
+                
+                <!-- Boutons d'action rapide dans la vue arbre -->
+                <button name="action_generate_quick_ticket" string="+ Ticket" 
+                        type="object" icon="fa-plus" 
+                        invisible="not is_open"/>
+                <button name="toggle_service_status" string="Basculer État" 
+                        type="object" icon="fa-power-off"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vue kanban améliorée -->
+    <record id="view_queue_service_kanban" model="ir.ui.view">
+        <field name="name">queue.service.kanban</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <field name="name"/>
+                <field name="waiting_count"/>
+                <field name="is_open"/>
+                <field name="current_ticket_number"/>
+                <field name="total_tickets_today"/>
+                <field name="avg_waiting_time"/>
+                <field name="average_rating"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card oe_kanban_global_click">
+                            <div class="oe_kanban_content">
+                                <div class="o_kanban_record_title">
+                                    <field name="name"/>
+                                    <div class="float-right">
+                                        <span t-if="record.is_open.raw_value" 
+                                              class="badge badge-success">Ouvert</span>
+                                        <span t-else="" class="badge badge-danger">Fermé</span>
+                                    </div>
+                                </div>
+                                <div class="o_kanban_record_body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div><i class="fa fa-users"/> <field name="waiting_count"/> en attente</div>
+                                            <div><i class="fa fa-ticket"/> #<field name="current_ticket_number"/></div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div><i class="fa fa-clock-o"/> <field name="avg_waiting_time"/>min</div>
+                                            <div><i class="fa fa-star"/> <field name="average_rating"/>/5</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        Total aujourd'hui: <field name="total_tickets_today"/>
+                                    </div>
+                                </div>
+                                <div class="o_kanban_record_bottom">
+                                    <div class="oe_kanban_bottom_left">
+                                        <button name="action_generate_quick_ticket" 
+                                                string="Nouveau Ticket" 
+                                                type="object" 
+                                                class="btn btn-primary btn-sm"
+                                                t-if="record.is_open.raw_value">
+                                            <i class="fa fa-plus"/>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Action pour les services -->
+    <record id="action_queue_service" model="ir.actions.act_window">
+        <field name="name">Services de File d'Attente</field>
+        <field name="res_model">queue.service</field>
+        <field name="view_mode">kanban,tree,form</field>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Créez votre premier service de file d'attente
+            </p>
+            <p>
+                Un service représente un point de service (guichet, consultation, etc.)
+                pour lequel les clients peuvent prendre des tickets d'attente.
+            </p>
+        </field>
+    </record>
+
+    <!-- Vue de recherche -->
+    <record id="view_queue_service_search" model="ir.ui.view">
+        <field name="name">queue.service.search</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="description"/>
+                <separator/>
+                <filter name="active" string="Actifs" domain="[('active', '=', True)]"/>
+                <filter name="open" string="Ouverts" domain="[('is_open', '=', True)]"/>
+                <filter name="closed" string="Fermés" domain="[('is_open', '=', False)]"/>
+                <separator/>
+                <filter name="has_waiting" string="Avec File d'Attente" 
+                        domain="[('waiting_count', '>', 0)]"/>
+                <group expand="0" string="Grouper par">
+                    <filter name="group_status" string="État" context="{'group_by': 'is_open'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Menu principal -->
+    <menuitem id="menu_queue_management" name="File d'Attente" sequence="100"/>
+    <menuitem id="menu_queue_services" name="Services" parent="menu_queue_management" 
+              action="action_queue_service" sequence="10"/>
+
+</odoo>

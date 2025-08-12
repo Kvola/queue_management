@@ -1,0 +1,179 @@
+<odoo>
+    <!-- Vue formulaire Ticket -->
+    <record id="view_queue_ticket_form" model="ir.ui.view">
+        <field name="name">queue.ticket.form</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_call_next" string="Appeler"
+                        type="object" class="btn-primary"
+                        invisible="state != 'waiting'" />
+                    <button name="action_start_service" string="Commencer Service"
+                        type="object" class="btn-info"
+                        invisible="state != 'called'" />
+                    <button name="action_complete_service" string="Terminer Service"
+                        type="object" class="btn-success"
+                        invisible="state != 'serving'" />
+                    <button name="action_cancel" string="Annuler"
+                        type="object" class="btn-secondary"
+                        invisible="state in ['served', 'cancelled', 'no_show']" />
+                    <button name="action_no_show" string="Absent"
+                        type="object" class="btn-warning"
+                        invisible="state != 'called'" />
+                    <field name="state" widget="statusbar"
+                        statusbar_visible="waiting,called,serving,served" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="display_name" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group name="ticket_info">
+                            <field name="service_id" options="{'no_create': True}" />
+                            <field name="ticket_number" />
+                            <field name="priority" />
+                            <field name="created_time" />
+                        </group>
+                        <group name="customer_info">
+                            <field name="customer_name" />
+                            <field name="customer_phone" />
+                            <field name="customer_email" />
+                        </group>
+                    </group>
+                    <group>
+                        <group name="timing">
+                            <field name="called_time" readonly="1" />
+                            <field name="served_time" readonly="1" />
+                            <field name="completed_time" readonly="1" />
+                        </group>
+                        <group name="calculations">
+                            <field name="estimated_wait_time" readonly="1" />
+                            <field name="waiting_time" readonly="1" />
+                            <field name="service_time" readonly="1" />
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes" placeholder="Notes sur ce ticket..." />
+                        <field name="notification_sent" readonly="1" />
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" />
+                    <field name="message_ids" />
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vue liste Tickets -->
+    <record id="view_queue_ticket_tree" model="ir.ui.view">
+        <field name="name">queue.ticket.tree</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state=='waiting'"
+                decoration-warning="state=='called'"
+                decoration-success="state=='served'"
+                decoration-danger="state=='cancelled'"
+                decoration-muted="state=='no_show'">
+                <field name="service_id" />
+                <field name="ticket_number" />
+                <field name="customer_name" />
+                <field name="customer_phone" />
+                <field name="priority" />
+                <field name="state" />
+                <field name="created_time" />
+                <field name="estimated_wait_time" />
+                <field name="waiting_time" />
+                <button name="action_call_next" string="Appeler"
+                    type="object" class="btn-primary"
+                    invisible="state != 'waiting'" />
+                <button name="action_complete_service" string="Terminer"
+                    type="object" icon="fa-check"
+                    invisible="state != 'serving'" />
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vue recherche Tickets -->
+    <record id="view_queue_ticket_search" model="ir.ui.view">
+        <field name="name">queue.ticket.search</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="ticket_number" />
+                <field name="service_id" />
+                <field name="customer_name" />
+                <field name="customer_phone" />
+                <separator />
+                <filter string="En Attente" name="waiting" domain="[('state', '=', 'waiting')]" />
+                <filter string="Appelé" name="called" domain="[('state', '=', 'called')]" />
+                <filter string="En Service" name="serving" domain="[('state', '=', 'serving')]" />
+                <filter string="Servi" name="served" domain="[('state', '=', 'served')]" />
+                <separator />
+                <filter string="Aujourd'hui" name="today"
+                    domain="[('create_date', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0))),
+                                ('create_date', '&lt;=', datetime.datetime.combine(context_today(), datetime.time(23,59,59)))]" />
+                <filter string="Cette Semaine" name="this_week"
+                    domain="[('create_date', '&gt;=', (context_today() - datetime.timedelta(days=context_today().weekday())).strftime('%Y-%m-%d')),
+                                ('create_date', '&lt;=', (context_today() + datetime.timedelta(days=6-context_today().weekday())).strftime('%Y-%m-%d'))]" />
+                <separator />
+                <filter string="Priorité" name="priority" domain="[('priority', '!=', 'normal')]" />
+                <group expand="0" string="Grouper Par">
+                    <filter string="Service" name="group_service"
+                        context="{'group_by': 'service_id'}" />
+                    <filter string="État" name="group_state" context="{'group_by': 'state'}" />
+                    <filter string="Priorité" name="group_priority"
+                        context="{'group_by': 'priority'}" />
+                    <filter string="Date de Création" name="group_date"
+                        context="{'group_by': 'create_date:day'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Vue pivot pour analyses -->
+    <record id="view_queue_ticket_pivot" model="ir.ui.view">
+        <field name="name">queue.ticket.pivot</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <pivot string="Analyse des Tickets">
+                <field name="service_id" type="row" />
+                <field name="create_date" interval="day" type="col" />
+                <field name="ticket_number" type="measure" />
+                <field name="waiting_time" type="measure" />
+                <field name="service_time" type="measure" />
+            </pivot>
+        </field>
+    </record>
+
+    <!-- Vue graphique -->
+    <record id="view_queue_ticket_graph" model="ir.ui.view">
+        <field name="name">queue.ticket.graph</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <graph string="Statistiques des Tickets">
+                <field name="service_id" />
+                <field name="state" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_queue_ticket" model="ir.actions.act_window">
+        <field name="name">Tickets de File d'Attente</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_today': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucun ticket trouvé
+            </p>
+            <p>
+                Les tickets apparaîtront ici lorsque les clients en prendront
+                via l'interface web ou que vous en créerez manuellement.
+            </p>
+        </field>
+    </record>
+</odoo>
