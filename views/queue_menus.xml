@@ -1,110 +1,192 @@
 <odoo>
     <!-- Menu principal -->
-    <menuitem id="menu_queue_management_root" 
-              name="Files d'Attente" 
-              sequence="50" 
-              web_icon="queue_management,static/description/icon.png"/>
+    <menuitem id="menu_queue_management_root"
+        name="Files d'Attente"
+        sequence="50"
+        web_icon="queue_management,static/description/icon.png" />
 
     <!-- Sous-menus -->
-    <menuitem id="menu_queue_dashboard" 
-              name="Tableau de Bord" 
-              parent="menu_queue_management_root" 
-              sequence="10"
-              action="action_queue_dashboard"/>
+    <menuitem id="menu_queue_dashboard"
+        name="Tableau de Bord"
+        parent="menu_queue_management_root"
+        sequence="10"
+        action="action_queue_dashboard" />
 
-    <menuitem id="menu_queue_services" 
-              name="Services" 
-              parent="menu_queue_management_root" 
-              sequence="20"
-              action="action_queue_service"/>
+    <menuitem id="menu_queue_services"
+        name="Services"
+        parent="menu_queue_management_root"
+        sequence="20" />
 
-    <menuitem id="menu_queue_tickets" 
-              name="Tickets" 
-              parent="menu_queue_management_root" 
-              sequence="30"
-              action="action_queue_ticket"/>
-
-    <menuitem id="menu_queue_reports" 
-              name="Rapports" 
-              parent="menu_queue_management_root" 
-              sequence="40"/>
-
-    <menuitem id="menu_queue_config" 
-              name="Configuration" 
-              parent="menu_queue_management_root" 
-              sequence="50"
-              action="action_queue_config"
-              groups="group_queue_manager"/>
-
-    <!-- Menu Items -->
-    <menuitem id="menu_queue_analytics_root" 
-              name="Analyses Files d'Attente" 
-              parent="menu_queue_management_root" 
-              sequence="30"/>
-
-    <menuitem id="menu_queue_analytics_main" 
-              name="Toutes les Analyses" 
-              parent="menu_queue_analytics_root" 
-              action="action_queue_analytics" 
-              sequence="10"/>
-
-    <menuitem id="menu_queue_analytics_daily" 
-              name="Analyses Quotidiennes" 
-              parent="menu_queue_analytics_root" 
-              action="action_queue_analytics_daily" 
+    <menuitem id="menu_queue_services_all"
+        name="Tous les Services"
+        parent="menu_queue_services"
+        sequence="10"
+        action="action_queue_service" />
+    
+    <menuitem id="menu_queue_services_open" 
+              name="Services Ouverts" 
+              parent="menu_queue_services" 
+              action="action_queue_service_open" 
+              sequence="15"/>
+    
+    <menuitem id="menu_queue_services_busy" 
+              name="Services Occupés" 
+              parent="menu_queue_services" 
+              action="action_queue_service_with_queue" 
               sequence="20"/>
 
-    <menuitem id="menu_queue_analytics_weekly" 
-              name="Analyses Hebdomadaires" 
-              parent="menu_queue_analytics_root" 
-              action="action_queue_analytics_weekly" 
-              sequence="30"/>
 
-    <menuitem id="menu_queue_analytics_monthly" 
-              name="Analyses Mensuelles" 
-              parent="menu_queue_analytics_root" 
-              action="action_queue_analytics_monthly" 
-              sequence="40"/>
+    <menuitem id="menu_queue_tickets"
+        name="Tickets"
+        parent="menu_queue_management_root"
+        sequence="30"
+        action="action_queue_ticket" />
+
+    <menuitem id="menu_queue_reports"
+        name="Rapports"
+        parent="menu_queue_management_root"
+        sequence="40" />
+
+    <!-- Menu pour accéder au wizard -->
+    <menuitem id="menu_queue_report_wizard"
+              name="Rapports Files d'Attente"
+              parent="menu_queue_reports"
+              action="action_queue_report_wizard"
+              sequence="10"/>
+    
+    <!-- Menu pour l'historique -->
+    <!-- <menuitem id="menu_queue_report_wizard_history"
+              name="Historique des Rapports"
+              parent="menu_queue_reports"
+              action="action_queue_report_wizard_history"
+              sequence="20"/> -->
+
+    <menuitem id="menu_queue_config"
+        name="Configuration"
+        parent="menu_queue_management_root"
+        sequence="50"
+        action="action_queue_config"
+        groups="group_queue_manager" />
+
+    <!-- Menu Items -->
+    <menuitem id="menu_queue_analytics_root"
+        name="Analyses Files d'Attente"
+        parent="menu_queue_management_root"
+        sequence="30" />
+
+    <menuitem id="menu_queue_analytics_main"
+        name="Toutes les Analyses"
+        parent="menu_queue_analytics_root"
+        action="action_queue_analytics"
+        sequence="10" />
+
+    <menuitem id="menu_queue_analytics_daily"
+        name="Analyses Quotidiennes"
+        parent="menu_queue_analytics_root"
+        action="action_queue_analytics_daily"
+        sequence="20" />
+
+    <menuitem id="menu_queue_analytics_weekly"
+        name="Analyses Hebdomadaires"
+        parent="menu_queue_analytics_root"
+        action="action_queue_analytics_weekly"
+        sequence="30" />
+
+    <menuitem id="menu_queue_analytics_monthly"
+        name="Analyses Mensuelles"
+        parent="menu_queue_analytics_root"
+        action="action_queue_analytics_monthly"
+        sequence="40" />
 
     <!-- Menu Items pour les rapports -->
-    <menuitem id="menu_queue_reports_root" 
-              name="Rapports" 
-              parent="menu_queue_management_root" 
-              sequence="40"/>
+    <menuitem id="menu_queue_reports_root"
+        name="Rapports"
+        parent="menu_queue_management_root"
+        sequence="40" />
 
-    <menuitem id="menu_queue_report_generator" 
-              name="Générateur de Rapports" 
+    <!-- Sous-menu pour l'historique -->
+    <menuitem id="menu_queue_report_history" 
+              name="Historique des Rapports" 
+              parent="menu_queue_reports_root" 
+              action="action_queue_report_history" 
+              sequence="20"/>
+    
+    <!-- Sous-menu pour générer un rapport -->
+    <menuitem id="menu_queue_report_wizard" 
+              name="Générer un Rapport" 
               parent="menu_queue_reports_root" 
               action="action_queue_report_wizard" 
               sequence="10"/>
 
-    <menuitem id="menu_queue_quick_reports" 
-              name="Rapports Rapides" 
-              parent="menu_queue_reports_root" 
-              sequence="20"/>
-
+    <!-- Sous-menus pour les raccourcis -->
     <menuitem id="menu_queue_daily_report" 
               name="Rapport Quotidien" 
-              parent="menu_queue_quick_reports" 
-              action="action_queue_daily_report_wizard" 
-              sequence="30"/>
-
+              parent="menu_queue_reports_root" 
+              action="action_queue_daily_report" 
+              sequence="11"/>
+              
     <menuitem id="menu_queue_weekly_report" 
               name="Rapport Hebdomadaire" 
-              parent="menu_queue_quick_reports" 
-              action="action_queue_weekly_report_wizard" 
-              sequence="40"/>
-
+              parent="menu_queue_reports_root" 
+              action="action_queue_weekly_report" 
+              sequence="12"/>
+              
     <menuitem id="menu_queue_monthly_report" 
               name="Rapport Mensuel" 
-              parent="menu_queue_quick_reports" 
-              action="action_queue_monthly_report_wizard" 
-              sequence="50"/>
+              parent="menu_queue_reports_root" 
+              action="action_queue_monthly_report" 
+              sequence="13"/>
+
+    <!-- Menus pour les outils d'administration -->
+    <menuitem id="menu_queue_administration"
+        name="Administration"
+        parent="menu_queue_management_root"
+        sequence="100" groups="base.group_system" />
+
+    <menuitem id="menu_queue_maintenance"
+        name="Maintenance Système"
+        parent="menu_queue_administration"
+        action="action_queue_maintenance_wizard"
+        sequence="10" />
+
+    <!-- <menuitem id="menu_queue_reports"
+        name="Rapports de Performance"
+        parent="menu_queue_administration"
+        action="action_queue_stats_wizard"
+        sequence="20" /> -->
+
+    <menuitem id="menu_queue_maintenance_actions"
+        name="Actions Programmées"
+        parent="menu_queue_administration"
+        action="action_queue_maintenance_actions"
+        sequence="30" />
+
+    <!-- <menuitem id="menu_queue_performance_metrics" name="Métriques de Performance" action="action_queue_performance_metrics" 
+              parent="menu_queue_administration" sequence="40"/> -->
+    <!-- <menuitem id="menu_queue_system_alerts" name="Alertes Système" action="action_queue_system_alerts" 
+              parent="menu_queue_administration" sequence="10"/> -->
+
+    <menuitem id="menu_queue_logs" name="Logs" action="action_queue_dashboard_metrics" 
+              parent="menu_queue_administration" sequence="50"/>
+
+    <!-- Menu opérateur dans la barre principale -->
+    <!-- <menuitem id="menu_queue_operator" 
+              name="Poste Opérateur" 
+              parent="menu_queue_administration" 
+              action="action_queue_service_operator" 
+              sequence="25"/> -->
+
+    <!-- Menu administration (pour les gestionnaires) -->    
+    <!-- <menuitem id="menu_queue_admin_services" 
+              name="Gestion Services" 
+              parent="menu_queue_administration" 
+              action="action_queue_service_admin" 
+              sequence="10"/>
     
-    <!-- Menu pour les rapports -->
-    <menuitem id="menu_queue_daily_report" 
-              name="Rapport Quotidien" 
-              parent="menu_queue_quick_reports" 
-              sequence="60"
-              action="action_queue_daily_report"/>
+    <menuitem id="menu_queue_admin_config" 
+              name="Configuration Rapide" 
+              parent="menu_queue_administration" 
+              action="action_queue_service_quick_config" 
+              sequence="20"/> -->
+    
 </odoo>

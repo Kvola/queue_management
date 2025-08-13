@@ -95,36 +95,84 @@ class QueueTicket(models.Model):
 
     @api.depends('created_time', 'called_time', 'state')
     def _compute_waiting_time(self):
+        """Calcul optimisé du temps d'attente"""
+        current_time = fields.Datetime.now()
+        
         for ticket in self:
-            if ticket.state in ['served', 'cancelled', 'no_show'] and ticket.called_time:
+            if ticket.state in ['served', 'cancelled', 'no_show'] and ticket.called_time and ticket.created_time:
+                # Temps d'attente = temps entre création et appel
                 delta = ticket.called_time - ticket.created_time
+                ticket.waiting_time = delta.total_seconds() / 60
+            elif ticket.state == 'waiting' and ticket.created_time:
+                # Pour les tickets encore en attente, calculer le temps déjà écoulé
+                delta = current_time - ticket.created_time
                 ticket.waiting_time = delta.total_seconds() / 60
             else:
                 ticket.waiting_time = 0.0
 
-    @api.depends('called_time', 'completed_time')
+    @api.depends('served_time', 'completed_time', 'state')
     def _compute_service_time(self):
+        """Calcul optimisé du temps de service"""
+        current_time = fields.Datetime.now()
+        
         for ticket in self:
-            if ticket.called_time and ticket.completed_time:
-                delta = ticket.completed_time - ticket.called_time
-                ticket.service_time = delta.total_seconds() / 60
+            if ticket.served_time:
+                if ticket.completed_time:
+                    # Service terminé
+                    delta = ticket.completed_time - ticket.served_time
+                    ticket.service_time = delta.total_seconds() / 60
+                elif ticket.state == 'serving':
+                    # Service en cours
+                    delta = current_time - ticket.served_time
+                    ticket.service_time = delta.total_seconds() / 60
+                else:
+                    ticket.service_time = 0.0
             else:
                 ticket.service_time = 0.0
 
-    @api.depends('service_id', 'state', 'ticket_number')
+    @api.depends('service_id', 'state', 'ticket_number', 'priority')
     def _compute_estimated_wait(self):
+        """Calcul optimisé du temps d'attente estimé"""
+        
+        # Grouper les tickets par service pour optimiser
+        tickets_by_service = {}
         for ticket in self:
-            if ticket.state == 'waiting' and ticket.service_id:
-                # Calculer basé sur les tickets en attente avant ce ticket
-                tickets_before = self.search_count([
-                    ('service_id', '=', ticket.service_id.id),
-                    ('state', '=', 'waiting'),
-                    ('ticket_number', '<', ticket.ticket_number)
-                ])
-                estimated_minutes = tickets_before * (ticket.service_id.estimated_service_time or 5)
-                ticket.estimated_wait_time = estimated_minutes
-            else:
-                ticket.estimated_wait_time = 0.0
+            service_id = ticket.service_id.id
+            if service_id not in tickets_by_service:
+                tickets_by_service[service_id] = []
+            tickets_by_service[service_id].append(ticket)
+        
+        for service_id, tickets in tickets_by_service.items():
+            service = self.env['queue.service'].browse(service_id)
+            if not service.exists():
+                continue
+                
+            # Récupérer tous les tickets en attente pour ce service
+            # CORRECTION: Utilisation de la syntaxe correcte pour le tri
+            waiting_tickets = service.waiting_ticket_ids.sorted(lambda t: (-self._get_priority_order(t.priority), t.ticket_number))
+            
+            for ticket in tickets:
+                if ticket.state == 'waiting' and ticket in waiting_tickets:
+                    # Compter les tickets avant celui-ci (en tenant compte de la priorité)
+                    tickets_before = waiting_tickets.filtered(
+                        lambda t: (t.priority == 'urgent' and ticket.priority != 'urgent') or
+                                (t.priority == 'high' and ticket.priority == 'normal') or
+                                (t.priority == ticket.priority and t.ticket_number < ticket.ticket_number)
+                    )
+                    
+                    estimated_minutes = len(tickets_before) * (service.estimated_service_time or 5)
+                    ticket.estimated_wait_time = estimated_minutes
+                else:
+                    ticket.estimated_wait_time = 0.0
+
+    def _get_priority_order(self, priority):
+        """Retourne l'ordre numérique de la priorité pour le tri"""
+        priority_map = {
+            'urgent': 3,
+            'high': 2,
+            'normal': 1
+        }
+        return priority_map.get(priority, 1)
 
     def action_call_next(self):
         """Appeler le prochain ticket"""
@@ -309,3 +357,91 @@ class QueueTicket(models.Model):
             'service_name': ticket.service_id.name,
             'current_serving': ticket.service_id.current_ticket_number
         }
+
+    # Méthode de mise à jour en lot pour les performances
+    @api.model
+    def bulk_update_statistics(self, service_ids=None):
+        """Mise à jour en lot des statistiques pour améliorer les performances"""
+        
+        if not service_ids:
+            services = self.search([('active', '=', True)])
+        else:
+            services = self.browse(service_ids)
+        
+        if not services:
+            return {'updated_services': 0}
+        
+        # Désactiver temporairement le recalcul automatique
+        with self.env.norecompute():
+            
+            # Mise à jour des compteurs de tickets
+            for service in services:
+                # Synchroniser le compteur avec le dernier ticket
+                max_ticket_number = max(service.ticket_ids.mapped('ticket_number') + [0])
+                if service.current_ticket_number != max_ticket_number:
+                    service.current_ticket_number = max_ticket_number
+            
+            # Recalculer tous les champs dépendants
+            services.modified(['ticket_ids'])
+        
+        # Forcer le recalcul des champs computed
+        services.recompute()
+        
+        return {
+            'updated_services': len(services),
+            'timestamp': fields.Datetime.now()
+        }
+
+    # Action programmée pour maintenir la cohérence des données
+    @api.model
+    def scheduled_data_maintenance(self):
+        """Maintenance programmée des données (à appeler via cron)"""
+        
+        _logger.info("Début de la maintenance programmée des données")
+        
+        # 1. Validation de l'intégrité
+        integrity_report = self.validate_data_integrity()
+        
+        # 2. Mise à jour des statistiques
+        update_report = self.bulk_update_statistics()
+        
+        # 3. Nettoyage des anciennes données (garder 30 jours)
+        cleanup_report = self.cleanup_old_data(days_to_keep=30)
+        
+        # 4. Vider le cache
+        self.clear_stats_cache()
+        
+        # 5. Log du rapport
+        maintenance_report = {
+            'timestamp': fields.Datetime.now(),
+            'integrity_issues_fixed': integrity_report.get('fixes_applied', 0),
+            'services_updated': update_report.get('updated_services', 0),
+            'old_tickets_cleaned': cleanup_report.get('tickets_count', 0)
+        }
+        
+        _logger.info(f"Maintenance terminée: {maintenance_report}")
+        
+        return maintenance_report
+
+
+    def action_cancel_ticket(self, reason=None):
+        """Action pour annuler un ticket"""
+        if self.state not in ['waiting', 'called']:
+            raise UserError("Ce ticket ne peut plus être annulé")
+            
+        cancel_reason = reason or "Annulé"
+        self.write({
+            'state': 'cancelled',
+            'notes': cancel_reason,
+            'end_time': fields.Datetime.now()
+        })
+            
+        # Notifier si des notifications sont configurées
+        self._notify_ticket_cancelled()
+            
+        return True
+        
+    def _notify_ticket_cancelled(self):
+        """Notification lors de l'annulation (optionnel)"""
+        # Implémenter ici les notifications SMS/Email si nécessaire
+        pass

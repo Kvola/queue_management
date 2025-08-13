@@ -1,239 +1,358 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Vue Form pour Queue Report Wizard -->
+    <!-- ========================================== -->
+    <!-- VUES QUEUE REPORT WIZARD                  -->
+    <!-- ========================================== -->
+    
+    <!-- Vue Formulaire Queue Report Wizard -->
     <record id="view_queue_report_wizard_form" model="ir.ui.view">
         <field name="name">queue.report.wizard.form</field>
         <field name="model">queue.report.wizard</field>
         <field name="arch" type="xml">
-            <form string="Générateur de Rapports">
-                <div class="alert alert-info" role="alert">
-                    <strong>Assistant de génération de rapports</strong><br /> Configurez les
-                    paramètres ci-dessous pour générer votre rapport d'analyse des files d'attente. </div>
-
+            <form string="Assistant Rapports Files d'Attente">
+                <header>
+                    <button name="generate_report" string="Générer le Rapport" type="object" 
+                            class="btn-primary" icon="fa-file-pdf-o"/>
+                    <button name="action_preview_report" string="Aperçu" type="object" 
+                            class="btn-secondary" icon="fa-eye"/>
+                </header>
+                
                 <sheet>
+                    <div class="oe_title">
+                        <label for="report_type" class="oe_edit_only"/>
+                        <h1>
+                            <field name="report_type" widget="radio" options="{'horizontal': true}"/>
+                        </h1>
+                    </div>
+                    
                     <group>
-                        <group string="Paramètres du Rapport">
-                            <field name="report_type" widget="radio" options="{'horizontal': true}" />
-                            <field name="format" widget="radio" options="{'horizontal': true}" />
-                            <field name="include_charts" />
+                        <group name="period_group" string="Période de Rapport">
+                            <field name="date_from" widget="date" options="{'datepicker': {'maxDate': 'today'}}"/>
+                            <field name="date_to" widget="date" options="{'datepicker': {'maxDate': 'today'}}"/>
+                            <field name="days_count" readonly="1" string="Nombre de jours"/>
+                        </group>
+                        
+                        <group name="format_group" string="Format et Options">
+                            <field name="format" widget="radio" options="{'horizontal': true}"/>
+                            <field name="report_language"/>
                         </group>
                     </group>
-
-                    <group>
-                        <group string="Période">
-
-
-                            <field name="date_from" readonly="report_type != 'custom'" />
-                            <field name="date_to" readonly="report_type != 'custom'" />
-                        </group>
-
-                        <group string="Filtres">
-                            <field name="service_ids" widget="many2many_tags"
-                                options="{'color_field': 'color', 'no_create_edit': True}"
-                                placeholder="Tous les services si vide" />
-                        </group>
-                    </group>
-
-                    <!-- Section d'aperçu conditionnel -->
-                    <div class="mt16" invisible="report_type == 'custom'">
-                        <div class="alert alert-success" role="alert"
-                            invisible="report_type != 'daily'">
-                            <i class="fa fa-calendar-o" /> <strong>Rapport Quotidien</strong><br />
-                            Analyse détaillée pour la journée sélectionnée avec répartition horaire. </div>
-
-                        <div class="alert alert-warning" role="alert"
-                            invisible="report_type != 'weekly'">
-                            <i class="fa fa-calendar" /> <strong>Rapport Hebdomadaire</strong><br />
-                            Vue d'ensemble sur 7 jours avec tendances et comparaisons. </div>
-
-                        <div class="alert alert-primary" role="alert"
-                            invisible="report_type != 'monthly'">
-                            <i class="fa fa-calendar-check-o" /> <strong>Rapport Mensuel</strong><br />
-                            Synthèse mensuelle avec indicateurs de performance globaux. </div>
-                    </div>
-
-
-                    <div class="mt16" invisible="report_type == 'custom'">
-                        <div class="alert alert-info" role="alert">
-                            <i class="fa fa-cogs" /> <strong>Période Personnalisée</strong><br />
-                            Définissez votre propre plage de dates pour une analyse sur mesure. <br /><small
-                                class="text-muted">Maximum recommandé : 90 jours pour des
-                            performances optimales</small>
-                        </div>
-                    </div>
+                    
+                    <notebook>
+                        <page string="Filtres" name="filters">
+                            <group>
+                                <field name="service_ids" widget="many2many_tags" 
+                                       placeholder="Laisser vide pour tous les services"/>
+                                <field name="services_summary" readonly="1" 
+                                       string="Résumé des services"/>
+                            </group>
+                        </page>
+                        
+                        <page string="Contenu du Rapport" name="content">
+                            <group>
+                                <group string="Éléments à Inclure">
+                                    <field name="include_statistics"/>
+                                    <field name="include_charts"/>
+                                    <field name="include_satisfaction"/>
+                                    <field name="include_details"/>
+                                </group>
+                                
+                                <group string="Options Avancées">
+                                    <field name="group_by_service"/>
+                                    <field name="show_hourly_stats"/>
+                                    <field name="show_daily_breakdown"/>
+                                    <field name="max_detail_tickets" 
+                                           invisible="not include_details"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Modèles Prédéfinis" name="templates">
+                            <div class="oe_left">
+                                <p class="text-muted">
+                                    Sélectionnez un modèle prédéfini pour configurer rapidement votre rapport.
+                                </p>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Rapport Quotidien Standard</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="card-text">Rapport quotidien avec graphiques et statistiques horaires.</p>
+                                            <button name="apply_daily_template" string="Appliquer" type="object" 
+                                                    class="btn btn-sm btn-outline-primary"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Rapport Mensuel Complet</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="card-text">Rapport mensuel avec tous les éléments d'analyse.</p>
+                                            <button name="apply_monthly_template" string="Appliquer" type="object" 
+                                                    class="btn btn-sm btn-outline-primary"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Analyse de Performance</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="card-text">Rapport hebdomadaire orienté performance et efficacité.</p>
+                                            <button name="apply_performance_template" string="Appliquer" type="object" 
+                                                    class="btn btn-sm btn-outline-primary"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </page>
+                    </notebook>
                 </sheet>
-
-                <footer>
-                    <button name="generate_report" string="Générer le Rapport" type="object"
-                        class="btn-primary" />
-                    <button string="Annuler" class="btn-secondary" special="cancel" />
-                </footer>
             </form>
         </field>
     </record>
-
-    <!-- Vue Form alternative compacte -->
-    <record id="view_queue_report_wizard_compact_form" model="ir.ui.view">
-        <field name="name">queue.report.wizard.compact.form</field>
-        <field name="model">queue.report.wizard</field>
+    
+    <!-- Action pour ouvrir l'assistant -->
+    <record id="action_queue_report_wizard" model="ir.actions.act_window">
+        <field name="name">Générer un Rapport de File d'Attente</field>
+        <field name="res_model">queue.report.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{}</field>
+    </record>
+    
+    <!-- ========================================== -->
+    <!-- VUES QUEUE REPORT PREVIEW                 -->
+    <!-- ========================================== -->
+    
+    <!-- Vue Formulaire Queue Report Preview -->
+    <record id="view_queue_report_preview_form" model="ir.ui.view">
+        <field name="name">queue.report.preview.form</field>
+        <field name="model">queue.report.preview</field>
         <field name="arch" type="xml">
-            <form string="Génération Rapide">
+            <form string="Aperçu du Rapport File d'Attente">
+                <header>
+                    <button name="generate_full_report" string="Générer le Rapport Complet" 
+                            type="object" class="btn-primary" icon="fa-file-pdf-o"/>
+                </header>
+                
                 <sheet>
                     <div class="oe_title">
                         <h1>
-                            <i class="fa fa-file-text-o" /> Générer un Rapport </h1>
+                            <i class="fa fa-eye"/> Aperçu du Rapport
+                        </h1>
                     </div>
-
-                    <group col="4">
-                        <field name="report_type" />
-                        <field name="format" />
-                        <field name="date_from" readonly="report_type != 'custom'" />
-                        <field name="date_to" readonly="report_type != 'custom'" />
-                    </group>
-
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fa fa-info-circle"/> 
+                                Cet aperçu vous donne un résumé du rapport qui sera généré. 
+                                Cliquez sur "Générer le Rapport Complet" pour créer le document final.
+                            </div>
+                        </div>
+                    </div>
+                    
                     <group>
-                        <field name="service_ids" nolabel="1"
-                            placeholder="Sélectionner les services (optionnel)" />
-                        <field name="include_charts" nolabel="1" />
+                        <group string="Configuration du Rapport">
+                            <field name="period_summary" readonly="1" string="Période"/>
+                            <field name="services_summary" readonly="1" string="Services"/>
+                            <field name="wizard_id" invisible="1"/>
+                        </group>
+                        
+                        <group string="Éléments Inclus">
+                            <field name="elements_included" readonly="1" widget="text"/>
+                        </group>
+                    </group>
+                    
+                    <separator string="Données d'Aperçu"/>
+                    <group>
+                        <field name="preview_data" readonly="1" widget="text" nolabel="1"/>
+                    </group>
+                    
+                    <separator string="Statistiques Résumées" 
+                               invisible="not summary_stats"/>
+                    <group invisible="not summary_stats">
+                        <field name="summary_stats" readonly="1" widget="text" nolabel="1"/>
                     </group>
                 </sheet>
-
-                <footer>
-                    <button name="generate_report" string="Générer" type="object"
-                        class="btn-primary" />
-                    <button string="Fermer" class="btn-secondary" special="cancel" />
-                </footer>
             </form>
         </field>
     </record>
-
-    <!-- Action Wizard principale -->
-    <record id="action_queue_report_wizard" model="ir.actions.act_window">
-        <field name="name">Générer un Rapport</field>
-        <field name="res_model">queue.report.wizard</field>
+    
+    <!-- Action pour l'aperçu -->
+    <record id="action_queue_report_preview" model="ir.actions.act_window">
+        <field name="name">Aperçu du Rapport</field>
+        <field name="res_model">queue.report.preview</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_queue_report_wizard_form" />
         <field name="target">new</field>
-        <field name="context">{}</field>
     </record>
-
-    <!-- Action Wizard compacte -->
-    <record id="action_queue_report_wizard_compact" model="ir.actions.act_window">
-        <field name="name">Génération Rapide</field>
+    
+    <!-- ========================================== -->
+    <!-- VUES SUPPLÉMENTAIRES                       -->
+    <!-- ========================================== -->
+    
+    <!-- Vue Kanban pour les modèles (optionnel) -->
+    <record id="view_queue_report_wizard_kanban" model="ir.ui.view">
+        <field name="name">queue.report.wizard.kanban</field>
+        <field name="model">queue.report.wizard</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card oe_kanban_global_click">
+                            <div class="oe_kanban_content">
+                                <div class="oe_kanban_details">
+                                    <strong class="o_kanban_record_title">
+                                        <field name="report_type"/>
+                                    </strong>
+                                    <div class="o_kanban_record_body">
+                                        <field name="date_from"/> - <field name="date_to"/>
+                                        <br/>
+                                        <field name="services_summary"/>
+                                    </div>
+                                    <div class="oe_kanban_bottom_right">
+                                        <field name="format" widget="badge"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+    
+    <!-- Vue Liste pour l'historique des rapports (si nécessaire) -->
+    <record id="view_queue_report_wizard_tree" model="ir.ui.view">
+        <field name="name">queue.report.wizard.tree</field>
+        <field name="model">queue.report.wizard</field>
+        <field name="arch" type="xml">
+            <tree string="Rapports Files d'Attente" create="false">
+                <field name="report_type"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="days_count"/>
+                <field name="services_summary"/>
+                <field name="format"/>
+                <field name="create_date" string="Généré le"/>
+            </tree>
+        </field>
+    </record>
+    
+    <!-- Vue Search pour les filtres -->
+    <record id="view_queue_report_wizard_search" model="ir.ui.view">
+        <field name="name">queue.report.wizard.search</field>
+        <field name="model">queue.report.wizard</field>
+        <field name="arch" type="xml">
+            <search string="Recherche Rapports">
+                <field name="report_type"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="service_ids"/>
+                
+                <filter string="Rapports Quotidiens" name="daily_reports" 
+                        domain="[('report_type', '=', 'daily')]"/>
+                <filter string="Rapports Hebdomadaires" name="weekly_reports" 
+                        domain="[('report_type', '=', 'weekly')]"/>
+                <filter string="Rapports Mensuels" name="monthly_reports" 
+                        domain="[('report_type', '=', 'monthly')]"/>
+                
+                <separator/>
+                <filter string="Format PDF" name="pdf_format" 
+                        domain="[('format', 'in', ['pdf', 'both'])]"/>
+                <filter string="Format Excel" name="excel_format" 
+                        domain="[('format', 'in', ['xlsx', 'both'])]"/>
+                
+                <separator/>
+                <filter string="Cette Semaine" name="this_week" 
+                        domain="[('create_date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                
+                <group expand="0" string="Grouper Par">
+                    <filter string="Type de Rapport" name="group_report_type" 
+                            context="{'group_by': 'report_type'}"/>
+                    <filter string="Format" name="group_format" 
+                            context="{'group_by': 'format'}"/>
+                    <filter string="Date de Création" name="group_create_date" 
+                            context="{'group_by': 'create_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+    
+    <!-- ========================================== -->
+    <!-- ACTIONS SUPPLÉMENTAIRES                   -->
+    <!-- ========================================== -->
+    
+    <!-- Action pour voir l'historique des rapports générés -->
+    <record id="action_queue_report_history" model="ir.actions.act_window">
+        <field name="name">Historique des Rapports</field>
         <field name="res_model">queue.report.wizard</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_queue_report_wizard_compact_form" />
-        <field name="target">new</field>
-        <field name="context">{}</field>
+        <field name="view_mode">tree,kanban,form</field>
+        <field name="context">{'create': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucun rapport généré pour l'instant
+            </p>
+            <p>
+                Cliquez sur "Générer un Rapport" pour créer votre premier rapport de file d'attente.
+            </p>
+        </field>
     </record>
-
-    <!-- Actions contextuelles prédéfinies -->
-    <record id="action_queue_daily_report_wizard" model="ir.actions.act_window">
+    
+    <!-- ========================================== -->
+    <!-- RACCOURCIS ET BOUTONS RAPIDES             -->
+    <!-- ========================================== -->
+    
+    <!-- Action rapide pour rapport quotidien -->
+    <record id="action_queue_daily_report" model="ir.actions.act_window">
         <field name="name">Rapport Quotidien</field>
         <field name="res_model">queue.report.wizard</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_queue_report_wizard_compact_form" />
         <field name="target">new</field>
-        <field name="context">{'default_report_type': 'daily', 'default_format': 'pdf'}</field>
+        <field name="context">{
+            'default_report_type': 'daily',
+            'default_include_statistics': True,
+            'default_show_hourly_stats': True,
+            'default_include_charts': True
+        }</field>
     </record>
-
-    <record id="action_queue_weekly_report_wizard" model="ir.actions.act_window">
+    
+    <!-- Action rapide pour rapport hebdomadaire -->
+    <record id="action_queue_weekly_report" model="ir.actions.act_window">
         <field name="name">Rapport Hebdomadaire</field>
         <field name="res_model">queue.report.wizard</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_queue_report_wizard_compact_form" />
         <field name="target">new</field>
-        <field name="context">{'default_report_type': 'weekly', 'default_format': 'pdf'}</field>
+        <field name="context">{
+            'default_report_type': 'weekly',
+            'default_include_statistics': True,
+            'default_show_daily_breakdown': True,
+            'default_group_by_service': True
+        }</field>
     </record>
-
-    <record id="action_queue_monthly_report_wizard" model="ir.actions.act_window">
+    
+    <!-- Action rapide pour rapport mensuel -->
+    <record id="action_queue_monthly_report" model="ir.actions.act_window">
         <field name="name">Rapport Mensuel</field>
         <field name="res_model">queue.report.wizard</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_queue_report_wizard_compact_form" />
         <field name="target">new</field>
-        <field name="context">{'default_report_type': 'monthly', 'default_format': 'xlsx'}</field>
+        <field name="context">{
+            'default_report_type': 'monthly',
+            'default_include_statistics': True,
+            'default_include_satisfaction': True,
+            'default_show_daily_breakdown': True,
+            'default_include_charts': True
+        }</field>
     </record>
-
-    <!-- Boutons contextuels pour d'autres vues -->
-
-    <!-- Bouton dans la vue Analytics -->
-    <record id="view_queue_analytics_form_inherit" model="ir.ui.view">
-        <field name="name">queue.analytics.form.inherit</field>
-        <field name="model">queue.analytics</field>
-        <field name="inherit_id" ref="view_queue_analytics_form" />
-        <field name="arch" type="xml">
-            <xpath expr="//sheet" position="before">
-                <header>
-                    <button name="%(action_queue_report_wizard)d"
-                        string="Générer Rapport Personnalisé"
-                        type="action"
-                        class="btn-primary"
-                        context="{'default_service_ids': [(6, 0, [service_id])], 'default_date_from': date, 'default_date_to': date, 'default_report_type': 'custom'}" />
-                </header>
-            </xpath>
-        </field>
-    </record>
-
-    <!-- Bouton dans la vue Service -->
-    <record id="view_queue_service_form_inherit_reports" model="ir.ui.view">
-        <field name="name">queue.service.form.inherit.reports</field>
-        <field name="model">queue.service</field>
-        <field name="inherit_id" ref="queue_management.view_queue_service_form" />
-        <field name="arch" type="xml">
-            <xpath expr="//header" position="inside">
-                <button name="%(action_queue_report_wizard)d"
-                    string="Rapports"
-                    type="action"
-                    class="btn-secondary"
-                    context="{'default_service_ids': [(6, 0, [active_id])]}" />
-            </xpath>
-        </field>
-    </record>
-
-    <!-- Actions pour les statistiques rapides -->
-    <record id="action_queue_stats_today" model="ir.actions.server">
-        <field name="name">Statistiques Aujourd'hui</field>
-        <field name="model_id" ref="model_queue_service" />
-        <field name="binding_model_id" ref="model_queue_service" />
-        <field name="binding_view_types">list,form</field>
-        <field name="state">code</field>
-        <field name="code">
-            action = {
-            'name': 'Rapport Quotidien',
-            'type': 'ir.actions.act_window',
-            'res_model': 'queue.report.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-            'default_report_type': 'daily',
-            'default_service_ids': [(6, 0, env.context.get('active_ids', []))],
-            'default_format': 'pdf'
-            }
-            }
-        </field>
-    </record>
-
-    <record id="action_queue_stats_week" model="ir.actions.server">
-        <field name="name">Statistiques Semaine</field>
-        <field name="model_id" ref="model_queue_service" />
-        <field name="binding_model_id" ref="model_queue_service" />
-        <field name="binding_view_types">list</field>
-        <field name="state">code</field>
-        <field name="code">
-            action = {
-            'name': 'Rapport Hebdomadaire',
-            'type': 'ir.actions.act_window',
-            'res_model': 'queue.report.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-            'default_report_type': 'weekly',
-            'default_service_ids': [(6, 0, env.context.get('active_ids', []))],
-            'default_format': 'xlsx'
-            }
-            }
-        </field>
-    </record>
-
 </odoo>

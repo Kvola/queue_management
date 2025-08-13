@@ -1,74 +1,522 @@
+<!-- views/queue_report_template.xml -->
 <odoo>
-    <!-- Rapport des statistiques quotidiennes -->
-    <record id="action_queue_daily_report" model="ir.actions.report">
-        <field name="name">Rapport Quotidien Files d'Attente</field>
-        <field name="model">queue.service</field>
-        <field name="report_type">qweb-pdf</field>
-        <field name="report_name">queue_management.report_daily_queue</field>
-        <field name="report_file">queue_management.report_daily_queue</field>
-        <field name="print_report_name">'Rapport Quotidien - ' + time.strftime('%Y-%m-%d')</field>
+    <!-- Format papier personnalisé pour les rapports -->
+    <!-- OPTION 1: Utiliser le format prédéfini A4 (RECOMMANDÉ) -->
+    <record id="paperformat_queue_report" model="report.paperformat">
+        <field name="name">Format Rapport File d'Attente</field>
+        <field name="default" eval="False" />
+        <field name="format">A4</field>
+        <!-- Supprimez page_height et page_width quand vous utilisez un format prédéfini -->
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">10</field>
+        <field name="margin_bottom">15</field>
+        <field name="margin_left">10</field>
+        <field name="margin_right">10</field>
+        <field name="header_line" eval="False" />
+        <field name="header_spacing">5</field>
+        <field name="dpi">90</field>
     </record>
 
-    <!-- Template du rapport quotidien -->
-    <template id="report_daily_queue">
+    <template id="queue_report_pdf_template">
         <t t-call="web.html_container">
-            <t t-foreach="docs" t-as="service">
-                <t t-call="web.external_layout">
-                    <div class="page">
-                        <h2>Rapport Quotidien - <span t-field="service.name"/></h2>
-                        <p>Date: <span t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y')"/></p>
-                        
-                        <div class="row mt32">
-                            <div class="col-3">
-                                <h4>Statistiques</h4>
-                                <table class="table table-sm">
-                                    <tr>
-                                        <td>Total tickets:</td>
-                                        <td><strong t-field="service.total_tickets_today"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td>En attente:</td>
-                                        <td><strong t-field="service.waiting_count"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Temps moyen:</td>
-                                        <td><strong t-field="service.avg_waiting_time"/> min</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Ticket actuel:</td>
-                                        <td><strong t-field="service.current_ticket_number"/></td>
-                                    </tr>
+            <t t-foreach="docs" t-as="wizard">
+                <!-- CORRECTION: Récupérer les données de façon sécurisée -->
+                <t t-set="data" t-value="wizard.get_report_data()" />
+                
+                <!-- Vérification de sécurité avec fallback -->
+                <t t-if="not data or not data.get('global_stats')">
+                    <div class="alert alert-warning" style="margin: 20px; padding: 20px; border: 1px solid #ff9800;">
+                        <h4>Données indisponibles</h4>
+                        <p>Les données du rapport ne sont pas disponibles. Veuillez régénérer le rapport.</p>
+                        <p>Paramètres: <span t-esc="wizard.report_type"/> du <span t-esc="wizard.date_from"/> au <span t-esc="wizard.date_to"/></p>
+                    </div>
+                </t>
+                
+                <t t-else="">
+                    <t t-call="web.internal_layout">
+                        <div class="page">
+                            <!-- CSS personnalisé pour le rapport -->
+                            <style>
+                                .report-header {
+                                    background: linear-gradient(135deg, #2E8B57 0%, #3CB371 100%);
+                                    color: white;
+                                    padding: 20px;
+                                    border-radius: 10px;
+                                    margin-bottom: 30px;
+                                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                }
+                                .stat-card {
+                                    background: white;
+                                    border-radius: 10px;
+                                    padding: 20px;
+                                    margin: 10px 0;
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                                    border-left: 5px solid #2E8B57;
+                                }
+                                .stat-number {
+                                    font-size: 2.5em;
+                                    font-weight: bold;
+                                    color: #2E8B57;
+                                    margin: 0;
+                                    line-height: 1;
+                                }
+                                .section-title {
+                                    color: #2E8B57;
+                                    border-left: 5px solid #2E8B57;
+                                    padding-left: 15px;
+                                    margin: 30px 0 20px 0;
+                                    font-size: 1.4em;
+                                    font-weight: bold;
+                                }
+                                .performance-table {
+                                    width: 100%;
+                                    border-collapse: collapse;
+                                    margin: 15px 0;
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                                }
+                                .performance-table thead {
+                                    background: linear-gradient(135deg, #2E8B57 0%, #3CB371 100%);
+                                    color: white;
+                                }
+                                .performance-table th,
+                                .performance-table td {
+                                    padding: 12px 8px;
+                                    text-align: left;
+                                    border: 1px solid #ddd;
+                                }
+                                .no-break {
+                                    page-break-inside: avoid;
+                                }
+                            </style>
+
+                            <!-- En-tête du rapport -->
+                            <div class="report-header">
+                                <div class="row">
+                                    <div class="col-8">
+                                        <h1 style="margin: 0; font-size: 2.2em;">
+                                            Rapport de File d'Attente
+                                        </h1>
+                                        <p style="margin: 10px 0 0 0; font-size: 1.1em; opacity: 0.9;">
+                                            <span t-esc="wizard.report_type.title()"/>
+                                        </p>
+                                    </div>
+                                    <div class="col-4 text-right">
+                                        <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+                                            <strong style="font-size: 1.1em;">
+                                                <span t-esc="wizard.date_from"/> au <span t-esc="wizard.date_to"/>
+                                            </strong>
+                                            <br/>
+                                            <small>
+                                                <span t-esc="wizard.days_count"/> jour(s)
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Services analysés -->
+                                <t t-if="wizard.service_ids">
+                                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3);">
+                                        <strong>Services analysés:</strong>
+                                        <div style="margin-top: 8px;">
+                                            <t t-foreach="wizard.service_ids" t-as="service">
+                                                <span style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 15px; margin-right: 8px; margin-bottom: 5px; display: inline-block;">
+                                                    <span t-esc="service.name"/>
+                                                </span>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <!-- Résumé exécutif avec protection contre les erreurs -->
+                            <div class="executive-summary no-break">
+                                <h2 class="section-title">
+                                    Tableau de Bord Exécutif
+                                </h2>
+
+                                <!-- Variables sécurisées -->
+                                <t t-set="global_stats" t-value="data.get('global_stats', {})"/>
+                                <t t-set="total_tickets" t-value="global_stats.get('total_tickets', 0)"/>
+                                <t t-set="served_count" t-value="global_stats.get('served_count', 0)"/>
+                                <t t-set="completion_rate" t-value="global_stats.get('completion_rate', 0.0)"/>
+                                <t t-set="avg_waiting_time" t-value="global_stats.get('avg_waiting_time', 0.0)"/>
+
+                                <div class="row">
+                                    <div class="col-3">
+                                        <div class="stat-card text-center">
+                                            <h3 class="stat-number">
+                                                <span t-esc="total_tickets"/>
+                                            </h3>
+                                            <div class="stat-label">Total Tickets</div>
+                                            <small style="color: #999;">Base de l'analyse</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="stat-card text-center">
+                                            <h3 class="stat-number" style="color: #4CAF50;">
+                                                <span t-esc="served_count"/>
+                                            </h3>
+                                            <div class="stat-label">Clients Servis</div>
+                                            <small style="color: #999;">Service réussi</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="stat-card text-center">
+                                            <h3 class="stat-number" t-attf-style="color: #{completion_rate >= 80 and '#4CAF50' or completion_rate >= 60 and '#FF9800' or '#F44336'};">
+                                                <span t-esc="round(completion_rate, 1)"/>%
+                                            </h3>
+                                            <div class="stat-label">Taux de Réussite</div>
+                                            <small style="color: #999;">Performance globale</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="stat-card text-center">
+                                            <h3 class="stat-number" t-attf-style="color: #{avg_waiting_time &lt;= 15 and '#4CAF50' or avg_waiting_time &lt;= 30 and '#FF9800' or '#F44336'};">
+                                                <span t-esc="int(avg_waiting_time)"/>
+                                            </h3>
+                                            <div class="stat-label">Attente Moy. (min)</div>
+                                            <small style="color: #999;">Temps d'attente</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Métriques détaillées avec gestion d'erreurs -->
+                            <div class="detailed-metrics no-break">
+                                <h2 class="section-title">
+                                    Métriques Détaillées
+                                </h2>
+
+                                <!-- Variables supplémentaires sécurisées -->
+                                <t t-set="cancelled_count" t-value="global_stats.get('cancelled_count', 0)"/>
+                                <t t-set="no_show_count" t-value="global_stats.get('no_show_count', 0)"/>
+                                <t t-set="cancellation_rate" t-value="global_stats.get('cancellation_rate', 0.0)"/>
+                                <t t-set="no_show_rate" t-value="global_stats.get('no_show_rate', 0.0)"/>
+                                <t t-set="avg_service_time" t-value="global_stats.get('avg_service_time', 0.0)"/>
+                                <t t-set="efficiency_rate" t-value="global_stats.get('efficiency_rate', 0.0)"/>
+
+                                <table class="performance-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 40%;">Indicateur</th>
+                                            <th style="width: 20%; text-align: center;">Valeur</th>
+                                            <th style="width: 15%; text-align: center;">Performance</th>
+                                            <th style="width: 25%;">Commentaire</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Tickets Traités avec Succès</strong></td>
+                                            <td class="text-center">
+                                                <span t-attf-style="background: #{cancellation_rate &lt;= 5 and '#4CAF50' or cancellation_rate &lt;= 15 and '#8BC34A' or cancellation_rate &lt;= 25 and '#FFC107' or '#F44336'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.85em;">
+                                                    <span t-esc="round(cancellation_rate, 1)"/>%
+                                                </span>
+                                            </td>
+                                            <td class="text-center">Bon</td>
+                                            <td>Impact sur la satisfaction</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Clients Absents (No-Show)</strong></td>
+                                            <td class="text-center">
+                                                <strong><span t-esc="no_show_count"/></strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <span t-attf-style="background: #{no_show_rate &lt;= 5 and '#4CAF50' or no_show_rate &lt;= 15 and '#8BC34A' or no_show_rate &lt;= 25 and '#FFC107' or '#F44336'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.85em;">
+                                                    <span t-esc="round(no_show_rate, 1)"/>%
+                                                </span>
+                                            </td>
+                                            <td>Optimisation des créneaux</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Temps de Service Moyen</strong></td>
+                                            <td class="text-center">
+                                                <strong><span t-esc="round(avg_service_time, 1)"/> min</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <span t-attf-style="background: #{avg_service_time &lt;= 10 and '#4CAF50' or avg_service_time &lt;= 20 and '#8BC34A' or avg_service_time &lt;= 30 and '#FFC107' or '#FF9800'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.85em;">
+                                                    <span t-if="avg_service_time &lt;= 10">Rapide</span>
+                                                    <span t-elif="avg_service_time &lt;= 20">Correct</span>
+                                                    <span t-elif="avg_service_time &lt;= 30">Moyen</span>
+                                                    <span t-else="">Lent</span>
+                                                </span>
+                                            </td>
+                                            <td>Efficacité du service</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Taux d'Efficacité</strong></td>
+                                            <td class="text-center">
+                                                <strong><span t-esc="round(efficiency_rate, 1)"/>%</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <span t-attf-style="background: #{efficiency_rate >= 85 and '#4CAF50' or efficiency_rate >= 70 and '#8BC34A' or efficiency_rate >= 50 and '#FFC107' or '#F44336'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.85em;">
+                                                    <span t-if="efficiency_rate >= 85">Excellent</span>
+                                                    <span t-elif="efficiency_rate >= 70">Bon</span>
+                                                    <span t-elif="efficiency_rate >= 50">Moyen</span>
+                                                    <span t-else="">Faible</span>
+                                                </span>
+                                            </td>
+                                            <td>Performance globale</td>
+                                        </tr>
+                                    </tbody>
                                 </table>
                             </div>
-                        </div>
 
-                        <h4 class="mt32">Tickets du Jour</h4>
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Ticket #</th>
-                                    <th>Client</th>
-                                    <th>Heure</th>
-                                    <th>État</th>
-                                    <th>Priorité</th>
-                                    <th>Temps d'attente</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <t t-set="today_tickets" t-value="service.ticket_ids.filtered(lambda t: t.create_date.date() == datetime.date.today())"/>
-                                <tr t-foreach="today_tickets" t-as="ticket">
-                                    <td><span t-field="ticket.ticket_number"/></td>
-                                    <td><span t-field="ticket.customer_name"/></td>
-                                    <td><span t-field="ticket.created_time" t-options="{'widget': 'datetime'}"/></td>
-                                    <td><span t-field="ticket.state"/></td>
-                                    <td><span t-field="ticket.priority"/></td>
-                                    <td><span t-field="ticket.waiting_time"/> min</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                            <!-- Performance par service (seulement si données disponibles) -->
+                            <t t-if="data.get('service_stats') and len(data.get('service_stats', [])) > 0">
+                                <div class="service-performance no-break">
+                                    <h2 class="section-title">Performance par Service</h2>
+                                    
+                                    <table class="performance-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Service</th>
+                                                <th class="text-center">Volume</th>
+                                                <th class="text-center">Servis</th>
+                                                <th class="text-center">Performance</th>
+                                                <th class="text-center">Temps Attente</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="data.get('service_stats', [])" t-as="stat">
+                                                <t t-set="service_completion" t-value="stat.get('completion_rate', 0.0)"/>
+                                                <t t-set="service_wait_time" t-value="stat.get('avg_waiting_time', 0.0)"/>
+                                                <tr>
+                                                    <td>
+                                                        <strong><span t-esc="stat.get('service', {}).get('name', 'Service Inconnu')"/></strong>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <strong><span t-esc="stat.get('total_tickets', 0)"/></strong>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <strong><span t-esc="stat.get('served_count', 0)"/></strong>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span t-attf-style="background: #{service_completion >= 90 and '#4CAF50' or service_completion >= 80 and '#8BC34A' or service_completion >= 60 and '#FFC107' or '#F44336'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.85em;">
+                                                            <span t-esc="round(service_completion, 1)"/>%
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <strong t-attf-style="color: #{service_wait_time &lt;= 15 and '#4CAF50' or service_wait_time &lt;= 30 and '#FF9800' or '#F44336'};">
+                                                            <span t-esc="round(service_wait_time, 1)"/> min
+                                                        </strong>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+
+                            <!-- Analyse de satisfaction -->
+                            <t t-if="data.get('satisfaction_analysis') and data.get('satisfaction_analysis', {}).get('total_responses', 0) > 0">
+                                <div class="satisfaction-analysis no-break">
+                                    <h2 class="section-title">Analyse de la Satisfaction Client</h2>
+                                    
+                                    <t t-set="satisfaction" t-value="data.get('satisfaction_analysis', {})"/>
+                                    
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="stat-card">
+                                                <h3 style="color: #2E8B57; margin-bottom: 20px;">Résumé Satisfaction</h3>
+                                                <div style="line-height: 2;">
+                                                    <div>
+                                                        <strong>Nombre de retours:</strong>
+                                                        <span style="color: #2E8B57; font-weight: bold;">
+                                                            <span t-esc="satisfaction.get('total_responses', 0)"/>
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <strong>Taux de participation:</strong>
+                                                        <span style="color: #2E8B57; font-weight: bold;">
+                                                            <span t-esc="round(satisfaction.get('response_rate', 0.0), 1)"/>%
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <strong>Note moyenne:</strong>
+                                                        <t t-set="avg_rating" t-value="satisfaction.get('average_rating', 0.0)"/>
+                                                        <span t-attf-style="color: #{avg_rating >= 4 and '#4CAF50' or avg_rating >= 3 and '#FF9800' or '#F44336'}; font-weight: bold;">
+                                                            <span t-esc="round(avg_rating, 2)"/>/5 ★
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+
+                            <!-- Recommandations intelligentes -->
+                            <div class="recommendations-section">
+                                <h2 class="section-title">Recommandations et Plan d'Action</h2>
+
+                                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 10px; padding: 25px; margin: 30px 0; border-left: 5px solid #2E8B57;">
+                                    <h3 style="color: #2E8B57; margin-bottom: 20px;">Analyse Automatique et Recommandations</h3>
+
+                                    <!-- Analyse de la performance globale -->
+                                    <div t-if="completion_rate >= 85 and avg_waiting_time &lt;= 15" style="margin: 15px 0; padding: 15px; border-radius: 8px; border-left: 4px solid #4CAF50; background: #e8f5e9;">
+                                        <h4 style="color: #4CAF50; margin: 0 0 10px 0;">Performance Excellente</h4>
+                                        <p><strong>Félicitations !</strong> Votre système de file d'attente fonctionne de manière optimale avec un taux de completion de <strong><span t-esc="round(completion_rate, 1)"/>%</strong> et un temps d'attente moyen de <strong><span t-esc="round(avg_waiting_time, 1)"/> minutes</strong>.</p>
+                                    </div>
+
+                                    <!-- Performance correcte mais améliorable -->
+                                    <div t-if="completion_rate >= 70 and completion_rate &lt; 85" style="margin: 15px 0; padding: 15px; border-radius: 8px; border-left: 4px solid #FF9800; background: #fff3e0;">
+                                        <h4 style="color: #FF9800; margin: 0 0 10px 0;">Performance Correcte - Améliorations Possibles</h4>
+                                        <p>Taux de completion actuel: <strong><span t-esc="round(completion_rate, 1)"/>%</strong>. Des améliorations sont possibles pour atteindre l'excellence.</p>
+                                    </div>
+
+                                    <!-- Performance faible -->
+                                    <div t-if="completion_rate &lt; 70" style="margin: 15px 0; padding: 15px; border-radius: 8px; border-left: 4px solid #F44336; background: #ffebee;">
+                                        <h4 style="color: #F44336; margin: 0 0 10px 0;">Action Corrective Urgente Requise</h4>
+                                        <p>Taux de completion critique: <strong><span t-esc="round(completion_rate, 1)"/>%</strong>. Une intervention immédiate est nécessaire.</p>
+                                    </div>
+
+                                    <!-- Problème de temps d'attente -->
+                                    <div t-if="avg_waiting_time > 30" style="margin: 15px 0; padding: 15px; border-radius: 8px; border-left: 4px solid #F44336; background: #ffebee;">
+                                        <h4 style="color: #F44336; margin: 0 0 10px 0;">Temps d'Attente Excessif</h4>
+                                        <p>Temps d'attente moyen: <strong><span t-esc="round(avg_waiting_time, 1)"/> minutes</strong> - Bien au-dessus des standards acceptables (15-20 min).</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pied de page -->
+                            <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px; border-top: 3px solid #2E8B57;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h5 style="color: #2E8B57; margin-bottom: 10px;">Informations du Rapport</h5>
+                                        <div style="font-size: 0.9em; line-height: 1.5;">
+                                            <div><strong>Généré le:</strong> <span t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y à %H:%M')"/></div>
+                                            <div><strong>Type:</strong> <span t-esc="wizard.report_type.title()"/></div>
+                                            <div><strong>Format:</strong> PDF</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <h5 style="color: #2E8B57; margin-bottom: 10px;">Résumé de Performance</h5>
+                                        <div style="font-size: 0.9em; line-height: 1.5;">
+                                            <div>
+                                                <strong>Score global:</strong>
+                                                <t t-set="global_score" t-value="(completion_rate + max(0, (100 - avg_waiting_time * 2)) + efficiency_rate) / 3"/>
+                                                <span t-attf-style="color: #{global_score >= 80 and '#4CAF50' or global_score >= 60 and '#FF9800' or '#F44336'}; font-weight: bold;">
+                                                    <span t-esc="int(max(0, global_score))"/>/100
+                                                </span>
+                                            </div>
+                                            <div><strong>Analyse basée sur:</strong> <span t-esc="total_tickets"/> ticket(s)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </t>
                 </t>
             </t>
         </t>
     </template>
+
+    <!-- Action de rapport -->
+    <record id="action_queue_report_pdf" model="ir.actions.report">
+        <field name="name">Rapport File d'Attente PDF</field>
+        <field name="model">queue.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">queue_management.queue_report_pdf_template</field>
+        <field name="report_file">rapport_file_attente</field>
+        <field name="binding_model_id" ref="model_queue_report_wizard"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="base.paperformat_euro"/>
+        <field name="print_report_name">'Rapport_FileAttente_' + object.report_type + '_' + str(object.date_from) + '_' + str(object.date_to) + '.pdf'</field>
+    </record>
+
+    <!-- Mise à jour de l'action avec le nouveau format -->
+    <record id="action_queue_report_pdf" model="ir.actions.report">
+        <field name="paperformat_id" ref="paperformat_queue_report" />
+    </record>
+
+    <!-- Template pour aperçu rapide (version allégée) -->
+    <template id="queue_report_preview_template">
+        <t t-call="web.html_container">
+            <div class="container-fluid" style="padding: 20px;">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h3 class="card-title mb-0">
+                            <i class="fa fa-eye mr-2"></i> Aperçu du Rapport - <t
+                                t-esc="wizard.report_type.title()" />
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Paramètres du Rapport</h5>
+                                <ul class="list-unstyled">
+                                    <li><strong>Période:</strong> <t t-esc="wizard.date_from" /> au <t
+                                            t-esc="wizard.date_to" /></li>
+                                    <li>
+                                        <strong>Nombre de jours:</strong>
+                                        <t t-esc="wizard.days_count" />
+                                    </li>
+                                    <li>
+                                        <strong>Services:</strong>
+                                        <t t-esc="wizard.services_summary" />
+                                    </li>
+                                    <li>
+                                        <strong>Format:</strong>
+                                        <t
+                                            t-esc="dict(wizard._fields['format'].selection)[wizard.format]" />
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Options Incluses</h5>
+                                <ul class="list-unstyled">
+                                    <li>
+                                        <i
+                                            t-attf-class="fa fa-#{wizard.include_charts and 'check text-success' or 'times text-danger'} mr-2"></i>
+                                        Graphiques </li>
+                                    <li>
+                                        <i
+                                            t-attf-class="fa fa-#{wizard.include_statistics and 'check text-success' or 'times text-danger'} mr-2"></i>
+                                        Statistiques avancées </li>
+                                    <li>
+                                        <i
+                                            t-attf-class="fa fa-#{wizard.include_satisfaction and 'check text-success' or 'times text-danger'} mr-2"></i>
+                                        Analyse de satisfaction </li>
+                                    <li>
+                                        <i
+                                            t-attf-class="fa fa-#{wizard.include_details and 'check text-success' or 'times text-danger'} mr-2"></i>
+                                        Détails des tickets </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-3">
+                            <i class="fa fa-info-circle mr-2"></i>
+                            <strong>Estimation:</strong> Le
+                            rapport contiendra environ <t
+                                t-esc="preview_data.get('preview_tickets', 0)" /> tickets sur la
+                            période sélectionnée. Temps de génération estimé: <t
+                                t-if="preview_data.get('preview_tickets', 0) &lt; 100">moins d'1
+                            minute</t>
+                            <t t-elif="preview_data.get('preview_tickets', 0) &lt; 500">1-2
+                            minutes</t>
+                            <t t-else="">2-5 minutes</t>
+                        </div>
+
+                        <div class="text-right mt-3">
+                            <button type="button" class="btn btn-secondary mr-2"
+                                data-dismiss="modal">
+                                <i class="fa fa-times mr-2"></i>Annuler </button>
+                            <button type="button" class="btn btn-success"
+                                onclick="$('#generate_report_btn').click();">
+                                <i class="fa fa-cog mr-2"></i>Générer le Rapport </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- CSS global pour tous les rapports -->
+    <template id="queue_report_assets" name="Queue Report Assets">
+        <link rel="stylesheet" type="text/css"
+            href="/queue_management/static/src/css/queue_reports.css" />
+    </template>
+
 </odoo>

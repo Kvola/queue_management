@@ -1,40 +1,172 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Vue Form -->
+    <!-- ========== QUEUE CONFIGURATION VIEWS ========== -->
+    
+    <!-- Queue Configuration List View -->
+    <record id="view_queue_config_tree" model="ir.ui.view">
+        <field name="name">queue.config.tree</field>
+        <field name="model">queue.config</field>
+        <field name="arch" type="xml">
+            <tree string="Configurations">
+                <field name="name"/>
+                <field name="dashboard_refresh_interval"/>
+                <field name="cache_duration"/>
+                <field name="auto_cleanup_enabled"/>
+                <field name="enable_email_notifications"/>
+                <field name="enable_sms_notifications"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Queue Configuration Form View -->
     <record id="view_queue_config_form" model="ir.ui.view">
         <field name="name">queue.config.form</field>
         <field name="model">queue.config</field>
         <field name="arch" type="xml">
-            <form string="Configuration File d'Attente">
+            <form string="Configuration du Système de File d'Attente">
+                <header>
+                    <button name="apply_configuration" type="object" string="Appliquer Configuration" 
+                            class="btn-primary"/>
+                </header>
                 <sheet>
                     <div class="oe_title">
-                        <label for="name" class="oe_edit_only"/>
-                        <h1><field name="name" required="1"/></h1>
+                        <label for="name"/>
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    
+                    <notebook>
+                        <page string="Paramètres de Performance">
+                            <group>
+                                <group string="Actualisation et Cache">
+                                    <field name="dashboard_refresh_interval"/>
+                                    <field name="cache_duration"/>
+                                </group>
+                                <group string="Nettoyage Automatique">
+                                    <field name="auto_cleanup_enabled"/>
+                                    <field name="cleanup_days_to_keep" 
+                                           invisible="not auto_cleanup_enabled"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Alertes et Notifications">
+                            <group>
+                                <group string="Seuils d'Alerte">
+                                    <field name="max_waiting_alert"/>
+                                    <field name="long_service_alert"/>
+                                </group>
+                                <group string="Notifications">
+                                    <field name="enable_email_notifications"/>
+                                    <field name="enable_sms_notifications"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Affichage">
+                            <group>
+                                <group string="Éléments d'Affichage">
+                                    <field name="show_customer_names"/>
+                                    <field name="show_estimated_times"/>
+                                    <field name="show_statistics"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Sécurité">
+                            <group>
+                                <group string="Paramètres de Sécurité">
+                                    <field name="allow_ticket_cancellation"/>
+                                    <field name="require_customer_info"/>
+                                    <field name="enable_feedback"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Queue Configuration Action -->
+    <record id="action_queue_config" model="ir.actions.act_window">
+        <field name="name">Configuration File d'Attente</field>
+        <field name="res_model">queue.config</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Créer une nouvelle configuration pour le système de file d'attente
+            </p>
+            <p>
+                Configurez les paramètres de performance, alertes et affichage du système.
+            </p>
+        </field>
+    </record>
+
+    <!-- ========== PERFORMANCE METRICS VIEWS ========== -->
+    
+    <!-- Performance Metrics List View -->
+    <record id="view_queue_performance_metrics_tree" model="ir.ui.view">
+        <field name="name">queue.performance.metrics.tree</field>
+        <field name="model">queue.performance.metrics</field>
+        <field name="arch" type="xml">
+            <tree string="Métriques de Performance">
+                <field name="date"/>
+                <field name="service_id"/>
+                <field name="total_tickets"/>
+                <field name="served_tickets"/>
+                <field name="cancelled_tickets"/>
+                <field name="avg_waiting_time" widget="float_time"/>
+                <field name="avg_service_time" widget="float_time"/>
+                <field name="completion_rate" widget="percentage"/>
+                <field name="satisfaction_rate" widget="percentage"/>
+                <field name="capacity_utilization" widget="percentage"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Performance Metrics Form View -->
+    <record id="view_queue_performance_metrics_form" model="ir.ui.view">
+        <field name="name">queue.performance.metrics.form</field>
+        <field name="model">queue.performance.metrics</field>
+        <field name="arch" type="xml">
+            <form string="Métriques de Performance">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="service_id"/>
+                        <h1>
+                            <field name="service_id"/>
+                        </h1>
+                        <label for="date"/>
+                        <h2>
+                            <field name="date"/>
+                        </h2>
                     </div>
                     
                     <group>
-                        <group string="Notifications">
-                            <field name="enable_sms_notifications"/>
-                            <field name="enable_email_notifications"/>
+                        <group string="Tickets">
+                            <field name="total_tickets"/>
+                            <field name="served_tickets"/>
+                            <field name="cancelled_tickets"/>
+                            <field name="no_show_tickets"/>
                         </group>
-                        <group string="Interface">
-                            <field name="auto_refresh_interval" 
-                                   widget="integer" 
-                                   required="auto_refresh_interval > 0"/>
+                        <group string="Temps Moyens">
+                            <field name="avg_waiting_time" widget="float_time"/>
+                            <field name="avg_service_time" widget="float_time"/>
                         </group>
                     </group>
                     
                     <group>
-                        <group string="Affichage">
-                            <field name="show_estimated_time"/>
-                            <field name="show_queue_position"/>
-                            <field name="max_display_tickets" 
-                                   widget="integer"
-                                   required="max_display_tickets > 0"/>
+                        <group string="Efficacité">
+                            <field name="completion_rate" widget="percentage"/>
+                            <field name="satisfaction_rate" widget="percentage"/>
                         </group>
-                        <group string="Paramètres Business">
-                            <field name="allow_ticket_cancellation"/>
-                            <field name="require_customer_info"/>
+                        <group string="Capacité">
+                            <field name="capacity_utilization" widget="percentage"/>
+                            <field name="peak_hour"/>
+                            <field name="peak_load"/>
                         </group>
                     </group>
                 </sheet>
@@ -42,106 +174,144 @@
         </field>
     </record>
 
-    <!-- Vue Tree -->
-    <record id="view_queue_config_tree" model="ir.ui.view">
-        <field name="name">queue.config.tree</field>
-        <field name="model">queue.config</field>
+    <!-- Performance Metrics Graph View -->
+    <record id="view_queue_performance_metrics_graph" model="ir.ui.view">
+        <field name="name">queue.performance.metrics.graph</field>
+        <field name="model">queue.performance.metrics</field>
         <field name="arch" type="xml">
-            <tree string="Configurations File d'Attente" 
-                  decoration-success="enable_sms_notifications and enable_email_notifications"
-                  decoration-warning="not enable_sms_notifications and not enable_email_notifications">
+            <graph string="Évolution des Performances" type="line">
+                <field name="date" type="row"/>
+                <field name="service_id" type="col"/>
+                <field name="completion_rate" type="measure"/>
+                <field name="avg_waiting_time" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Performance Metrics Pivot View -->
+    <record id="view_queue_performance_metrics_pivot" model="ir.ui.view">
+        <field name="name">queue.performance.metrics.pivot</field>
+        <field name="model">queue.performance.metrics</field>
+        <field name="arch" type="xml">
+            <pivot string="Analyse des Performances">
+                <field name="date" type="col" interval="week"/>
+                <field name="service_id" type="row"/>
+                <field name="total_tickets" type="measure"/>
+                <field name="avg_waiting_time" type="measure"/>
+                <field name="completion_rate" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- Performance Metrics Action -->
+    <record id="action_queue_performance_metrics" model="ir.actions.act_window">
+        <field name="name">Métriques de Performance</field>
+        <field name="res_model">queue.performance.metrics</field>
+        <field name="view_mode">tree,form,graph,pivot</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucune métrique de performance trouvée
+            </p>
+            <p>
+                Les métriques sont collectées automatiquement chaque jour.
+            </p>
+        </field>
+    </record>
+
+    <!-- ========== SYSTEM ALERTS VIEWS ========== -->
+    
+    <!-- System Alerts List View -->
+    <record id="view_queue_system_alerts_tree" model="ir.ui.view">
+        <field name="name">queue.system.alerts.tree</field>
+        <field name="model">queue.system.alerts</field>
+        <field name="arch" type="xml">
+            <tree string="Alertes Système" decoration-danger="alert_type == 'critical'" 
+                  decoration-warning="alert_type == 'warning'" decoration-info="alert_type == 'info'">
+                <field name="alert_type" widget="badge" 
+                       decoration-danger="alert_type == 'critical'"
+                       decoration-warning="alert_type == 'warning'"
+                       decoration-info="alert_type == 'info'"
+                       decoration-success="alert_type == 'error'"/>
                 <field name="name"/>
-                <field name="enable_sms_notifications" widget="boolean_toggle"/>
-                <field name="enable_email_notifications" widget="boolean_toggle"/>
-                <field name="auto_refresh_interval" string="Refresh (sec)"/>
-                <field name="max_display_tickets" string="Max Affichage"/>
-                <field name="show_estimated_time" invisible="1"/>
-                <field name="show_queue_position" invisible="1"/>
-                <field name="allow_ticket_cancellation" invisible="1"/>
-                <field name="require_customer_info" invisible="1"/>
+                <field name="service_id"/>
+                <field name="create_date"/>
+                <field name="is_resolved" widget="boolean_toggle"/>
+                <field name="resolved_by" invisible="not is_resolved"/>
+                <field name="resolved_date" invisible="not is_resolved"/>
             </tree>
         </field>
     </record>
 
-    <!-- Vue Search -->
-    <record id="view_queue_config_search" model="ir.ui.view">
-        <field name="name">queue.config.search</field>
-        <field name="model">queue.config</field>
+    <!-- System Alerts Form View -->
+    <record id="view_queue_system_alerts_form" model="ir.ui.view">
+        <field name="name">queue.system.alerts.form</field>
+        <field name="model">queue.system.alerts</field>
         <field name="arch" type="xml">
-            <search string="Rechercher Configuration">
-                <field name="name" string="Configuration" 
-                       filter_domain="[('name', 'ilike', self)]"/>
-                
-                <!-- Filtres -->
-                <filter name="sms_enabled" string="SMS Activé" 
-                        domain="[('enable_sms_notifications', '=', True)]"/>
-                <filter name="email_enabled" string="Email Activé" 
-                        domain="[('enable_email_notifications', '=', True)]"/>
-                <filter name="cancellation_allowed" string="Annulation Autorisée" 
-                        domain="[('allow_ticket_cancellation', '=', True)]"/>
-                <filter name="customer_info_required" string="Infos Client Requises" 
-                        domain="[('require_customer_info', '=', True)]"/>
-                
-                <separator/>
-                
-                <!-- Groupes -->
-                <group expand="0" string="Grouper par">
-                    <filter name="group_notifications" string="Notifications" 
-                            context="{'group_by': 'enable_sms_notifications'}"/>
-                    <filter name="group_display" string="Affichage Temps" 
-                            context="{'group_by': 'show_estimated_time'}"/>
-                </group>
-            </search>
+            <form string="Alerte Système">
+                <header>
+                    <button name="resolve_alert" type="object" string="Résoudre" 
+                            class="btn-primary" invisible="is_resolved"/>
+                    <field name="is_resolved" widget="statusbar" clickable="False"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    
+                    <group>
+                        <group>
+                            <field name="alert_type"/>
+                            <field name="service_id"/>
+                            <field name="create_date" readonly="1"/>
+                        </group>
+                        <group invisible="not is_resolved">
+                            <field name="resolved_date" readonly="1"/>
+                            <field name="resolved_by" readonly="1"/>
+                        </group>
+                    </group>
+                    
+                    <group string="Message">
+                        <field name="message" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
         </field>
     </record>
 
-    <!-- Vue Kanban (optionnelle) -->
-    <record id="view_queue_config_kanban" model="ir.ui.view">
-        <field name="name">queue.config.kanban</field>
-        <field name="model">queue.config</field>
+    <!-- System Alerts Kanban View -->
+    <record id="view_queue_system_alerts_kanban" model="ir.ui.view">
+        <field name="name">queue.system.alerts.kanban</field>
+        <field name="model">queue.system.alerts</field>
         <field name="arch" type="xml">
-            <kanban string="Configurations File d'Attente" 
-                    class="oe_background_grey o_kanban_dashboard">
+            <kanban default_group_by="alert_type">
                 <field name="name"/>
-                <field name="enable_sms_notifications"/>
-                <field name="enable_email_notifications"/>
-                <field name="auto_refresh_interval"/>
-                <field name="max_display_tickets"/>
-                
+                <field name="alert_type"/>
+                <field name="service_id"/>
+                <field name="is_resolved"/>
+                <field name="create_date"/>
                 <templates>
                     <t t-name="kanban-box">
-                        <div class="oe_kanban_card oe_kanban_global_click">
-                            <div class="o_kanban_card_header">
-                                <div class="o_kanban_card_header_title">
-                                    <div class="o_primary">
-                                        <field name="name"/>
+                        <div class="oe_kanban_global_click">
+                            <div class="o_kanban_record_top mb16">
+                                <div class="o_kanban_record_headings">
+                                    <strong class="o_kanban_record_title">
+                                        <t t-esc="record.name.value"/>
+                                    </strong>
+                                </div>
+                                <div class="o_kanban_record_body">
+                                    <field name="service_id" invisible="not service_id"/>
+                                    <div class="text-muted">
+                                        <i class="fa fa-clock-o"/> <t t-esc="record.create_date.value"/>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div class="o_kanban_card_content">
-                                <div class="row">
-                                    <div class="col-6">
-                                        <t t-if="record.enable_sms_notifications.raw_value">
-                                            <span class="badge badge-success">SMS</span>
-                                        </t>
-                                        <t t-if="record.enable_email_notifications.raw_value">
-                                            <span class="badge badge-info">Email</span>
-                                        </t>
-                                    </div>
-                                    <div class="col-6 text-right">
-                                        <small class="text-muted">
-                                            Refresh: <field name="auto_refresh_interval"/>s
-                                        </small>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mt-2">
-                                    <div class="col-12">
-                                        <small>
-                                            Max affichage: <field name="max_display_tickets"/> tickets
-                                        </small>
-                                    </div>
+                            <div class="o_kanban_record_bottom">
+                                <div class="oe_kanban_bottom_left">
+                                    <field name="is_resolved" widget="boolean_toggle"/>
                                 </div>
                             </div>
                         </div>
@@ -151,24 +321,74 @@
         </field>
     </record>
 
-    <!-- Action Window -->
-    <record id="action_queue_config" model="ir.actions.act_window">
-        <field name="name">Configuration File d'Attente</field>
-        <field name="res_model">queue.config</field>
-        <field name="view_mode">tree,form,kanban</field>
-        <field name="view_ids" 
-               eval="[(5, 0, 0),
-                      (0, 0, {'view_mode': 'tree', 'view_id': ref('view_queue_config_tree')}),
-                      (0, 0, {'view_mode': 'form', 'view_id': ref('view_queue_config_form')}),
-                      (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_queue_config_kanban')})]"/>
+    <!-- System Alerts Search View -->
+    <record id="view_queue_system_alerts_search" model="ir.ui.view">
+        <field name="name">queue.system.alerts.search</field>
+        <field name="model">queue.system.alerts</field>
+        <field name="arch" type="xml">
+            <search string="Rechercher Alertes">
+                <field name="name"/>
+                <field name="service_id"/>
+                <field name="alert_type"/>
+                
+                <filter string="Non Résolues" name="unresolved" 
+                        domain="[('is_resolved', '=', False)]"/>
+                <filter string="Critiques" name="critical" 
+                        domain="[('alert_type', '=', 'critical')]"/>
+                <filter string="Avertissements" name="warnings" 
+                        domain="[('alert_type', '=', 'warning')]"/>
+                
+                <separator/>
+                <filter string="Aujourd'hui" name="today" 
+                        domain="[('create_date', '>=', datetime.datetime.now().replace(hour=0, minute=0, second=0))]"/>
+                <filter string="Cette Semaine" name="week" 
+                        domain="[('create_date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%%Y-%%m-%%d'))]"/>
+                
+                <group expand="0" string="Grouper Par">
+                    <filter string="Type d'Alerte" name="group_alert_type" 
+                            context="{'group_by': 'alert_type'}"/>
+                    <filter string="Service" name="group_service" 
+                            context="{'group_by': 'service_id'}"/>
+                    <filter string="État" name="group_resolved" 
+                            context="{'group_by': 'is_resolved'}"/>
+                    <filter string="Date de Création" name="group_create_date" 
+                            context="{'group_by': 'create_date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- System Alerts Action -->
+    <record id="action_queue_system_alerts" model="ir.actions.act_window">
+        <field name="name">Alertes Système</field>
+        <field name="res_model">queue.system.alerts</field>
+        <field name="view_mode">tree,kanban,form</field>
+        <field name="search_view_id" ref="view_queue_system_alerts_search"/>
+        <field name="context">{'search_default_unresolved': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Créer votre première configuration de file d'attente !
+                Aucune alerte système trouvée
             </p>
             <p>
-                Configurez les paramètres de notification, d'affichage et de business 
-                pour optimiser votre système de file d'attente.
+                Les alertes sont générées automatiquement en fonction des seuils configurés.
             </p>
         </field>
+    </record>
+
+    
+
+    <!-- ========== DASHBOARD ACTION ========== -->
+    
+    <!-- Dashboard for Queue Management -->
+    <record id="action_queue_dashboard_metrics" model="ir.actions.act_window">
+        <field name="name">Tableau de Bord</field>
+        <field name="res_model">queue.performance.metrics</field>
+        <field name="view_mode">graph,pivot</field>
+        <field name="domain">[('date', '>=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]</field>
+        <field name="context">{
+            'search_default_group_service': 1,
+            'graph_measure': 'completion_rate',
+            'graph_mode': 'line'
+        }</field>
     </record>
 </odoo>

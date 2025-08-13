@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Wizard de maintenance -->
+        <record id="view_queue_maintenance_wizard_form" model="ir.ui.view">
+            <field name="name">queue.maintenance.wizard.form</field>
+            <field name="model">queue.maintenance.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Maintenance des Files d'Attente">
+                    <group>
+                        <group>
+                            <field name="maintenance_type"/>
+                            <field name="service_ids" widget="many2many_tags" 
+                                   invisible="maintenance_type == 'cache_clear'"/>
+                        </group>
+                        <group>
+                            <field name="days_to_keep" 
+                                   invisible="maintenance_type != 'old_data_cleanup'"/>
+                            <field name="auto_fix"/>
+                        </group>
+                    </group>
+                    <footer>
+                        <button string="Exécuter Maintenance" name="action_run_maintenance" 
+                                type="object" class="btn-primary"/>
+                        <button string="Annuler" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_queue_maintenance_wizard" model="ir.actions.act_window">
+            <field name="name">Maintenance Système</field>
+            <field name="res_model">queue.maintenance.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <!-- Wizard de rapports -->
+        <record id="view_queue_stats_wizard_form" model="ir.ui.view">
+            <field name="name">queue.stats.wizard.form</field>
+            <field name="model">queue.stats.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Génération de Rapports">
+                    <group>
+                        <group>
+                            <field name="report_type"/>
+                            <field name="date_from" required="report_type == 'custom'"/>
+                            <field name="date_to" required="report_type == 'custom'"/>
+                        </group>
+                        <group>
+                            <field name="service_ids" widget="many2many_tags"/>
+                            <field name="export_format"/>
+                            <field name="include_charts"/>
+                            <field name="include_details"/>
+                        </group>
+                    </group>
+                    <footer>
+                        <button string="Générer Rapport" name="action_generate_report" 
+                                type="object" class="btn-primary"/>
+                        <button string="Annuler" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_queue_stats_wizard" model="ir.actions.act_window">
+            <field name="name">Rapports de Performance</field>
+            <field name="res_model">queue.stats.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <!-- Vue des actions de maintenance -->
+        <record id="view_queue_maintenance_action_tree" model="ir.ui.view">
+            <field name="name">queue.maintenance.action.tree</field>
+            <field name="model">queue.maintenance.action</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="name"/>
+                    <field name="maintenance_type"/>
+                    <field name="schedule"/>
+                    <field name="active"/>
+                    <field name="last_run"/>
+                    <field name="next_run"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_queue_maintenance_action_form" model="ir.ui.view">
+            <field name="name">queue.maintenance.action.form</field>
+            <field name="model">queue.maintenance.action</field>
+            <field name="arch" type="xml">
+                <form string="Action de Maintenance">
+                    <header>
+                        <button name="execute_maintenance" string="Exécuter Maintenant" 
+                                type="object" class="btn-primary"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="maintenance_type"/>
+                                <field name="schedule"/>
+                                <field name="active"/>
+                            </group>
+                            <group>
+                                <field name="last_run" readonly="1"/>
+                                <field name="next_run" readonly="1"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_queue_maintenance_actions" model="ir.actions.act_window">
+            <field name="name">Actions de Maintenance</field>
+            <field name="res_model">queue.maintenance.action</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+        <!-- Actions serveur pour les boutons -->
+        <record id="action_server_refresh_dashboard" model="ir.actions.server">
+            <field name="name">Actualiser Dashboard</field>
+            <field name="model_id" ref="model_queue_service"/>
+            <field name="state">code</field>
+            <field name="code">
+result = model.get_dashboard_data()
+action = {
+    'type': 'ir.actions.client',
+    'tag': 'display_notification',
+    'params': {
+    'title': 'Dashboard Actualisé',
+    'message': f'Données mises à jour à {result["last_update"]}',
+    'type': 'success'
+    }
+}
+            </field>
+        </record>
+
+        <record id="action_server_system_maintenance" model="ir.actions.server">
+            <field name="name">Maintenance Système</field>
+            <field name="model_id" ref="model_queue_service"/>
+            <field name="state">code</field>
+            <field name="code">
+result = model.scheduled_data_maintenance()
+action = {
+    'type': 'ir.actions.client',
+    'tag': 'display_notification',
+    'params': {
+        'title': 'Maintenance Terminée',
+        'message': f'Maintenance exécutée avec succès. {result.get("fixes_applied", 0)} corrections appliquées.',
+        'type': 'success',
+        'sticky': True
+    }
+}
+            </field>
+        </record>
+
+        <!-- Actions de maintenance programmées par défaut -->
+        <record id="default_daily_stats_maintenance" model="queue.maintenance.action" context="{'install_mode': True}">
+            <field name="name">Mise à jour statistiques quotidiennes</field>
+            <field name="maintenance_type">daily_stats</field>
+            <field name="schedule">daily</field>
+            <field name="active">True</field>
+        </record>
+
+        <record id="default_weekly_cleanup_maintenance" model="queue.maintenance.action" context="{'install_mode': True}">
+            <field name="name">Nettoyage hebdomadaire</field>
+            <field name="maintenance_type">weekly_cleanup</field>
+            <field name="schedule">weekly</field>
+            <field name="active">True</field>
+        </record>
+
+        <record id="default_integrity_check_maintenance" model="queue.maintenance.action" context="{'install_mode': True}">
+            <field name="name">Vérification intégrité quotidienne</field>
+            <field name="maintenance_type">integrity_check</field>
+            <field name="schedule">daily</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

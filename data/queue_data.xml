@@ -2,17 +2,17 @@
     <!-- Template email pour notification -->
     <record id="email_ticket_called" model="mail.template">
         <field name="name">Notification Ticket Appelé</field>
-        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="model_id" ref="model_queue_ticket" />
         <field name="subject">Votre ticket est appelé - ${object.service_id.name}</field>
         <field name="email_from">${(object.service_id.company_id.email or '')|safe}</field>
         <field name="email_to">${object.customer_email}</field>
         <field name="body_html" type="html">
             <div style="margin: 0px; padding: 0px;">
                 <p>Bonjour,</p>
-                <p>Votre ticket <strong>#${object.ticket_number}</strong> pour le service 
-                   <strong>${object.service_id.name}</strong> est maintenant appelé.</p>
+                <p>Votre ticket <strong>#${object.ticket_number}</strong> pour le service <strong>
+                    ${object.service_id.name}</strong> est maintenant appelé.</p>
                 <p>Veuillez vous présenter au guichet.</p>
-                <br/>
+                <br />
                 <p>Merci de votre patience.</p>
             </div>
         </field>
@@ -31,7 +31,7 @@
     <!-- Actions plannifiées -->
     <record id="ir_cron_cleanup_old_tickets" model="ir.cron">
         <field name="name">Nettoyage des anciens tickets</field>
-        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="model_id" ref="model_queue_ticket" />
         <field name="state">code</field>
         <field name="code">
 # Supprimer les tickets de plus de 30 jours
@@ -42,19 +42,95 @@ old_tickets.unlink()
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
         <field name="numbercall">-1</field>
-        <field name="doall" eval="False"/>
+        <field name="doall" eval="False" />
     </record>
 
     <!-- Configuration par défaut -->
+    <!-- Default Queue Configuration -->
     <record id="default_queue_config" model="queue.config">
         <field name="name">Configuration Système</field>
         <field name="enable_email_notifications" eval="True"/>
         <field name="enable_sms_notifications" eval="False"/>
-        <field name="auto_refresh_interval">30</field>
-        <field name="show_estimated_time" eval="True"/>
-        <field name="show_queue_position" eval="True"/>
-        <field name="max_display_tickets">15</field>
+        <field name="dashboard_refresh_interval">30</field>
+        <field name="show_estimated_times" eval="True"/>
+        <field name="show_customer_names" eval="True"/>
         <field name="allow_ticket_cancellation" eval="True"/>
         <field name="require_customer_info" eval="False"/>
+        <field name="cache_duration">30</field>
+        <field name="auto_cleanup_enabled" eval="True"/>
+        <field name="cleanup_days_to_keep">30</field>
+        <field name="max_waiting_alert">15</field>
+        <field name="long_service_alert">30</field>
+        <field name="show_statistics" eval="True"/>
+        <field name="enable_feedback" eval="True"/>
+    </record>
+
+    <!-- Tâche cron pour la maintenance automatique -->
+    <record id="cron_queue_daily_maintenance" model="ir.cron">
+        <field name="name">Queue Management - Maintenance Quotidienne</field>
+        <field name="model_id" ref="model_queue_service" />
+        <field name="state">code</field>
+        <field name="code">model.scheduled_data_maintenance()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="nextcall"
+            eval="(DateTime.now() + timedelta(days=1)).replace(hour=2, minute=0, second=0)" />
+        <field name="active">True</field>
+    </record>
+
+    <!-- Tâche cron pour la réinitialisation des compteurs -->
+    <record id="cron_queue_reset_counters" model="ir.cron">
+        <field name="name">Queue Management - Réinitialisation Compteurs</field>
+        <field name="model_id" ref="model_queue_service" />
+        <field name="state">code</field>
+        <field name="code">model.reset_daily_counters()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="nextcall"
+            eval="(DateTime.now() + timedelta(days=1)).replace(hour=0, minute=0, second=0)" />
+        <field name="active">True</field>
+    </record>
+
+    <!-- Tâche cron pour le nettoyage hebdomadaire -->
+    <record id="cron_queue_weekly_cleanup" model="ir.cron">
+        <field name="name">Queue Management - Nettoyage Hebdomadaire</field>
+        <field name="model_id" ref="model_queue_service" />
+        <field name="state">code</field>
+        <field name="code">model.cleanup_old_data(days_to_keep=30)</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">weeks</field>
+        <field name="nextcall"
+            eval="(DateTime.now() + timedelta(weeks=1)).replace(hour=1, minute=0, second=0)" />
+        <field name="active">True</field>
+    </record>
+
+    <!-- ========== AUTOMATED ACTIONS ========== -->
+
+    <!-- Automated Action for Daily Metrics Collection -->
+    <record id="ir_cron_collect_daily_metrics" model="ir.cron">
+        <field name="name">Collecte des Métriques Quotidiennes</field>
+        <field name="model_id" ref="model_queue_performance_metrics" />
+        <field name="state">code</field>
+        <field name="code">model.collect_daily_metrics()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="doall">False</field>
+        <field name="nextcall"
+            eval="(datetime.now() + timedelta(days=1)).replace(hour=1, minute=0, second=0)" />
+    </record>
+
+    <!-- Automated Action for System Alerts Check -->
+    <record id="ir_cron_check_system_alerts" model="ir.cron">
+        <field name="name">Vérification des Alertes Système</field>
+        <field name="model_id" ref="model_queue_system_alerts" />
+        <field name="state">code</field>
+        <field name="code">model.check_system_alerts()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="doall">False</field>
     </record>
 </odoo>

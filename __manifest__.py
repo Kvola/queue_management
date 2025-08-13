@@ -91,13 +91,16 @@ Ce module est prêt pour la production et peut être étendu selon vos besoins s
         "views/queue_ticket_views.xml",
         "views/queue_analytics_views.xml",
         "views/queue_config_views.xml",
-        "views/queue_dashboard_views.xml",
         "views/queue_website_templates.xml",
-        # Wizards
-        "wizard/queue_report_wizard_views.xml",
-        # Rapports
         "reports/queue_reports.xml",
+        # Wizards
+        "wizard/queue_report_preview_views.xml",
+        "wizard/queue_report_wizard_views.xml",
+        "wizard/action_maintenance_wizard_views.xml",
+        # Rapports
+        "views/queue_dashboard_views.xml",
         "views/queue_menus.xml",
+
     ],
     "assets": {
         "web.assets_backend": [
