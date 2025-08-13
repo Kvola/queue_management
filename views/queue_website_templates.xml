@@ -1,4 +1,10 @@
 <odoo>
+    <record id="menu_queue_management_ebng" model="website.menu">
+        <field name="name">File d'attente</field>
+        <field name="url">/queue</field>
+        <field name="parent_id" ref="website.main_menu" />
+        <field name="sequence">70</field>
+    </record>
     <!-- Template d'accueil avec widgets améliorés -->
     <template id="queue_home_template" name="Accueil Files d'Attente">
         <t t-call="website.layout">
