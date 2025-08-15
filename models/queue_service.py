@@ -3,6 +3,8 @@ from odoo import models, fields, api, _
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT
 from odoo.exceptions import UserError, ValidationError
 from datetime import datetime, timedelta, time
+import pytz
+import json
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -49,8 +51,6 @@ class QueueService(models.Model):
     avg_waiting_time = fields.Float(
         "Temps d'attente moyen (min)", compute="_compute_stats", store=True
     )
-
-    
 
     # Nouveaux champs pour amélioration
     allow_online_booking = fields.Boolean(
@@ -295,56 +295,74 @@ class QueueService(models.Model):
         for service in self:
             service.next_ticket_number = service.current_ticket_number + 1
 
+    # 2. CORRECTION de la méthode _compute_stats dans queue_service.py
     @api.depends("ticket_ids", "ticket_ids.state", "ticket_ids.created_time")
     def _compute_stats(self):
-        """Calcule les statistiques du service de manière robuste"""
+        """Calcule les statistiques du service de manière robuste - VERSION CORRIGÉE"""
         for service in self:
             try:
-                # Obtenir la date d'aujourd'hui dans le timezone de l'utilisateur
-                user_tz = pytz.timezone(self.env.user.tz or "UTC")
-                now = datetime.now(user_tz)
-                today = now.date()
+                # Utilisation d'une méthode plus simple et robuste pour aujourd'hui
+                today = fields.Date.today()
+                tomorrow = today + timedelta(days=1)
 
-                # Conversion correcte pour les filtres Odoo
-                # Début de la journée (00:00:00)
-                start_of_day = user_tz.localize(datetime.combine(today, time.min))
-                start_of_day_utc = start_of_day.astimezone(pytz.UTC)
-
-                # Fin de la journée (23:59:59)
-                end_of_day = user_tz.localize(datetime.combine(today, time.max))
-                end_of_day_utc = end_of_day.astimezone(pytz.UTC)
-
-                # Filtres pour les tickets d'aujourd'hui
-                today_domain = [
-                    ("service_id", "=", service.id),
-                    ("created_time", ">=", fields.Datetime.to_string(start_of_day_utc)),
-                    ("created_time", "<=", fields.Datetime.to_string(end_of_day_utc)),
-                ]
-
-                # Requêtes optimisées avec gestion d'erreurs
-                tickets_today = service._get_tickets_safely(today_domain)
-                waiting_tickets = service._get_tickets_safely(
-                    [("service_id", "=", service.id), ("state", "=", "waiting")]
+                # Convertir en datetime pour les requêtes
+                today_start = fields.Datetime.to_string(
+                    datetime.combine(today, time.min)
+                )
+                today_end = fields.Datetime.to_string(
+                    datetime.combine(tomorrow, time.min)
                 )
 
-                # Calculs des statistiques
-                service.total_tickets_today = len(tickets_today)
-                service.waiting_count = len(waiting_tickets)
+                # Requêtes sécurisées avec gestion d'erreurs
+                try:
+                    # Tickets d'aujourd'hui
+                    today_tickets = service.env["queue.ticket"].search(
+                        [
+                            ("service_id", "=", service.id),
+                            ("created_time", ">=", today_start),
+                            ("created_time", "<", today_end),
+                        ]
+                    )
 
-                # Calcul du temps d'attente moyen
-                service.avg_waiting_time = service._calculate_avg_waiting_time(
-                    tickets_today
-                )
+                    # Tickets en attente
+                    waiting_tickets = service.env["queue.ticket"].search(
+                        [("service_id", "=", service.id), ("state", "=", "waiting")]
+                    )
 
-                # Calcul de la note moyenne
-                service.average_rating = service._calculate_average_rating(
-                    tickets_today
-                )
+                    # Calculs de base
+                    service.total_tickets_today = len(today_tickets)
+                    service.waiting_count = len(waiting_tickets)
+
+                    # CORRECTION CRITIQUE: Calcul du temps d'attente moyen
+                    served_tickets_with_wait = today_tickets.filtered(
+                        lambda t: t.state == "served"
+                        and t.waiting_time
+                        and t.waiting_time > 0
+                    )
+
+                    if served_tickets_with_wait:
+                        total_wait_time = sum(
+                            t.waiting_time for t in served_tickets_with_wait
+                        )
+                        service.avg_waiting_time = total_wait_time / len(
+                            served_tickets_with_wait
+                        )
+                    else:
+                        service.avg_waiting_time = 0.0
+
+                except Exception as query_error:
+                    _logger.error(
+                        f"Erreur requête stats service {service.id}: {query_error}"
+                    )
+                    service.total_tickets_today = 0
+                    service.waiting_count = 0
+                    service.avg_waiting_time = 0.0
 
             except Exception as e:
-                # En cas d'erreur, définir des valeurs par défaut
-                self._log_computation_error(e, service)
-                service._set_default_stats()
+                _logger.error(f"Erreur globale stats service {service.id}: {e}")
+                service.total_tickets_today = 0
+                service.waiting_count = 0
+                service.avg_waiting_time = 0.0
 
     def _get_tickets_safely(self, domain):
         """Récupère les tickets avec gestion d'erreurs"""
@@ -645,232 +663,208 @@ class QueueService(models.Model):
         return next_available
 
     # Dans le modèle queue.service.py
+    # 4. CORRECTION de get_dashboard_data - Version simplifiée et robuste
     @api.model
     def get_dashboard_data(self):
-        """
-        Données pour le tableau de bord - Version robuste avec gestion d'erreurs avancée
-        et récupération optimisée des tickets
-        """
+        """Version SIMPLIFIÉE et ROBUSTE pour corriger les problèmes d'affichage"""
         try:
-            # 1. INITIALISATION ET VALIDATION DE BASE
-            today = fields.Date.today()
-            current_datetime = fields.Datetime.now()
-            
-            # Récupérer tous les services actifs avec validation
+            # 1. Récupération des services
             services = self.search([("active", "=", True)])
             if not services:
-                _logger.warning("Aucun service actif trouvé")
                 return self._get_empty_dashboard_data()
 
-            # 2. RÉCUPÉRATION OPTIMISÉE DES TICKETS
-            # Dates de début et fin pour aujourd'hui (avec gestion timezone)
-            user_tz = self.env.user.tz or 'UTC'
-            try:
-                import pytz
-                timezone = pytz.timezone(user_tz)
-                local_today = datetime.combine(today, time.min)
-                local_today = timezone.localize(local_today)
-                today_start_utc = local_today.astimezone(pytz.UTC)
-                
-                local_today_end = datetime.combine(today, time.max)
-                local_today_end = timezone.localize(local_today_end)
-                today_end_utc = local_today_end.astimezone(pytz.UTC)
-            except Exception as tz_error:
-                _logger.warning(f"Erreur timezone, utilisation UTC: {tz_error}")
-                today_start_utc = datetime.combine(today, time.min)
-                today_end_utc = datetime.combine(today, time.max)
+            # 2. Date d'aujourd'hui simple
+            today = fields.Date.today()
+            tomorrow = today + timedelta(days=1)
+            today_start = fields.Datetime.to_string(datetime.combine(today, time.min))
+            today_end = fields.Datetime.to_string(datetime.combine(tomorrow, time.min))
 
-            # Récupération sécurisée des tickets d'aujourd'hui
-            all_tickets_today = self._get_tickets_safely([
-                ("created_time", ">=", fields.Datetime.to_string(today_start_utc)),
-                ("created_time", "<=", fields.Datetime.to_string(today_end_utc)),
-                ("service_id", "in", services.ids),
-            ], "tickets d'aujourd'hui")
+            # 3. Récupération des tickets avec requêtes simples
+            all_tickets_today = self.env["queue.ticket"].search(
+                [
+                    ("created_time", ">=", today_start),
+                    ("created_time", "<", today_end),
+                    ("service_id", "in", services.ids),
+                ]
+            )
 
-            # Récupération robuste des tickets en attente (tous, pas seulement d'aujourd'hui)
-            waiting_tickets = self._get_tickets_safely([
-                ("state", "=", "waiting"),
-                ("service_id", "in", services.ids)
-            ], "tickets en attente")
+            waiting_tickets = self.env["queue.ticket"].search(
+                [("state", "=", "waiting"), ("service_id", "in", services.ids)]
+            )
 
-            # Récupération des tickets en cours de service
-            serving_tickets = self._get_tickets_safely([
-                ("state", "=", "serving"),
-                ("service_id", "in", services.ids)
-            ], "tickets en service")
+            serving_tickets = self.env["queue.ticket"].search(
+                [("state", "=", "serving"), ("service_id", "in", services.ids)]
+            )
 
-            # 3. VALIDATION DE LA COHÉRENCE DES DONNÉES
-            # Vérifier que les relations sont correctes
-            valid_waiting_tickets = waiting_tickets.filtered(lambda t: t.service_id.id in services.ids)
-            if len(valid_waiting_tickets) != len(waiting_tickets):
-                _logger.warning(f"Incohérence détectée: {len(waiting_tickets) - len(valid_waiting_tickets)} tickets en attente avec service invalide")
-                waiting_tickets = valid_waiting_tickets
-
-            valid_serving_tickets = serving_tickets.filtered(lambda t: t.service_id.id in services.ids)
-            if len(valid_serving_tickets) != len(serving_tickets):
-                _logger.warning(f"Incohérence détectée: {len(serving_tickets) - len(valid_serving_tickets)} tickets en service avec service invalide")
-                serving_tickets = valid_serving_tickets
-
-            # 4. CONSTRUCTION DES DONNÉES PAR SERVICE
+            # 4. Construction des données par service
             services_data = []
-            total_waiting_global = 0
-            total_serving_global = 0
-            total_served_today = 0
-            total_tickets_today = len(all_tickets_today)
+            total_waiting = 0
+            total_serving = 0
+            total_served = 0
             all_wait_times = []
 
             for service in services:
-                try:
-                    # Filtrage sécurisé des tickets par service
-                    service_tickets_today = self._filter_tickets_by_service(all_tickets_today, service.id)
-                    service_waiting = self._filter_tickets_by_service(waiting_tickets, service.id)
-                    service_serving = self._filter_tickets_by_service(serving_tickets, service.id)
-                    
-                    # Tickets servis aujourd'hui avec validation d'état
-                    service_served_today = service_tickets_today.filtered(
-                        lambda t: hasattr(t, 'state') and t.state == "served"
-                    )
+                # Filtres par service
+                service_tickets_today = all_tickets_today.filtered(
+                    lambda t: t.service_id.id == service.id
+                )
+                service_waiting = waiting_tickets.filtered(
+                    lambda t: t.service_id.id == service.id
+                )
+                service_serving = serving_tickets.filtered(
+                    lambda t: t.service_id.id == service.id
+                )
+                service_served = service_tickets_today.filtered(
+                    lambda t: t.state == "served"
+                )
 
-                    # Comptes avec validation
-                    waiting_count = len(service_waiting) if service_waiting else 0
-                    serving_count = len(service_serving) if service_serving else 0
-                    served_count = len(service_served_today) if service_served_today else 0
-                    tickets_today_count = len(service_tickets_today) if service_tickets_today else 0
+                # Comptages
+                waiting_count = len(service_waiting)
+                serving_count = len(service_serving)
+                served_count = len(service_served)
 
-                    # Calcul robuste du temps d'attente moyen
-                    service_avg_wait = self._calculate_service_avg_wait_time(service_served_today)
-                    if service_avg_wait > 0:
-                        all_wait_times.append(service_avg_wait)
+                # CALCUL CORRIGÉ du temps d'attente moyen
+                served_with_wait = service_served.filtered(
+                    lambda t: t.waiting_time and t.waiting_time > 0
+                )
+                avg_wait = 0.0
+                if served_with_wait:
+                    total_wait = sum(t.waiting_time for t in served_with_wait)
+                    avg_wait = total_wait / len(served_with_wait)
+                    all_wait_times.append(avg_wait)
 
-                    # Mise à jour des compteurs globaux
-                    total_waiting_global += waiting_count
-                    total_serving_global += serving_count
-                    total_served_today += served_count
+                # Mise à jour des totaux
+                total_waiting += waiting_count
+                total_serving += serving_count
+                total_served += served_count
 
-                    # Calcul du pourcentage de capacité avec protection division par zéro
-                    max_capacity = max(service.max_tickets_per_day or 1, 1)
-                    capacity_percentage = min(round((tickets_today_count / max_capacity * 100), 1), 100)
-
-                    # Validation du numéro de ticket actuel
-                    current_ticket = self._validate_current_ticket_number(service, service_tickets_today)
-
-                    # Construction des données du service
-                    service_data = {
-                        "id": service.id,
-                        "name": service.name or "Service sans nom",
-                        "is_open": bool(service.is_open),
-                        "waiting_count": waiting_count,
-                        "serving_count": serving_count,
-                        "served_count": served_count,
-                        "total_tickets_today": tickets_today_count,
-                        "current_ticket": current_ticket,
-                        "avg_waiting_time": round(service_avg_wait, 1),
-                        "estimated_service_time": service.estimated_service_time or 15,
-                        "max_capacity": max_capacity,
-                        "capacity_percentage": capacity_percentage,
-                        "is_available": self._check_service_availability(service),
-                    }
-
-                    services_data.append(service_data)
-
-                except Exception as service_error:
-                    _logger.error(f"Erreur traitement service {service.id} ({service.name}): {service_error}")
-                    # Ajouter des données par défaut pour éviter de casser le dashboard
-                    services_data.append(self._get_default_service_data(service))
-
-            # 5. CONSTRUCTION DES DONNÉES DES TICKETS EN ATTENTE
-            waiting_tickets_data = self._build_waiting_tickets_data(waiting_tickets)
-
-            # 6. CONSTRUCTION DES DONNÉES DES TICKETS EN SERVICE
-            serving_tickets_data = self._build_serving_tickets_data(serving_tickets)
-
-            # 7. CALCUL DES STATISTIQUES GLOBALES
-            stats = self._calculate_global_statistics(
-                all_tickets_today, total_served_today, total_waiting_global, 
-                total_serving_global, all_wait_times, services
-            )
-
-            # 8. CONSTRUCTION DE LA RÉPONSE FINALE
-            dashboard_data = {
-                "services": services_data,
-                "waiting_tickets": waiting_tickets_data,
-                "serving_tickets": serving_tickets_data,
-                "stats": stats,
-                "last_update": current_datetime.strftime("%H:%M:%S"),
-                "timezone": user_tz,
-                "data_integrity": {
-                    "total_services_processed": len(services),
-                    "successful_services": len([s for s in services_data if s.get('id')]),
-                    "data_timestamp": current_datetime.isoformat(),
+                # Données du service
+                service_data = {
+                    "id": service.id,
+                    "name": service.name,
+                    "is_open": service.is_open,
+                    "waiting_count": waiting_count,
+                    "serving_count": serving_count,
+                    "served_count": served_count,
+                    "total_tickets_today": len(service_tickets_today),
+                    "current_ticket": service.current_ticket_number or 0,
+                    "avg_waiting_time": round(avg_wait, 1),  # VALEUR CORRIGÉE
+                    "estimated_service_time": service.estimated_service_time or 15,
                 }
+                services_data.append(service_data)
+
+            # 5. Statistiques globales
+            global_avg_wait = (
+                sum(all_wait_times) / len(all_wait_times) if all_wait_times else 0.0
+            )
+            total_tickets = len(all_tickets_today)
+
+            stats = {
+                "total_tickets": total_tickets,
+                "completed_tickets": total_served,
+                "waiting_tickets": total_waiting,
+                "serving_tickets": total_serving,
+                "average_wait_time": round(global_avg_wait, 1),  # STATISTIQUE CORRIGÉE
+                "completion_rate": (
+                    round((total_served / total_tickets * 100), 1)
+                    if total_tickets > 0
+                    else 0
+                ),
+                "active_services": len(services.filtered("is_open")),
             }
 
-            # 9. VALIDATION FINALE
-            self._validate_dashboard_data(dashboard_data)
+            # 6. Construction des données des tickets
+            waiting_tickets_data = []
+            for ticket in waiting_tickets.sorted(
+                lambda t: (t.service_id.id, t.ticket_number)
+            ):
+                waiting_tickets_data.append(
+                    {
+                        "id": ticket.id,
+                        "number": ticket.ticket_number,
+                        "service_name": ticket.service_id.name,
+                        "customer_name": ticket.customer_name or "Client Anonyme",
+                        "created_time": (
+                            ticket.created_time.strftime("%H:%M")
+                            if ticket.created_time
+                            else ""
+                        ),
+                        "estimated_wait": round(ticket.estimated_wait_time, 1),
+                        "waiting_duration": round(
+                            ticket.waiting_time, 1
+                        ),  # DURÉE D'ATTENTE ACTUELLE
+                    }
+                )
 
-            return dashboard_data
+            return {
+                "services": services_data,
+                "waiting_tickets": waiting_tickets_data,
+                "serving_tickets": [],  # À implémenter si nécessaire
+                "stats": stats,
+                "last_update": fields.Datetime.now().strftime("%H:%M:%S"),
+            }
 
-        except Exception as global_error:
-            _logger.error(f"Erreur globale dans get_dashboard_data: {global_error}")
-            return self._get_error_dashboard_data(str(global_error))
+        except Exception as e:
+            _logger.error(f"Erreur dans get_dashboard_data: {e}")
+            return self._get_error_dashboard_data(str(e))
 
+    # 5. AJOUT d'une méthode pour forcer la mise à jour des statistiques
+    def force_refresh_stats(self):
+        """Force la mise à jour des statistiques - À appeler depuis l'interface"""
+        try:
+            # Forcer le recalcul des temps d'attente pour tous les tickets
+            tickets = self.env["queue.ticket"].search([("service_id", "in", self.ids)])
+            tickets._compute_waiting_time()
 
+            # Forcer le recalcul des statistiques des services
+            self._compute_stats()
 
+            # Invalider le cache
+            self.invalidate_cache()
 
+            return True
+        except Exception as e:
+            _logger.error(f"Erreur refresh stats: {e}")
+            return False
 
+    # 6. MÉTHODE DE DÉBOGAGE pour identifier les problèmes
+    @api.model
+    def debug_waiting_times(self):
+        """Méthode de debug pour analyser les temps d'attente"""
+        services = self.search([("active", "=", True)])
+        debug_info = {}
 
+        for service in services:
+            tickets = service.ticket_ids.filtered(
+                lambda t: t.created_time.date() == fields.Date.today()
+            )
 
+            debug_info[service.name] = {
+                "total_tickets": len(tickets),
+                "tickets_with_waiting_time": len(
+                    tickets.filtered(lambda t: t.waiting_time > 0)
+                ),
+                "served_tickets": len(tickets.filtered(lambda t: t.state == "served")),
+                "avg_waiting_time_computed": service.avg_waiting_time,
+                "ticket_details": [
+                    {
+                        "number": t.ticket_number,
+                        "state": t.state,
+                        "waiting_time": t.waiting_time,
+                        "created": (
+                            t.created_time.strftime("%H:%M")
+                            if t.created_time
+                            else "N/A"
+                        ),
+                        "called": (
+                            t.called_time.strftime("%H:%M") if t.called_time else "N/A"
+                        ),
+                    }
+                    for t in tickets[:5]  # 5 premiers tickets pour debug
+                ],
+            }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return debug_info
 
     def _get_tickets_safely(self, domain, description="tickets"):
         """Récupération sécurisée des tickets avec gestion d'erreurs"""
@@ -887,8 +881,10 @@ class QueueService(models.Model):
         try:
             if not tickets:
                 return self.env["queue.ticket"]
-            
-            filtered_tickets = tickets.filtered(lambda t: hasattr(t, 'service_id') and t.service_id.id == service_id)
+
+            filtered_tickets = tickets.filtered(
+                lambda t: hasattr(t, "service_id") and t.service_id.id == service_id
+            )
             return filtered_tickets
         except Exception as e:
             _logger.warning(f"Erreur filtrage tickets service {service_id}: {e}")
@@ -899,22 +895,28 @@ class QueueService(models.Model):
         try:
             if not served_tickets:
                 return 0.0
-                
+
             valid_wait_times = []
             for ticket in served_tickets:
                 try:
-                    if hasattr(ticket, 'waiting_time') and ticket.waiting_time and ticket.waiting_time > 0:
+                    if (
+                        hasattr(ticket, "waiting_time")
+                        and ticket.waiting_time
+                        and ticket.waiting_time > 0
+                    ):
                         wait_time = float(ticket.waiting_time)
                         if 0 < wait_time < 1440:  # Maximum 24h en minutes
                             valid_wait_times.append(wait_time)
                 except (ValueError, TypeError) as e:
-                    _logger.debug(f"Temps d'attente invalide pour ticket {ticket.id}: {e}")
+                    _logger.debug(
+                        f"Temps d'attente invalide pour ticket {ticket.id}: {e}"
+                    )
                     continue
 
             if valid_wait_times:
                 return sum(valid_wait_times) / len(valid_wait_times)
             return 0.0
-            
+
         except Exception as e:
             _logger.warning(f"Erreur calcul temps attente moyen: {e}")
             return 0.0
@@ -923,19 +925,23 @@ class QueueService(models.Model):
         """Validation et correction du numéro de ticket actuel"""
         try:
             stored_number = service.current_ticket_number or 0
-            
+
             if service_tickets:
-                max_ticket_number = max(service_tickets.mapped('ticket_number') + [0])
+                max_ticket_number = max(service_tickets.mapped("ticket_number") + [0])
                 if stored_number != max_ticket_number:
-                    _logger.info(f"Correction numéro ticket service {service.id}: {stored_number} -> {max_ticket_number}")
+                    _logger.info(
+                        f"Correction numéro ticket service {service.id}: {stored_number} -> {max_ticket_number}"
+                    )
                     # Correction automatique (optionnelle)
                     # service.sudo().current_ticket_number = max_ticket_number
                     return max_ticket_number
-            
+
             return stored_number
-            
+
         except Exception as e:
-            _logger.warning(f"Erreur validation numéro ticket service {service.id}: {e}")
+            _logger.warning(
+                f"Erreur validation numéro ticket service {service.id}: {e}"
+            )
             return service.current_ticket_number or 0
 
     def _check_service_availability(self, service):
@@ -943,21 +949,29 @@ class QueueService(models.Model):
         try:
             if not service.is_open:
                 return False
-                
-            return service.is_service_available() if hasattr(service, 'is_service_available') else True
-            
+
+            return (
+                service.is_service_available()
+                if hasattr(service, "is_service_available")
+                else True
+            )
+
         except Exception as e:
-            _logger.warning(f"Erreur vérification disponibilité service {service.id}: {e}")
+            _logger.warning(
+                f"Erreur vérification disponibilité service {service.id}: {e}"
+            )
             return bool(service.is_open)
 
     def _build_waiting_tickets_data(self, waiting_tickets):
         """Construction robuste des données des tickets en attente"""
         waiting_tickets_data = []
-        
+
         try:
             # Tri sécurisé des tickets
-            sorted_tickets = waiting_tickets.sorted(lambda t: (t.service_id.id, t.ticket_number))
-            
+            sorted_tickets = waiting_tickets.sorted(
+                lambda t: (t.service_id.id, t.ticket_number)
+            )
+
             # Grouper par service pour calculer les positions
             tickets_by_service = {}
             for ticket in sorted_tickets:
@@ -972,12 +986,12 @@ class QueueService(models.Model):
                 sorted_service_tickets = sorted(
                     service_tickets,
                     key=lambda t: (
-                        self._get_priority_order(getattr(t, 'priority', 'normal')),
-                        getattr(t, 'ticket_number', 0)
+                        self._get_priority_order(getattr(t, "priority", "normal")),
+                        getattr(t, "ticket_number", 0),
                     ),
-                    reverse=True  # Priorité haute en premier
+                    reverse=True,  # Priorité haute en premier
                 )
-                
+
                 for position, ticket in enumerate(sorted_service_tickets, 1):
                     try:
                         ticket_data = {
@@ -991,15 +1005,21 @@ class QueueService(models.Model):
                                 if ticket.created_time
                                 else ""
                             ),
-                            "estimated_wait": round(getattr(ticket, 'estimated_wait_time', 0), 1),
-                            "priority": getattr(ticket, 'priority', 'normal'),
+                            "estimated_wait": round(
+                                getattr(ticket, "estimated_wait_time", 0), 1
+                            ),
+                            "priority": getattr(ticket, "priority", "normal"),
                             "position_in_queue": position,
-                            "waiting_duration": self._calculate_waiting_duration(ticket),
+                            "waiting_duration": self._calculate_waiting_duration(
+                                ticket
+                            ),
                         }
                         waiting_tickets_data.append(ticket_data)
-                        
+
                     except Exception as ticket_error:
-                        _logger.warning(f"Erreur construction données ticket {ticket.id}: {ticket_error}")
+                        _logger.warning(
+                            f"Erreur construction données ticket {ticket.id}: {ticket_error}"
+                        )
                         continue
 
         except Exception as e:
@@ -1010,15 +1030,17 @@ class QueueService(models.Model):
     def _build_serving_tickets_data(self, serving_tickets):
         """Construction robuste des données des tickets en service"""
         serving_tickets_data = []
-        
+
         try:
-            sorted_tickets = serving_tickets.sorted(lambda t: (t.service_id.id, t.served_time or t.created_time))
-            
+            sorted_tickets = serving_tickets.sorted(
+                lambda t: (t.service_id.id, t.served_time or t.created_time)
+            )
+
             for ticket in sorted_tickets:
                 try:
                     # Calcul durée de service
                     service_duration = self._calculate_service_duration(ticket)
-                    
+
                     # Nom de l'agent
                     agent_name = self._get_agent_name(ticket)
 
@@ -1035,12 +1057,16 @@ class QueueService(models.Model):
                         ),
                         "service_duration": round(service_duration, 1),
                         "agent_name": agent_name,
-                        "progress_indicator": self._get_service_progress(ticket, service_duration),
+                        "progress_indicator": self._get_service_progress(
+                            ticket, service_duration
+                        ),
                     }
                     serving_tickets_data.append(ticket_data)
-                    
+
                 except Exception as ticket_error:
-                    _logger.warning(f"Erreur construction données ticket en service {ticket.id}: {ticket_error}")
+                    _logger.warning(
+                        f"Erreur construction données ticket en service {ticket.id}: {ticket_error}"
+                    )
                     continue
 
         except Exception as e:
@@ -1075,9 +1101,9 @@ class QueueService(models.Model):
     def _get_agent_name(self, ticket):
         """Récupération du nom de l'agent"""
         try:
-            if hasattr(ticket, 'write_uid') and ticket.write_uid:
+            if hasattr(ticket, "write_uid") and ticket.write_uid:
                 return ticket.write_uid.name
-            elif hasattr(ticket, 'create_uid') and ticket.create_uid:
+            elif hasattr(ticket, "create_uid") and ticket.create_uid:
                 return ticket.create_uid.name
             return "Agent Inconnu"
         except Exception as e:
@@ -1095,18 +1121,31 @@ class QueueService(models.Model):
         except Exception:
             return 0.0
 
-    def _calculate_global_statistics(self, all_tickets, served_today, waiting_global, 
-                                    serving_global, wait_times, services):
+    def _calculate_global_statistics(
+        self,
+        all_tickets,
+        served_today,
+        waiting_global,
+        serving_global,
+        wait_times,
+        services,
+    ):
         """Calcul des statistiques globales avec protection d'erreurs"""
         try:
-            cancelled_today = len([t for t in all_tickets if getattr(t, 'state', None) == 'cancelled'])
-            no_show_today = len([t for t in all_tickets if getattr(t, 'state', None) == 'no_show'])
-            
+            cancelled_today = len(
+                [t for t in all_tickets if getattr(t, "state", None) == "cancelled"]
+            )
+            no_show_today = len(
+                [t for t in all_tickets if getattr(t, "state", None) == "no_show"]
+            )
+
             total_tickets = len(all_tickets)
             global_avg_wait = sum(wait_times) / len(wait_times) if wait_times else 0
-            
-            completion_rate = (served_today / total_tickets * 100) if total_tickets > 0 else 0
-            active_services = len([s for s in services if getattr(s, 'is_open', False)])
+
+            completion_rate = (
+                (served_today / total_tickets * 100) if total_tickets > 0 else 0
+            )
+            active_services = len([s for s in services if getattr(s, "is_open", False)])
 
             return {
                 "total_tickets": total_tickets,
@@ -1119,7 +1158,9 @@ class QueueService(models.Model):
                 "completion_rate": round(completion_rate, 1),
                 "active_services": active_services,
                 "total_services": len(services),
-                "efficiency_rate": round(completion_rate, 1) if completion_rate > 0 else 0,
+                "efficiency_rate": (
+                    round(completion_rate, 1) if completion_rate > 0 else 0
+                ),
             }
         except Exception as e:
             _logger.error(f"Erreur calcul statistiques globales: {e}")
@@ -1129,7 +1170,7 @@ class QueueService(models.Model):
         """Données par défaut en cas d'erreur pour un service"""
         return {
             "id": service.id,
-            "name": getattr(service, 'name', 'Service en erreur'),
+            "name": getattr(service, "name", "Service en erreur"),
             "is_open": False,
             "waiting_count": 0,
             "serving_count": 0,
@@ -1185,22 +1226,22 @@ class QueueService(models.Model):
 
     def _validate_dashboard_data(self, data):
         """Validation finale des données du dashboard"""
-        required_keys = ['services', 'waiting_tickets', 'serving_tickets', 'stats']
-        
+        required_keys = ["services", "waiting_tickets", "serving_tickets", "stats"]
+
         for key in required_keys:
             if key not in data:
                 _logger.warning(f"Clé manquante dans dashboard_data: {key}")
-                data[key] = [] if key != 'stats' else self._get_default_stats()
-        
+                data[key] = [] if key != "stats" else self._get_default_stats()
+
         # Validation des services
-        if not isinstance(data['services'], list):
+        if not isinstance(data["services"], list):
             _logger.error("Format invalide pour 'services'")
-            data['services'] = []
-        
+            data["services"] = []
+
         # Validation des stats
-        if not isinstance(data['stats'], dict):
+        if not isinstance(data["stats"], dict):
             _logger.error("Format invalide pour 'stats'")
-            data['stats'] = self._get_default_stats()
+            data["stats"] = self._get_default_stats()
 
     def clear_stats_cache(self):
         """Vider le cache des statistiques - méthode robuste"""
@@ -1218,7 +1259,7 @@ class QueueService(models.Model):
         """Version simplifiée et ultra-robuste pour les cas d'urgence"""
         try:
             services = self.search([("active", "=", True)])
-            
+
             simple_data = {
                 "services": [
                     {
@@ -1232,14 +1273,14 @@ class QueueService(models.Model):
                 ],
                 "stats": {
                     "total_services": len(services),
-                    "active_services": len(services.filtered('is_open')),
+                    "active_services": len(services.filtered("is_open")),
                 },
                 "last_update": fields.Datetime.now().strftime("%H:%M:%S"),
                 "mode": "simple",
             }
-            
+
             return simple_data
-            
+
         except Exception as e:
             _logger.error(f"Erreur même dans la version simple: {e}")
             return {
@@ -1248,51 +1289,6 @@ class QueueService(models.Model):
                 "last_update": fields.Datetime.now().strftime("%H:%M:%S"),
                 "error_message": str(e),
             }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def toggle_service_status(self):
         """Basculer l'état ouvert/fermé du service"""

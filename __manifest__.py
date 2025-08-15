@@ -99,6 +99,7 @@ Ce module est prêt pour la production et peut être étendu selon vos besoins s
         "wizard/action_maintenance_wizard_views.xml",
         # Rapports
         "views/queue_dashboard_views.xml",
+        "views/user_guide_templates.xml",
         "views/queue_menus.xml",
 
     ],
@@ -107,6 +108,7 @@ Ce module est prêt pour la production et peut être étendu selon vos besoins s
             "queue_management/static/src/css/queue_dashboard.css",
             "queue_management/static/src/js/queue_dashboard.js",
             "queue_management/static/src/xml/queue_dashboard.xml",
+            "queue_management/static/src/js/user_menu.js",
         ],
         "web.assets_frontend": [
             "queue_management/static/src/css/queue_website.css",

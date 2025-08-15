@@ -342,55 +342,73 @@ class QueueController(http.Controller):
     # Corrections à ajouter dans controllers/main.py
     @http.route('/queue/cancel_ticket', type='json', auth='public', methods=['POST'], csrf=False)
     def cancel_ticket(self, ticket_number, service_id, reason='', **kwargs):
-        """Annuler un ticket via l'interface publique"""
+        """Annuler un ticket via l'interface publique - VERSION CORRIGÉE"""
         try:
-            # Validation des paramètres
+            # Validation stricte des paramètres
             if not ticket_number or not service_id:
+                _logger.warning("Tentative d'annulation avec paramètres manquants")
                 return {'success': False, 'error': 'Numéro de ticket et ID de service requis'}
             
-            # Chercher le ticket
+            # Conversion des paramètres avec gestion d'erreur
+            try:
+                ticket_number = int(ticket_number)
+                service_id = int(service_id)
+            except (ValueError, TypeError):
+                _logger.warning(f"Paramètres invalides: ticket_number={ticket_number}, service_id={service_id}")
+                return {'success': False, 'error': 'Paramètres invalides'}
+            
+            # Chercher le ticket avec des critères stricts
             ticket = request.env['queue.ticket'].sudo().search([
-                ('ticket_number', '=', int(ticket_number)),
-                ('service_id', '=', int(service_id)),
+                ('ticket_number', '=', ticket_number),
+                ('service_id', '=', service_id),
                 ('state', 'in', ['waiting', 'called'])
             ], limit=1)
             
             if not ticket:
+                _logger.info(f"Ticket non trouvé: #{ticket_number} pour service {service_id}")
                 return {'success': False, 'error': 'Ticket non trouvé ou déjà traité'}
             
-            # Vérifier si l'annulation est autorisée par la configuration
-            config = request.env['queue.config'].sudo().search([], limit=1)
-            if config and not config.allow_ticket_cancellation:
-                return {'success': False, 'error': 'L\'annulation de tickets n\'est pas autorisée'}
+            # Vérifier les permissions d'annulation (optionnel)
+            try:
+                config = request.env['queue.config'].sudo().search([], limit=1)
+                if config and hasattr(config, 'allow_ticket_cancellation') and not config.allow_ticket_cancellation:
+                    return {'success': False, 'error': 'L\'annulation de tickets n\'est pas autorisée'}
+            except Exception:
+                # Si pas de config ou erreur, on autorise par défaut
+                pass
             
             # Préparer la raison d'annulation
             if not reason:
-                reason = "Annulé par le client via l'interface web"
+                cancel_reason = "Annulé par le client via l'interface web"
             else:
-                reason = f"Annulé par le client: {reason}"
+                cancel_reason = f"Annulé par le client: {reason.strip()}"
             
-            # Annuler le ticket
+            # Annuler le ticket avec toutes les informations nécessaires
             ticket.write({
                 'state': 'cancelled',
-                'notes': reason,
-                'end_time': fields.Datetime.now()
+                'notes': cancel_reason,
+                'completed_time': fields.Datetime.now()  # Marquer la fin
             })
             
-            # Log de l'annulation
-            _logger.info(f"Ticket #{ticket.ticket_number} du service {ticket.service_id.name} annulé par le client. Raison: {reason}")
+            # Log pour traçabilité
+            _logger.info(f"Ticket #{ticket.ticket_number} du service '{ticket.service_id.name}' annulé par le client. Raison: {cancel_reason}")
+            
+            # Ajouter un message de suivi
+            ticket.message_post(body=f"Ticket annulé par le client. Raison: {cancel_reason}")
             
             return {
                 'success': True, 
                 'message': f'Ticket #{ticket.ticket_number} annulé avec succès',
-                'ticket_number': ticket.ticket_number
+                'ticket_number': ticket.ticket_number,
+                'new_state': 'cancelled'
             }
             
         except ValueError as e:
             _logger.error(f"Erreur de validation lors de l'annulation: {str(e)}")
             return {'success': False, 'error': 'Données invalides fournies'}
         except Exception as e:
-            _logger.error(f"Erreur lors de l'annulation du ticket: {str(e)}")
-            return {'success': False, 'error': 'Une erreur est survenue lors de l\'annulation'}
+            _logger.error(f"Erreur inattendue lors de l'annulation du ticket: {str(e)}", exc_info=True)
+            return {'success': False, 'error': 'Une erreur est survenue lors de l\'annulation. Veuillez réessayer.'}
 
     @http.route('/queue/ticket_position', type='json', auth='public', methods=['POST'], csrf=False)
     def get_ticket_position(self, ticket_number, service_id, **kwargs):
@@ -439,36 +457,120 @@ class QueueController(http.Controller):
             return {'success': False, 'error': 'Erreur serveur'}
 
     @http.route('/queue/my_ticket/<int:ticket_number>/<int:service_id>', 
-                type='http', auth='public', website=True)
+            type='http', auth='public', website=True)
     def my_ticket_status(self, ticket_number, service_id):
-        """Page de suivi d'un ticket spécifique avec gestion des états"""
-        ticket = request.env['queue.ticket'].sudo().search([
-            ('ticket_number', '=', ticket_number),
-            ('service_id', '=', service_id)
-        ], limit=1)
-        
-        if not ticket:
-            return request.render('queue_management.ticket_not_found_template')
-        
-        # Calculer la position actuelle si le ticket est en attente
-        position = 0
-        if ticket.state == 'waiting':
-            tickets_before_count = request.env['queue.ticket'].sudo().search_count([
-                ('service_id', '=', ticket.service_id.id),
-                ('state', '=', 'waiting'),
-                ('ticket_number', '<', ticket.ticket_number)
-            ])
-            position = tickets_before_count + 1
+        """Page de suivi d'un ticket spécifique - VERSION CORRIGÉE"""
+        try:
+            # Recherche plus permissive pour inclure tous les états
+            ticket = request.env['queue.ticket'].sudo().search([
+                ('ticket_number', '=', ticket_number),
+                ('service_id', '=', service_id)
+            ], limit=1)
             
-            # Mettre à jour le temps d'attente estimé
-            if position > 0:
-                avg_service_time = ticket.service_id.avg_waiting_time or 5
-                estimated_wait = position * avg_service_time
-                if abs(ticket.estimated_wait_time - estimated_wait) > 2:  # Seulement si différence > 2 min
-                    ticket.sudo().write({'estimated_wait_time': estimated_wait})
+            if not ticket:
+                return request.render('queue_management.ticket_not_found_template', {
+                    'ticket_number': ticket_number,
+                    'service_id': service_id
+                })
+            
+            # Calculer la position actuelle si le ticket est en attente
+            position = 0
+            if ticket.state == 'waiting':
+                tickets_before_count = request.env['queue.ticket'].sudo().search_count([
+                    ('service_id', '=', ticket.service_id.id),
+                    ('state', '=', 'waiting'),
+                    ('ticket_number', '<', ticket.ticket_number)
+                ])
+                position = tickets_before_count + 1
+                
+                # Mettre à jour le temps d'attente estimé si nécessaire
+                if position > 0:
+                    avg_service_time = ticket.service_id.estimated_service_time or 5
+                    estimated_wait = position * avg_service_time
+                    if abs(ticket.estimated_wait_time - estimated_wait) > 2:
+                        ticket.sudo().write({'estimated_wait_time': estimated_wait})
+            
+            return request.render('queue_management.my_ticket_template', {
+                'ticket': ticket,
+                'service': ticket.service_id,
+                'position': position
+            })
+            
+        except Exception as e:
+            _logger.error(f"Erreur lors de l'affichage du ticket {ticket_number}: {str(e)}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors du chargement des informations du ticket'
+            })
+
+    # Ajoutez cette route dans votre controllers/main.py
+    @http.route('/queue/debug/stats', type='json', auth='user', methods=['GET'], csrf=False)
+    def debug_statistics(self, **kwargs):
+        """Route de debug pour analyser les problèmes de statistiques"""
+        if not request.env.user.has_group('queue_management.group_queue_user'):
+            return {'error': 'Accès non autorisé'}
         
-        return request.render('queue_management.my_ticket_template', {
-            'ticket': ticket,
-            'service': ticket.service_id,
-            'position': position
-        })
+        try:
+            services = request.env['queue.service'].search([('active', '=', True)])
+            debug_data = {}
+            
+            for service in services:
+                # Forcer le recalcul
+                service.force_refresh_stats()
+                
+                today_tickets = service.ticket_ids.filtered(
+                    lambda t: t.created_time and t.created_time.date() == fields.Date.today()
+                )
+                
+                debug_data[service.name] = {
+                    'service_id': service.id,
+                    'total_tickets_today': len(today_tickets),
+                    'avg_waiting_time': service.avg_waiting_time,
+                    'waiting_count': service.waiting_count,
+                    'tickets_details': [
+                        {
+                            'number': t.ticket_number,
+                            'state': t.state,
+                            'waiting_time': t.waiting_time,
+                            'created_time': t.created_time.isoformat() if t.created_time else None,
+                            'called_time': t.called_time.isoformat() if t.called_time else None,
+                        }
+                        for t in today_tickets[:3]
+                    ]
+                }
+            
+            return {
+                'success': True,
+                'debug_data': debug_data,
+                'timestamp': fields.Datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            _logger.error(f"Erreur debug statistiques: {e}")
+            return {'success': False, 'error': str(e)}
+
+    @http.route('/queue/force_refresh', type='json', auth='user', methods=['POST'], csrf=False)
+    def force_refresh_statistics(self, **kwargs):
+        """Force le rafraîchissement des statistiques"""
+        if not request.env.user.has_group('queue_management.group_queue_user'):
+            return {'error': 'Accès non autorisé'}
+        
+        try:
+            services = request.env['queue.service'].search([('active', '=', True)])
+            
+            # Forcer le recalcul pour tous les services
+            for service in services:
+                service.force_refresh_stats()
+            
+            # Récupérer les nouvelles données
+            dashboard_data = request.env['queue.service'].get_dashboard_data()
+            
+            return {
+                'success': True,
+                'message': f'{len(services)} services mis à jour',
+                'data': dashboard_data
+            }
+            
+        except Exception as e:
+            _logger.error(f"Erreur refresh forcé: {e}")
+            return {'success': False, 'error': str(e)}
+

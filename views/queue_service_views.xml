@@ -31,8 +31,8 @@
                             <field name="name" placeholder="Nom du service..." required="1"/>
                         </h1>
                         <div class="o_row">
-                            <field name="is_open" widget="boolean_toggle"/>
-                            <span class="text-muted ms-2">Service ouvert</span>
+                            <field name="is_open" widget="boolean_toggle" invisible="1"/>
+                            <!-- <span class="text-muted ms-2">Service ouvert</span> -->
                         </div>
                     </div>
 

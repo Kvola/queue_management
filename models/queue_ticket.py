@@ -93,21 +93,48 @@ class QueueTicket(models.Model):
             else:
                 ticket.qr_code = False
 
+    # 3. CORRECTION de la méthode _compute_waiting_time dans queue_ticket.py
     @api.depends('created_time', 'called_time', 'state')
     def _compute_waiting_time(self):
-        """Calcul optimisé du temps d'attente"""
+        """Calcul CORRIGÉ du temps d'attente"""
         current_time = fields.Datetime.now()
         
         for ticket in self:
-            if ticket.state in ['served', 'cancelled', 'no_show'] and ticket.called_time and ticket.created_time:
-                # Temps d'attente = temps entre création et appel
-                delta = ticket.called_time - ticket.created_time
-                ticket.waiting_time = delta.total_seconds() / 60
-            elif ticket.state == 'waiting' and ticket.created_time:
-                # Pour les tickets encore en attente, calculer le temps déjà écoulé
-                delta = current_time - ticket.created_time
-                ticket.waiting_time = delta.total_seconds() / 60
-            else:
+            try:
+                if not ticket.created_time:
+                    ticket.waiting_time = 0.0
+                    continue
+                    
+                if ticket.state in ['served', 'cancelled', 'no_show']:
+                    # Ticket terminé
+                    if ticket.called_time:
+                        # Temps entre création et appel
+                        delta = ticket.called_time - ticket.created_time
+                        ticket.waiting_time = max(0, delta.total_seconds() / 60.0)
+                    elif ticket.state == 'served' and ticket.served_time:
+                        # Si pas d'heure d'appel mais servi, utiliser l'heure de service
+                        delta = ticket.served_time - ticket.created_time
+                        ticket.waiting_time = max(0, delta.total_seconds() / 60.0)
+                    else:
+                        ticket.waiting_time = 0.0
+                        
+                elif ticket.state == 'waiting':
+                    # Ticket encore en attente - temps écoulé depuis création
+                    delta = current_time - ticket.created_time
+                    ticket.waiting_time = max(0, delta.total_seconds() / 60.0)
+                    
+                else:  # called, serving
+                    # Ticket appelé ou en service
+                    if ticket.called_time:
+                        delta = ticket.called_time - ticket.created_time
+                        ticket.waiting_time = max(0, delta.total_seconds() / 60.0)
+                    else:
+                        # Fallback si pas d'heure d'appel
+                        delta = current_time - ticket.created_time
+                        ticket.waiting_time = max(0, delta.total_seconds() / 60.0)
+                        
+            except Exception as e:
+                _logger.warning(f"Erreur calcul temps attente ticket {ticket.id}: {e}")
                 ticket.waiting_time = 0.0
 
     @api.depends('served_time', 'completed_time', 'state')
@@ -425,23 +452,71 @@ class QueueTicket(models.Model):
 
 
     def action_cancel_ticket(self, reason=None):
-        """Action pour annuler un ticket"""
+        """Action pour annuler un ticket - VERSION CORRIGÉE"""
+        self.ensure_one()
+        
+        # Vérifier l'état actuel
         if self.state not in ['waiting', 'called']:
-            raise UserError("Ce ticket ne peut plus être annulé")
-            
-        cancel_reason = reason or "Annulé"
-        self.write({
+            raise UserError(f"Ce ticket (état: {dict(self._fields['state'].selection)[self.state]}) ne peut plus être annulé")
+        
+        # Préparer la raison
+        if not reason:
+            cancel_reason = "Ticket annulé"
+        else:
+            cancel_reason = reason.strip()
+        
+        # Effectuer l'annulation
+        values_to_write = {
             'state': 'cancelled',
-            'notes': cancel_reason,
-            'end_time': fields.Datetime.now()
-        })
-            
-        # Notifier si des notifications sont configurées
-        self._notify_ticket_cancelled()
-            
+            'completed_time': fields.Datetime.now()
+        }
+        
+        # Ajouter la raison aux notes existantes
+        existing_notes = self.notes or ''
+        if existing_notes:
+            values_to_write['notes'] = f"{existing_notes}\n{cancel_reason}"
+        else:
+            values_to_write['notes'] = cancel_reason
+        
+        self.write(values_to_write)
+        
+        # Message de suivi
+        self.message_post(body=f"Ticket #{self.ticket_number} annulé. Raison: {cancel_reason}")
+        
+        # Notifier si nécessaire (méthode optionnelle)
+        try:
+            self._notify_ticket_cancelled(cancel_reason)
+        except Exception as e:
+            _logger.warning(f"Erreur lors de la notification d'annulation: {e}")
+        
         return True
         
-    def _notify_ticket_cancelled(self):
-        """Notification lors de l'annulation (optionnel)"""
-        # Implémenter ici les notifications SMS/Email si nécessaire
-        pass
+    def _notify_ticket_cancelled(self, reason=""):
+        """Notification lors de l'annulation - AMÉLIORÉE"""
+        try:
+            if self.customer_email:
+                # Créer un email de notification d'annulation
+                mail_values = {
+                    'subject': f'Ticket #{self.ticket_number} annulé - {self.service_id.name}',
+                    'body_html': f'''
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #dc3545;">Ticket Annulé</h2>
+                            <p>Bonjour,</p>
+                            <p>Votre ticket <strong>#{self.ticket_number}</strong> pour le service 
+                            <strong>{self.service_id.name}</strong> a été annulé.</p>
+                            {f"<p><strong>Raison:</strong> {reason}</p>" if reason else ""}
+                            <p>Si vous souhaitez reprendre un nouveau ticket, vous pouvez retourner sur notre système.</p>
+                            <hr style="border: 1px solid #eee; margin: 20px 0;">
+                            <p style="color: #666; font-size: 12px;">
+                                Ticket annulé le: {fields.Datetime.now().strftime('%d/%m/%Y à %H:%M')}
+                            </p>
+                        </div>
+                    ''',
+                    'email_to': self.customer_email,
+                    'auto_delete': True,
+                }
+                self.env['mail.mail'].sudo().create(mail_values).send()
+                _logger.info(f"Email d'annulation envoyé à {self.customer_email} pour ticket #{self.ticket_number}")
+                
+        except Exception as e:
+            _logger.error(f"Erreur envoi notification annulation: {e}")

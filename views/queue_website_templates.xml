@@ -3,7 +3,7 @@
         <field name="name">File d'attente</field>
         <field name="url">/queue</field>
         <field name="parent_id" ref="website.main_menu" />
-        <field name="sequence">70</field>
+        <field name="sequence">1</field>
     </record>
     <!-- Template d'accueil avec widgets améliorés -->
     <template id="queue_home_template" name="Accueil Files d'Attente">
@@ -168,7 +168,7 @@
                                                     <small class="text-muted">En attente</small>
                                                 </div>
                                                 <div class="col-6">
-                                                    <strong><t t-esc="service.avg_waiting_time"/> min</strong>
+                                                    <strong><t t-esc="round(service.avg_waiting_time, 0)"/>min</strong>
                                                     <br/>
                                                     <small class="text-muted">Attente moyenne</small>
                                                 </div>
@@ -224,7 +224,7 @@
                                         </div>
                                         <div class="col-3">
                                             <h3 class="text-warning" id="avg-wait">
-                                                <t t-esc="service.avg_waiting_time"/> min
+                                                <t t-esc="round(service.avg_waiting_time, 0)"/> min
                                             </h3>
                                             <small>Attente moyenne</small>
                                         </div>
@@ -482,6 +482,7 @@
     </template>
 
     <!-- Template de suivi de ticket individuel -->
+    <!-- Template de suivi de ticket individuel - CORRIGÉ -->
     <template id="my_ticket_template" name="Mon Ticket">
         <t t-call="website.layout">
             <div id="wrap">
@@ -511,20 +512,28 @@
                                             <h4 t-if="ticket.state == 'served'" class="text-success">
                                                 <i class="fa fa-check"/> Terminé
                                             </h4>
+                                            <h4 t-if="ticket.state == 'cancelled'" class="text-danger">
+                                                <i class="fa fa-times"/> Annulé
+                                            </h4>
+                                            <h4 t-if="ticket.state == 'no_show'" class="text-muted">
+                                                <i class="fa fa-user-times"/> Absent
+                                            </h4>
                                         </div>
-                                        <div class="col-md-3" t-if="ticket.state == 'waiting'">
-                                            <h3 class="text-info" id="position-display">-</h3>
+                                        <div class="col-md-3" t-if="ticket.state == 'waiting' and position > 0">
+                                            <h3 class="text-info" id="position-display">
+                                                <span t-esc="position"/>
+                                            </h3>
                                             <small>Position dans la file</small>
                                         </div>
-                                        <div class="col-md-3" t-if="ticket.estimated_wait_time > 0">
+                                        <div class="col-md-3" t-if="ticket.estimated_wait_time > 0 and ticket.state == 'waiting'">
                                             <h3 class="text-warning">
-                                                <span t-esc="ticket.estimated_wait_time"/> min
+                                                <span t-esc="int(ticket.estimated_wait_time)"/> min
                                             </h3>
                                             <small>Temps d'attente estimé</small>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-3" t-if="ticket.state in ['waiting', 'called']">
                                             <h3 class="text-primary">
-                                                #<span t-esc="service.current_ticket_number"/>
+                                                #<span t-esc="service.current_ticket_number or 0"/>
                                             </h3>
                                             <small>Ticket actuellement servi</small>
                                         </div>
@@ -532,14 +541,15 @@
                                 </div>
                             </div>
 
-                            <!-- Actions -->
+                            <!-- Actions de cancellation -->
                             <div class="card" t-if="ticket.state in ['waiting', 'called']">
                                 <div class="card-body">
                                     <h5>Actions disponibles</h5>
                                     <button id="cancel-ticket-btn" class="btn btn-outline-danger"
                                             t-att-data-ticket-id="ticket.id"
                                             t-att-data-ticket-number="ticket.ticket_number"
-                                            t-att-data-service-id="service.id">
+                                            t-att-data-service-id="service.id"
+                                            t-att-data-ticket-state="ticket.state">
                                         <i class="fa fa-times"/> Annuler mon ticket
                                     </button>
                                     <p class="text-muted mt-2">
@@ -548,8 +558,21 @@
                                 </div>
                             </div>
 
-                            <!-- Auto-refresh notice -->
-                            <div class="alert alert-info mt-4">
+                            <!-- Message d'information pour les tickets terminés -->
+                            <div class="alert alert-info" t-if="ticket.state in ['served', 'cancelled', 'no_show']">
+                                <div t-if="ticket.state == 'served'">
+                                    <i class="fa fa-check-circle text-success"/> Votre ticket a été traité avec succès.
+                                </div>
+                                <div t-if="ticket.state == 'cancelled'">
+                                    <i class="fa fa-times-circle text-danger"/> Ce ticket a été annulé.
+                                </div>
+                                <div t-if="ticket.state == 'no_show'">
+                                    <i class="fa fa-exclamation-triangle text-warning"/> Vous avez été marqué comme absent.
+                                </div>
+                            </div>
+
+                            <!-- Auto-refresh notice pour tickets actifs seulement -->
+                            <div class="alert alert-info mt-4" t-if="ticket.state in ['waiting', 'called', 'serving']">
                                 <i class="fa fa-refresh"/> Cette page se met à jour automatiquement toutes les 30 secondes.
                             </div>
                         </div>
@@ -565,7 +588,8 @@
                     var ajax = require('web.ajax');
 
                     publicWidget.registry.MyTicketWidget = publicWidget.Widget.extend({
-                        selector: '#wrap',
+                        // CORRECTION: Changer le sélecteur pour cibler le conteneur principal
+                        selector: '.container',
                         events: {
                             'click #cancel-ticket-btn': '_onCancelTicket',
                         },
@@ -576,12 +600,19 @@
                         },
 
                         _onCancelTicket: function (ev) {
+                            console.log('Bouton annulation cliqué'); // Debug
                             var $btn = $(ev.currentTarget);
+                            var ticketId = $btn.data('ticket-id');
                             var ticketNumber = $btn.data('ticket-number');
                             var serviceId = $btn.data('service-id');
                             
-                            if (confirm('Êtes-vous sûr de vouloir annuler votre ticket ?')) {
+                            console.log('Données ticket:', {ticketId, ticketNumber, serviceId}); // Debug
+                            
+                            if (confirm('Êtes-vous sûr de vouloir annuler votre ticket #' + ticketNumber + ' ?')) {
                                 var reason = prompt('Raison de l\'annulation (optionnel):') || '';
+                                
+                                // Désactiver le bouton pour éviter les doubles clics
+                                $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Annulation en cours...');
                                 
                                 var data = {
                                     ticket_number: ticketNumber,
@@ -589,29 +620,104 @@
                                     reason: reason
                                 };
 
+                                console.log('Données à envoyer:', data); // Debug
+
                                 ajax.jsonRpc('/queue/cancel_ticket', 'call', data)
                                     .then(function (result) {
+                                        console.log('Résultat:', result); // Debug
                                         if (result.success) {
                                             alert('Ticket annulé avec succès');
                                             window.location.reload();
                                         } else {
-                                            alert('Erreur: ' + result.error);
+                                            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+                                            $btn.prop('disabled', false).html('<i class="fa fa-times"/> Annuler mon ticket');
                                         }
                                     })
-                                    .catch(function () {
-                                        alert('Erreur de communication');
+                                    .catch(function (error) {
+                                        console.error('Erreur AJAX:', error);
+                                        alert('Erreur de communication avec le serveur');
+                                        $btn.prop('disabled', false).html('<i class="fa fa-times"/> Annuler mon ticket');
                                     });
                             }
                         },
 
                         _startAutoRefresh: function () {
-                            setInterval(function () {
-                                window.location.reload();
-                            }, 30000);
+                            // Ne rafraîchir que si le ticket est encore actif
+                            var ticketState = this.$('[data-ticket-state]').data('ticket-state');
+                            if (ticketState &amp;&amp; ['waiting', 'called', 'serving'].includes(ticketState)) {
+                                setInterval(function () {
+                                    window.location.reload();
+                                }, 30000);
+                            }
                         },
                     });
 
                     return publicWidget.registry.MyTicketWidget;
+                });
+
+                // SOLUTION ALTERNATIVE: Si le widget Odoo ne fonctionne pas, utiliser du jQuery direct
+                $(document).ready(function() {
+                    // Attendre que la page soit complètement chargée
+                    $('#cancel-ticket-btn').on('click', function(e) {
+                        e.preventDefault();
+                        console.log('Bouton annulation cliqué (jQuery)'); // Debug
+                        
+                        var $btn = $(this);
+                        var ticketId = $btn.data('ticket-id');
+                        var ticketNumber = $btn.data('ticket-number');
+                        var serviceId = $btn.data('service-id');
+                        
+                        console.log('Données:', {ticketId, ticketNumber, serviceId}); // Debug
+                        
+                        if (confirm('Êtes-vous sûr de vouloir annuler votre ticket #' + ticketNumber + ' ?')) {
+                            var reason = prompt('Raison de l\'annulation (optionnel):') || '';
+                            
+                            // Désactiver le bouton
+                            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Annulation...');
+                            
+                            // Préparer les données
+                            var postData = {
+                                ticket_number: ticketNumber,
+                                service_id: serviceId,
+                                reason: reason
+                            };
+                            
+                            // Envoyer la requête AJAX
+                            $.ajax({
+                                url: '/queue/cancel_ticket',
+                                type: 'POST',
+                                data: JSON.stringify({
+                                    jsonrpc: '2.0',
+                                    method: 'call',
+                                    params: postData,
+                                    id: Math.random()
+                                }),
+                                contentType: 'application/json',
+                                dataType: 'json',
+                                success: function(response) {
+                                    console.log('Réponse:', response); // Debug
+                                    if (response.result &amp;&amp; response.result.success) {
+                                        alert('Ticket annulé avec succès');
+                                        window.location.reload();
+                                    } else {
+                                        var errorMsg = 'Erreur inconnue';
+                                        if (response.result &amp;&amp; response.result.error) {
+                                            errorMsg = response.result.error;
+                                        } else if (response.error) {
+                                            errorMsg = response.error.message || response.error;
+                                        }
+                                        alert('Erreur: ' + errorMsg);
+                                        $btn.prop('disabled', false).html('<i class="fa fa-times"/> Annuler mon ticket');
+                                    }
+                                },
+                                error: function(xhr, status, error) {
+                                    console.error('Erreur AJAX:', error, xhr.responseText); // Debug
+                                    alert('Erreur de communication: ' + error);
+                                    $btn.prop('disabled', false).html('<i class="fa fa-times"/> Annuler mon ticket');
+                                }
+                            });
+                        }
+                    });
                 });
             </script>
         </t>
@@ -1712,6 +1818,32 @@
                     padding: 8px 12px;
                 }
             </style>
+        </t>
+    </template>
+
+    <template id="ticket_not_found_template" name="Ticket Non Trouvé">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6">
+                            <div class="text-center">
+                                <div class="alert alert-warning">
+                                    <i class="fa fa-exclamation-triangle fa-3x mb-3"></i>
+                                    <h3>Ticket Non Trouvé</h3>
+                                    <p>Le ticket #<span t-esc="ticket_number"/> n'a pas pu être trouvé pour ce service.</p>
+                                    <p class="text-muted">
+                                        Vérifiez que vous avez utilisé le bon lien ou que le ticket n'a pas expiré.
+                                    </p>
+                                    <a href="/queue" class="btn btn-primary">
+                                        <i class="fa fa-arrow-left"/> Retour aux services
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </t>
     </template>
 
