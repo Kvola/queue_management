@@ -24,6 +24,165 @@ class QueueMaintenanceWizard(models.TransientModel):
     auto_fix = fields.Boolean('Correction Automatique', default=True,
                              help="Corriger automatiquement les problèmes détectés")
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    @api.model
+    def daily_cancellation_maintenance(self):
+        """Maintenance quotidienne des annulations"""
+        _logger.info("Début maintenance quotidienne annulations")
+        
+        config = self.env['queue.config'].get_config()
+        
+        # 1. Nettoyage automatique si activé
+        if config.auto_cleanup_cancelled_tickets:
+            cleaned_count = self.env['queue.ticket'].cleanup_old_cancelled_tickets(
+                days_to_keep=config.cleanup_delay_days
+            )
+            _logger.info(f"Nettoyage: {cleaned_count} tickets annulés supprimés")
+        
+        # 2. Rapport statistique
+        stats = self._generate_daily_cancellation_report()
+        
+        # 3. Alertes automatiques
+        self._check_cancellation_trends(stats)
+        
+        _logger.info("Fin maintenance quotidienne annulations")
+        
+        return {
+            'success': True,
+            'cleaned_tickets': cleaned_count if 'cleaned_count' in locals() else 0,
+            'stats': stats
+        }
+    
+    def _generate_daily_cancellation_report(self):
+        """Générer le rapport quotidien d'annulations"""
+        yesterday = fields.Date.today() - timedelta(days=1)
+        
+        stats = self.env['queue.ticket'].get_cancellation_statistics(
+            date_from=yesterday,
+            date_to=yesterday
+        )
+        
+        # Envoyer le rapport aux administrateurs si significatif
+        if stats['total_cancelled'] > 0:
+            self._send_daily_report(stats, yesterday)
+        
+        return stats
+    
+    def _send_daily_report(self, stats, date):
+        """Envoyer le rapport quotidien"""
+        try:
+            admin_users = self.env.ref('queue_management.group_queue_manager').users
+            
+            report_html = f"""
+                <h2>Rapport quotidien d'annulations - {date.strftime('%d/%m/%Y')}</h2>
+                <h3>Statistiques globales</h3>
+                <ul>
+                    <li>Total annulations: <strong>{stats['total_cancelled']}</strong></li>
+                </ul>
+                
+                <h3>Par type d'annulation</h3>
+                <ul>
+                    {''.join([f'<li>{k}: {v}</li>' for k, v in stats['by_type'].items()])}
+                </ul>
+                
+                <h3>Par service</h3>
+                <ul>
+                    {''.join([f'<li>{k}: {v}</li>' for k, v in stats['by_service'].items()])}
+                </ul>
+            """
+            
+            for user in admin_users:
+                if user.email:
+                    self.env['mail.mail'].sudo().create({
+                        'subject': f'Rapport quotidien annulations - {date.strftime("%d/%m/%Y")}',
+                        'body_html': report_html,
+                        'email_to': user.email,
+                        'auto_delete': True,
+                    }).send()
+                    
+        except Exception as e:
+            _logger.error(f"Erreur envoi rapport quotidien: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     def action_run_maintenance(self):
         """Exécuter la maintenance sélectionnée"""
         self.ensure_one()
@@ -339,99 +498,3 @@ class QueueDashboardActions(models.Model):
         health_checks['timestamp'] = fields.Datetime.now()
         
         return health_checks
-
-# Contrôleur pour les actions AJAX du dashboard
-from odoo import http
-from odoo.http import request
-import json
-
-class QueueDashboardController(http.Controller):
-
-    @http.route('/queue/dashboard/data', type='json', auth='user')
-    def get_dashboard_data(self):
-        """Endpoint pour récupérer les données du dashboard en AJAX"""
-        try:
-            service_model = request.env['queue.service']
-            data = service_model.get_realtime_stats(use_cache=True)
-            return {'success': True, 'data': data}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-
-    @http.route('/queue/dashboard/refresh', type='json', auth='user')  
-    def refresh_dashboard(self):
-        """Endpoint pour forcer l'actualisation"""
-        try:
-            service_model = request.env['queue.service']
-            service_model.clear_stats_cache()
-            data = service_model.get_dashboard_data()
-            return {'success': True, 'data': data}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-
-    @http.route('/queue/dashboard/kpis', type='json', auth='user')
-    def get_kpis(self):
-        """Endpoint pour les KPIs en temps réel"""
-        try:
-            service_model = request.env['queue.service']
-            kpis = service_model.get_realtime_kpis()
-            return {'success': True, 'data': kpis}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-
-    @http.route('/queue/dashboard/alerts', type='json', auth='user')
-    def get_alerts(self):
-        """Endpoint pour les alertes"""
-        try:
-            service_model = request.env['queue.service']
-            alerts = service_model.get_alerts_and_recommendations()
-            return {'success': True, 'data': alerts}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-
-    @http.route('/queue/export/<string:format>', type='http', auth='user')
-    def export_data(self, format='json'):
-        """Endpoint pour l'export de données"""
-        try:
-            service_model = request.env['queue.service']
-            export_data = service_model.export_dashboard_data(format=format)
-            
-            response = request.make_response(
-                export_data['data'] if isinstance(export_data['data'], str) else json.dumps(export_data['data']),
-                headers=[
-                    ('Content-Type', export_data['content_type']),
-                    ('Content-Disposition', f'attachment; filename="{export_data["filename"]}"')
-                ]
-            )
-            return response
-            
-        except Exception as e:
-            return request.make_response(
-                f"Erreur lors de l'export: {str(e)}",
-                status=500
-            )
-
-    @http.route('/queue/maintenance/run', type='json', auth='user')
-    def run_maintenance(self, maintenance_type='statistics_update'):
-        """Endpoint pour exécuter la maintenance"""
-        try:
-            if not request.env.user.has_group('queue_management.group_queue_manager'):
-                return {'success': False, 'error': 'Permissions insuffisantes'}
-            
-            service_model = request.env['queue.service']
-            
-            if maintenance_type == 'full':
-                result = service_model.scheduled_data_maintenance()
-            elif maintenance_type == 'integrity':
-                result = service_model.validate_data_integrity()
-            elif maintenance_type == 'stats':
-                result = service_model.bulk_update_statistics()
-            elif maintenance_type == 'cache':
-                service_model.clear_stats_cache()
-                result = {'cache_cleared': True}
-            else:
-                return {'success': False, 'error': 'Type de maintenance invalide'}
-            
-            return {'success': True, 'result': result}
-            
-        except Exception as e:
-            return {'success': False, 'error': str(e)}

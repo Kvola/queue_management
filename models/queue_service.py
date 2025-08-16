@@ -9,7 +9,6 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-
 class QueueService(models.Model):
     _name = "queue.service"
     _inherit = ["mail.thread", "mail.activity.mixin"]  # Ajout du tracking
@@ -73,6 +72,110 @@ class QueueService(models.Model):
     break_time_end = fields.Float("Fin Pause")
     lunch_break_start = fields.Float("Début Déjeuner")
     lunch_break_end = fields.Float("Fin Déjeuner")
+    # Nouveaux champs pour les statistiques d'annulation
+    cancellation_rate = fields.Float('Taux d\'annulation (%)', compute='_compute_cancellation_stats', store=True)
+    total_cancelled_today = fields.Integer('Annulations aujourd\'hui', compute='_compute_cancellation_stats', store=True)
+    avg_time_before_cancellation = fields.Float('Temps moyen avant annulation (min)', compute='_compute_cancellation_stats', store=True)
+
+    @api.model
+    def cleanup_old_statistics(self):
+        cutoff_date = datetime.now() - timedelta(days=30)
+        old_tickets = self.env['queue.ticket'].search([
+            ('created_time', '<', cutoff_date),
+            ('state', 'in', ['served', 'cancelled', 'no_show'])
+        ])
+        old_tickets.write({'active': False})
+        _logger.info(f"Archivé {len(old_tickets)} anciens tickets")
+    
+    @api.depends('ticket_ids', 'ticket_ids.state', 'ticket_ids.cancelled_time')
+    def _compute_cancellation_stats(self):
+        """Calculer les statistiques d'annulation"""
+        for service in self:
+            today = fields.Date.today()
+            
+            # Tickets d'aujourd'hui
+            today_tickets = service.ticket_ids.filtered(
+                lambda t: t.created_time and t.created_time.date() == today
+            )
+            
+            total_today = len(today_tickets)
+            cancelled_today = today_tickets.filtered(lambda t: t.state == 'cancelled')
+            
+            service.total_cancelled_today = len(cancelled_today)
+            
+            if total_today > 0:
+                service.cancellation_rate = (len(cancelled_today) / total_today) * 100
+            else:
+                service.cancellation_rate = 0.0
+            
+            # Temps moyen avant annulation
+            if cancelled_today:
+                total_wait_time = sum([
+                    (t.cancelled_time - t.created_time).total_seconds() / 60
+                    for t in cancelled_today 
+                    if t.cancelled_time and t.created_time
+                ])
+                service.avg_time_before_cancellation = total_wait_time / len(cancelled_today)
+            else:
+                service.avg_time_before_cancellation = 0.0
+    
+    def _update_cancellation_stats(self):
+        """Méthode appelée après chaque annulation pour mise à jour rapide"""
+        self._compute_cancellation_stats()
+        
+        # Alerte si taux d'annulation trop élevé
+        if self.cancellation_rate > 30:  # Plus de 30% d'annulation
+            self._send_cancellation_alert()
+    
+    def _send_cancellation_alert(self):
+        """Envoyer une alerte en cas de taux d'annulation élevé"""
+        try:
+            # Notifier les administrateurs
+            admin_users = self.env.ref('queue_management.group_queue_manager').users
+            
+            for user in admin_users:
+                self.env['mail.mail'].sudo().create({
+                    'subject': f'Alerte: Taux d\'annulation élevé - {self.name}',
+                    'body_html': f'''
+                        <h3>Alerte Taux d'Annulation</h3>
+                        <p>Le service <strong>{self.name}</strong> présente un taux d'annulation élevé:</p>
+                        <ul>
+                            <li>Taux d'annulation: <strong>{self.cancellation_rate:.1f}%</strong></li>
+                            <li>Annulations aujourd'hui: <strong>{self.total_cancelled_today}</strong></li>
+                            <li>Temps moyen avant annulation: <strong>{self.avg_time_before_cancellation:.1f} min</strong></li>
+                        </ul>
+                        <p>Veuillez vérifier la configuration du service et les temps d'attente.</p>
+                    ''',
+                    'email_to': user.email,
+                    'auto_delete': True,
+                }).send()
+                
+        except Exception as e:
+            _logger.error(f"Erreur envoi alerte annulation: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def action_generate_quick_ticket(self):
         """Générer rapidement un ticket sans dialogue - Version améliorée"""

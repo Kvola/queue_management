@@ -1,179 +1,2678 @@
 <odoo>
-    <!-- Vue formulaire Ticket -->
+    <!-- Vue formulaire Ticket - Version Odoo 17 Améliorée -->
     <record id="view_queue_ticket_form" model="ir.ui.view">
         <field name="name">queue.ticket.form</field>
         <field name="model">queue.ticket</field>
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <!-- Boutons d'actions avec états dynamiques -->
                     <button name="action_call_next" string="Appeler"
                         type="object" class="btn-primary"
-                        invisible="state != 'waiting'" />
+                        invisible="state != 'waiting'" 
+                        confirm="Êtes-vous sûr de vouloir appeler ce ticket ?" />
+                    
                     <button name="action_start_service" string="Commencer Service"
                         type="object" class="btn-info"
                         invisible="state != 'called'" />
+                    
                     <button name="action_complete_service" string="Terminer Service"
                         type="object" class="btn-success"
-                        invisible="state != 'serving'" />
-                    <button name="action_cancel" string="Annuler"
+                        invisible="state not in ['called', 'serving']" 
+                        confirm="Marquer ce ticket comme terminé ?" />
+                    
+                    <button name="action_cancel_ticket_v2" string="Annuler"
                         type="object" class="btn-secondary"
-                        invisible="state in ['served', 'cancelled', 'no_show']" />
-                    <button name="action_no_show" string="Absent"
+                        invisible="state in ['served', 'cancelled', 'no_show']"
+                        confirm="Voulez-vous vraiment annuler ce ticket ?" />
+                    
+                    <button name="action_no_show" string="Marquer Absent"
                         type="object" class="btn-warning"
-                        invisible="state != 'called'" />
+                        invisible="state != 'called'"
+                        confirm="Marquer ce client comme absent ?" />
+                    
+                    <!-- Barre de statut avec tous les états -->
                     <field name="state" widget="statusbar"
-                        statusbar_visible="waiting,called,serving,served" />
+                        statusbar_visible="waiting,called,serving,served,cancelled,no_show" />
                 </header>
+                
                 <sheet>
+                    <!-- Titre avec badge de priorité -->
                     <div class="oe_title">
                         <h1>
-                            <field name="display_name" />
+                            <field name="display_name" readonly="1" />
+                            <span class="badge badge-pill ml-2" 
+                                  style="background-color: #dc3545;" 
+                                  invisible="priority != 'urgent'">URGENT</span>
+                            <span class="badge badge-pill ml-2" 
+                                  invisible="priority != 'high'"
+                                  style="background-color: #fd7e14;">PRIORITÉ</span>
                         </h1>
+                        <h3 invisible="not customer_name">
+                            <field name="customer_name" readonly="1" />
+                            <field name="cancellation_lock" invisible="1"/>
+                        </h3>
                     </div>
+                    
+                    <!-- Alertes et notifications -->
+                    <div class="alert alert-info" role="alert" 
+                         invisible="state != 'waiting' or not estimated_wait_time">
+                        <strong>Temps d'attente estimé:</strong> 
+                        <field name="estimated_wait_time" readonly="1" /> minutes
+                    </div>
+                    
+                    <div class="alert alert-warning" role="alert" 
+                         invisible="not cancellation_lock">
+                        <i class="fa fa-lock"></i> Ticket en cours de traitement
+                    </div>
+
+                    <!-- Informations principales -->
                     <group>
-                        <group name="ticket_info">
-                            <field name="service_id" options="{'no_create': True}" />
-                            <field name="ticket_number" />
+                        <group name="ticket_info" string="Informations du Ticket">
+                            <field name="service_id" options="{'no_create': True, 'no_edit': True}" />
+                            <field name="ticket_number" readonly="1" />
                             <field name="priority" />
-                            <field name="created_time" />
+                            <field name="created_time" readonly="1" />
+                            <field name="qr_code" readonly="1" widget="url" string="Lien de suivi" />
                         </group>
-                        <group name="customer_info">
+                        
+                        <group name="customer_info" string="Informations Client">
                             <field name="customer_name" />
-                            <field name="customer_phone" />
-                            <field name="customer_email" />
+                            <field name="customer_phone" widget="phone" />
+                            <field name="customer_email" widget="email" />
+                            <field name="notification_sent" readonly="1" />
                         </group>
                     </group>
-                    <group>
-                        <group name="timing">
+
+                    <!-- Horodatage et temps -->
+                    <group string="Suivi des Temps">
+                        <group name="timestamps" string="Horodatage">
                             <field name="called_time" readonly="1" />
                             <field name="served_time" readonly="1" />
                             <field name="completed_time" readonly="1" />
                         </group>
-                        <group name="calculations">
-                            <field name="estimated_wait_time" readonly="1" />
+                        
+                        <group name="durations" string="Durées (minutes)">
                             <field name="waiting_time" readonly="1" />
                             <field name="service_time" readonly="1" />
+                            <field name="estimated_wait_time" readonly="1" />
                         </group>
                     </group>
-                    <group>
-                        <field name="notes" placeholder="Notes sur ce ticket..." />
-                        <field name="notification_sent" readonly="1" />
+
+                    <!-- Informations d'annulation (visible si annulé) -->
+                    <group string="Informations d'Annulation" 
+                           invisible="state != 'cancelled'">
+                        <group>
+                            <field name="cancellation_type" readonly="1" />
+                            <field name="cancelled_by" readonly="1" />
+                            <field name="cancelled_time" readonly="1" />
+                        </group>
+                        <group>
+                            <field name="cancellation_reason" readonly="1" />
+                        </group>
                     </group>
+
+                    <!-- Évaluation client (visible si servi) -->
+                    <group string="Évaluation Client" 
+                           invisible="state != 'served'">
+                        <group>
+                            <field name="rating" widget="priority" readonly="0" />
+                        </group>
+                        <group>
+                            <field name="feedback" readonly="1" />
+                        </group>
+                    </group>
+
+                    <!-- Notes et historique -->
+                    <notebook>
+                        <page string="Notes" name="notes">
+                            <field name="notes" placeholder="Ajouter des notes sur ce ticket..." />
+                        </page>
+                        
+                        <page string="Historique des Actions" name="action_history">
+                            <field name="action_history" readonly="1" 
+                                   widget="text" 
+                                   options="{'mode': 'text'}" />
+                        </page>
+                        
+                        <!-- Page technique pour debug (visible aux admin) -->
+                        <page string="Informations Techniques" name="technical" 
+                              groups="base.group_system">
+                            <group>
+                                <field name="cancellation_lock" readonly="1" />
+                                <field name="id" readonly="1" />
+                            </group>
+                        </page>
+                    </notebook>
                 </sheet>
+                
+                <!-- Chatter pour suivi et messages -->
                 <div class="oe_chatter">
                     <field name="message_follower_ids" />
+                    <field name="activity_ids" />
                     <field name="message_ids" />
                 </div>
             </form>
         </field>
     </record>
 
-    <!-- Vue liste Tickets -->
+    <!-- Vue liste Tickets - Améliorée avec tous les champs -->
     <record id="view_queue_ticket_tree" model="ir.ui.view">
         <field name="name">queue.ticket.tree</field>
         <field name="model">queue.ticket</field>
         <field name="arch" type="xml">
             <tree decoration-info="state=='waiting'"
-                decoration-warning="state=='called'"
-                decoration-success="state=='served'"
-                decoration-danger="state=='cancelled'"
-                decoration-muted="state=='no_show'">
+                  decoration-warning="state=='called'"
+                  decoration-primary="state=='serving'"
+                  decoration-success="state=='served'"
+                  decoration-danger="state=='cancelled'"
+                  decoration-muted="state=='no_show'"
+                  default_order="priority desc, ticket_number asc"
+                  multi_edit="1">
+                
+                <!-- Champs principaux -->
+                <field name="service_id" readonly="1" />
+                <field name="ticket_number" readonly="1" />
+                <field name="display_name" string="Ticket" readonly="1" />
+                <field name="customer_name" />
+                <field name="customer_phone" />
+                <field name="priority" />
+                <field name="state" />
+                
+                <!-- Temps et estimations -->
+                <field name="created_time" readonly="1" />
+                <field name="estimated_wait_time" readonly="1" string="Est. Attente (min)" />
+                <field name="waiting_time" readonly="1" string="Temps Attente (min)" />
+                <field name="service_time" readonly="1" string="Temps Service (min)" 
+                       invisible="state not in ['serving', 'served']" />
+                
+                <!-- Informations d'annulation -->
+                <field name="cancellation_type" readonly="1" 
+                       invisible="state != 'cancelled'" />
+                <field name="cancelled_time" readonly="1" 
+                       invisible="state != 'cancelled'" />
+                
+                <!-- Évaluation -->
+                <field name="rating" readonly="1" 
+                       invisible="state != 'served'" 
+                       widget="priority" />
+                
+                <!-- Boutons d'action rapide -->
+                <button name="action_call_next" string="Appeler"
+                        type="object" class="btn-primary btn-sm"
+                        invisible="state != 'waiting'" 
+                        icon="fa-bullhorn" />
+                
+                <button name="action_start_service" string="Commencer"
+                        type="object" class="btn-info btn-sm"
+                        invisible="state != 'called'" 
+                        icon="fa-play" />
+                
+                <button name="action_complete_service" string="Terminer"
+                        type="object" class="btn-success btn-sm"
+                        invisible="state not in ['called', 'serving']" 
+                        icon="fa-check" />
+                
+                <button name="action_cancel_ticket_v2" string="Annuler"
+                        type="object" class="btn-secondary btn-sm"
+                        invisible="state in ['served', 'cancelled', 'no_show']" 
+                        icon="fa-times"
+                        confirm="Annuler ce ticket ?" />
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vue kanban pour visualisation moderne -->
+    <record id="view_queue_ticket_kanban" model="ir.ui.view">
+        <field name="name">queue.ticket.kanban</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column">
                 <field name="service_id" />
                 <field name="ticket_number" />
                 <field name="customer_name" />
-                <field name="customer_phone" />
                 <field name="priority" />
                 <field name="state" />
                 <field name="created_time" />
                 <field name="estimated_wait_time" />
                 <field name="waiting_time" />
-                <button name="action_call_next" string="Appeler"
-                    type="object" class="btn-primary"
-                    invisible="state != 'waiting'" />
-                <button name="action_complete_service" string="Terminer"
-                    type="object" icon="fa-check"
-                    invisible="state != 'serving'" />
-            </tree>
+                <field name="rating" />
+                
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card oe_kanban_global_click">
+                            <div class="oe_kanban_content">
+                                <!-- En-tête avec priorité -->
+                                <div class="o_kanban_record_top">
+                                    <div class="o_kanban_record_headings">
+                                        <strong class="o_kanban_record_title">
+                                            <field name="display_name" />
+                                        </strong>
+                                        <span class="badge badge-pill float-right"
+                                              t-if="record.priority.raw_value == 'urgent'"
+                                              style="background-color: #dc3545;">URGENT</span>
+                                        <span class="badge badge-pill float-right"
+                                              t-if="record.priority.raw_value == 'high'"
+                                              style="background-color: #fd7e14;">PRIORITÉ</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Informations client -->
+                                <div class="o_kanban_record_body">
+                                    <div t-if="record.customer_name.value">
+                                        <i class="fa fa-user"></i>
+                                        <t t-esc="record.customer_name.value" />
+                                    </div>
+                                    <div>
+                                        <i class="fa fa-clock-o"></i>
+                                        Créé: <t t-esc="record.created_time.value" />
+                                    </div>
+                                    <div t-if="record.state.raw_value == 'waiting' and record.estimated_wait_time.value">
+                                        <i class="fa fa-hourglass-half"></i>
+                                        Attente estimée: <t t-esc="record.estimated_wait_time.value" /> min
+                                    </div>
+                                    <div t-if="record.waiting_time.value">
+                                        <i class="fa fa-clock"></i>
+                                        Temps d'attente: <t t-esc="Math.round(record.waiting_time.value)" /> min
+                                    </div>
+                                    <div t-if="record.state.raw_value == 'served' and record.rating.value">
+                                        <i class="fa fa-star"></i>
+                                        Évaluation: <t t-esc="record.rating.value" />/5
+                                    </div>
+                                </div>
+                                
+                                <!-- Actions rapides -->
+                                <div class="o_kanban_record_bottom mt-2">
+                                    <div class="oe_kanban_bottom_left">
+                                        <button name="action_call_next" string="Appeler"
+                                                type="object" class="btn btn-primary btn-sm"
+                                                t-if="record.state.raw_value == 'waiting'">
+                                            <i class="fa fa-bullhorn"></i>
+                                        </button>
+                                        
+                                        <button name="action_start_service" string="Commencer"
+                                                type="object" class="btn btn-info btn-sm"
+                                                t-if="record.state.raw_value == 'called'">
+                                            <i class="fa fa-play"></i>
+                                        </button>
+                                        
+                                        <button name="action_complete_service" string="Terminer"
+                                                type="object" class="btn btn-success btn-sm"
+                                                t-if="record.state.raw_value in ['called', 'serving']">
+                                            <i class="fa fa-check"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="oe_kanban_bottom_right">
+                                        <field name="service_id" readonly="1" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
-    <!-- Vue recherche Tickets -->
+    <!-- Vue recherche Tickets - Améliorée avec nouveaux filtres -->
     <record id="view_queue_ticket_search" model="ir.ui.view">
         <field name="name">queue.ticket.search</field>
         <field name="model">queue.ticket</field>
         <field name="arch" type="xml">
             <search>
+                <!-- Champs de recherche -->
                 <field name="ticket_number" />
+                <field name="display_name" />
                 <field name="service_id" />
                 <field name="customer_name" />
                 <field name="customer_phone" />
+                <field name="customer_email" />
+                
                 <separator />
-                <filter string="En Attente" name="waiting" domain="[('state', '=', 'waiting')]" />
-                <filter string="Appelé" name="called" domain="[('state', '=', 'called')]" />
-                <filter string="En Service" name="serving" domain="[('state', '=', 'serving')]" />
-                <filter string="Servi" name="served" domain="[('state', '=', 'served')]" />
+                
+                <!-- Filtres par état -->
+                <filter string="🟡 En Attente" name="waiting" 
+                        domain="[('state', '=', 'waiting')]" />
+                <filter string="🔵 Appelé" name="called" 
+                        domain="[('state', '=', 'called')]" />
+                <filter string="🟠 En Service" name="serving" 
+                        domain="[('state', '=', 'serving')]" />
+                <filter string="🟢 Servi" name="served" 
+                        domain="[('state', '=', 'served')]" />
+                <filter string="🔴 Annulé" name="cancelled" 
+                        domain="[('state', '=', 'cancelled')]" />
+                <filter string="⚫ Absent" name="no_show" 
+                        domain="[('state', '=', 'no_show')]" />
+                
                 <separator />
+                
+                <!-- Filtres par priorité -->
+                <filter string="🚨 Urgent" name="urgent" 
+                        domain="[('priority', '=', 'urgent')]" />
+                <filter string="⚡ Priorité" name="high_priority" 
+                        domain="[('priority', '=', 'high')]" />
+                <filter string="Priorités (Urgent + Haute)" name="all_priorities" 
+                        domain="[('priority', 'in', ['urgent', 'high'])]" />
+                
+                <separator />
+                
+                <!-- Filtres temporels -->
                 <filter string="Aujourd'hui" name="today"
-                    domain="[('create_date', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0))),
-                                ('create_date', '&lt;=', datetime.datetime.combine(context_today(), datetime.time(23,59,59)))]" />
+                    domain="[('created_time', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0))),
+                             ('created_time', '&lt;=', datetime.datetime.combine(context_today(), datetime.time(23,59,59)))]" />
+                
                 <filter string="Cette Semaine" name="this_week"
-                    domain="[('create_date', '&gt;=', (context_today() - datetime.timedelta(days=context_today().weekday())).strftime('%Y-%m-%d')),
-                                ('create_date', '&lt;=', (context_today() + datetime.timedelta(days=6-context_today().weekday())).strftime('%Y-%m-%d'))]" />
+                    domain="[('created_time', '&gt;=', (context_today() - datetime.timedelta(days=context_today().weekday())).strftime('%Y-%m-%d')),
+                             ('created_time', '&lt;=', (context_today() + datetime.timedelta(days=6-context_today().weekday())).strftime('%Y-%m-%d'))]" />
+                
+                <filter string="Ce Mois" name="this_month"
+                    domain="[('created_time', '&gt;=', datetime.datetime.combine(context_today().replace(day=1), datetime.time(0,0,0))),
+                             ('created_time', '&lt;=', datetime.datetime.combine((context_today().replace(day=1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1), datetime.time(23,59,59)))]" />
+                
                 <separator />
-                <filter string="Priorité" name="priority" domain="[('priority', '!=', 'normal')]" />
+                
+                <!-- Filtres par type d'annulation -->
+                <filter string="Annulations Client" name="client_cancellations" 
+                        domain="[('cancellation_type', '=', 'client')]" />
+                <filter string="Annulations Agent" name="agent_cancellations" 
+                        domain="[('cancellation_type', '=', 'agent')]" />
+                <filter string="Annulations Système" name="system_cancellations" 
+                        domain="[('cancellation_type', '=', 'system')]" />
+                
+                <separator />
+                
+                <!-- Filtres métier -->
+                <filter string="Avec Notification" name="notified" 
+                        domain="[('notification_sent', '=', True)]" />
+                <filter string="Avec Email" name="has_email" 
+                        domain="[('customer_email', '!=', False)]" />
+                <filter string="Avec Téléphone" name="has_phone" 
+                        domain="[('customer_phone', '!=', False)]" />
+                <filter string="Évalués" name="rated" 
+                        domain="[('rating', '!=', False)]" />
+                
+                <!-- Groupements -->
                 <group expand="0" string="Grouper Par">
                     <filter string="Service" name="group_service"
-                        context="{'group_by': 'service_id'}" />
-                    <filter string="État" name="group_state" context="{'group_by': 'state'}" />
+                            context="{'group_by': 'service_id'}" />
+                    <filter string="État" name="group_state" 
+                            context="{'group_by': 'state'}" />
                     <filter string="Priorité" name="group_priority"
-                        context="{'group_by': 'priority'}" />
-                    <filter string="Date de Création" name="group_date"
-                        context="{'group_by': 'create_date:day'}" />
+                            context="{'group_by': 'priority'}" />
+                    <filter string="Type d'Annulation" name="group_cancellation_type"
+                            context="{'group_by': 'cancellation_type'}" />
+                    <filter string="Date de Création" name="group_create_date"
+                            context="{'group_by': 'created_time:day'}" />
+                    <filter string="Heure de Création" name="group_create_hour"
+                            context="{'group_by': 'created_time:hour'}" />
+                    <filter string="Évaluation" name="group_rating"
+                            context="{'group_by': 'rating'}" />
                 </group>
             </search>
         </field>
     </record>
 
-    <!-- Vue pivot pour analyses -->
+    <!-- Vue pivot pour analyses avancées -->
     <record id="view_queue_ticket_pivot" model="ir.ui.view">
         <field name="name">queue.ticket.pivot</field>
         <field name="model">queue.ticket</field>
         <field name="arch" type="xml">
-            <pivot string="Analyse des Tickets">
+            <pivot string="Analyse des Tickets" sample="1">
+                <!-- Dimensions par défaut -->
                 <field name="service_id" type="row" />
-                <field name="create_date" interval="day" type="col" />
-                <field name="ticket_number" type="measure" />
-                <field name="waiting_time" type="measure" />
-                <field name="service_time" type="measure" />
+                <field name="created_time" interval="day" type="col" />
+                
+                <!-- Mesures disponibles -->
+                <field name="ticket_number" type="measure" string="Nombre de Tickets" />
+                <field name="waiting_time" type="measure" string="Temps d'Attente Moyen" />
+                <field name="service_time" type="measure" string="Temps de Service Moyen" />
+                <field name="estimated_wait_time" type="measure" string="Estimation Moyenne" />
             </pivot>
         </field>
     </record>
 
-    <!-- Vue graphique -->
+    <!-- Vue graphique pour visualisations -->
     <record id="view_queue_ticket_graph" model="ir.ui.view">
         <field name="name">queue.ticket.graph</field>
         <field name="model">queue.ticket</field>
         <field name="arch" type="xml">
-            <graph string="Statistiques des Tickets">
+            <graph string="Statistiques des Tickets" sample="1">
                 <field name="service_id" />
                 <field name="state" />
+                <field name="ticket_number" type="measure" />
             </graph>
         </field>
     </record>
 
-    <record id="action_queue_ticket" model="ir.actions.act_window">
+    <!-- Vue calendrier pour suivi temporel -->
+    <record id="view_queue_ticket_calendar" model="ir.ui.view">
+        <field name="name">queue.ticket.calendar</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <calendar string="Planning des Tickets" 
+                      date_start="created_time"
+                      color="priority"
+                      event_open_popup="true">
+                <field name="display_name" />
+                <field name="customer_name" />
+                <field name="service_id" />
+                <field name="state" />
+            </calendar>
+        </field>
+    </record>
+
+    <!-- Vue activité pour monitoring -->
+    <record id="view_queue_ticket_activity" model="ir.ui.view">
+        <field name="name">queue.ticket.activity</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <activity string="Activité des Tickets">
+                <field name="service_id" />
+                <templates>
+                    <div t-name="activity-box">
+                        <div>
+                            <strong><field name="display_name" /></strong>
+                        </div>
+                        <div>
+                            Service: <field name="service_id" />
+                        </div>
+                        <div t-if="record.customer_name.value">
+                            Client: <field name="customer_name" />
+                        </div>
+                        <div>
+                            État: <field name="state" />
+                        </div>
+                    </div>
+                </templates>
+            </activity>
+        </field>
+    </record>
+
+    <!-- Actions de fenêtre principales -->
+    <record id="action_main_queue_ticket" model="ir.actions.act_window">
         <field name="name">Tickets de File d'Attente</field>
         <field name="res_model">queue.ticket</field>
-        <field name="view_mode">tree,form</field>
-        <field name="context">{'search_default_today': 1}</field>
+        <field name="view_mode">tree,kanban,form,calendar,pivot,graph,activity</field>
+        <field name="context">{
+            'search_default_today': 1,
+            'search_default_group_service': 1
+        }</field>
+        <field name="domain">[]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Aucun ticket trouvé
+                Aucun ticket trouvé !
             </p>
             <p>
                 Les tickets apparaîtront ici lorsque les clients en prendront
                 via l'interface web ou que vous en créerez manuellement.
             </p>
+            <p>
+                <a href="/queue/new_ticket" class="btn btn-primary">
+                    Prendre un nouveau ticket
+                </a>
+            </p>
         </field>
+    </record>
+
+    <!-- Action pour les tickets en attente uniquement -->
+    <record id="action_queue_ticket_waiting" model="ir.actions.act_window">
+        <field name="name">Tickets en Attente</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree,kanban,form</field>
+        <field name="domain">[('state', '=', 'waiting')]</field>
+        <field name="context">{
+            'search_default_group_service': 1,
+            'default_state': 'waiting'
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucun ticket en attente
+            </p>
+            <p>
+                Tous les clients ont été servis !
+            </p>
+        </field>
+    </record>
+
+    <!-- Action pour les tickets annulés (analyses) -->
+    <record id="action_queue_ticket_cancelled" model="ir.actions.act_window">
+        <field name="name">Tickets Annulés</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree,form,pivot,graph</field>
+        <field name="domain">[('state', '=', 'cancelled')]</field>
+        <field name="context">{
+            'search_default_this_week': 1,
+            'search_default_group_cancellation_type': 1
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucun ticket annulé
+            </p>
+            <p>
+                Excellent ! Aucune annulation récente.
+            </p>
+        </field>
+    </record>
+
+    <!-- Action pour le tableau de bord manager -->
+    <record id="action_queue_ticket_dashboard" model="ir.actions.act_window">
+        <field name="name">Tableau de Bord - Tickets</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">kanban,pivot,graph,tree</field>
+        <field name="context">{
+            'search_default_today': 1,
+            'search_default_group_service': 1
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Tableau de bord des tickets
+            </p>
+            <p>
+                Vue d'ensemble de l'activité des files d'attente.
+            </p>
+        </field>
+    </record>
+
+    <!-- Vues spécialisées pour différents profils utilisateurs -->
+    
+    <!-- Vue agent de service (simplifiée) -->
+    <!-- <record id="view_queue_ticket_tree_agent" model="ir.ui.view">
+        <field name="name">queue.ticket.tree.agent</field>
+        <field name="model">queue.ticket</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state=='waiting'"
+                  decoration-warning="state=='called'"
+                  decoration-primary="state=='serving'"
+                  decoration-success="state=='served'"
+                  editable="bottom"
+                  default_order="priority desc, ticket_number asc">
+                
+                <field name="ticket_number" readonly="1" />
+                <field name="customer_name" />
+                <field name="priority" />
+                <field name="state" readonly="1" />
+                <field name="waiting_time" readonly="1" />
+                <field name="notes" />
+                
+                <button name="action_call_next" string="▶️"
+                        type="object" 
+                        invisible="state != 'waiting'" 
+                        title="Appeler ce ticket" />
+                
+                <button name="action_complete_service" string="✅"
+                        type="object" 
+                        invisible="state not in ['called', 'serving']" 
+                        title="Marquer comme terminé" />
+            </tree>
+        </field>
+    </record> -->
+
+    <!-- Vue manager (complète avec statistiques) -->
+    <!-- <record id="view_queue_ticket_tree_manager" model="ir.ui.view">
+        <field name="name">queue.ticket.tree.manager</field>
+        <field name="model">queue.ticket</field>
+        <field name="priority">10</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state=='waiting'"
+                  decoration-warning="state=='called'"
+                  decoration-primary="state=='serving'"
+                  decoration-success="state=='served'"
+                  decoration-danger="state=='cancelled'"
+                  decoration-muted="state=='no_show'"
+                  create="false"
+                  default_order="created_time desc">
+                
+                <field name="service_id" readonly="1" />
+                <field name="display_name" readonly="1" />
+                <field name="customer_name" readonly="1" />
+                <field name="priority" readonly="1" />
+                <field name="state" readonly="1" />
+                <field name="created_time" readonly="1" />
+                <field name="waiting_time" readonly="1" sum="Temps Total" />
+                <field name="service_time" readonly="1" sum="Service Total" />
+                <field name="rating" readonly="1" />
+                <field name="cancellation_type" readonly="1" 
+                       invisible="state != 'cancelled'" />
+                <field name="cancelled_by" readonly="1" invisible="state != 'cancelled'" />
+            </tree>
+        </field>
+    </record> -->
+
+    <!-- Action pour l'interface agent (vue simplifiée) -->
+    <!-- <record id="action_queue_ticket_agent" model="ir.actions.act_window">
+        <field name="name">Interface Agent</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_queue_ticket_tree_agent"/>
+        <field name="context">{
+            'search_default_waiting': 1,
+            'search_default_called': 1,
+            'search_default_serving': 1
+        }</field>
+        <field name="domain">[('state', 'in', ['waiting', 'called', 'serving'])]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucun ticket actif
+            </p>
+            <p>
+                Interface simplifiée pour les agents de service.
+            </p>
+        </field>
+    </record> -->
+
+    <!-- Action pour l'interface manager -->
+    <!-- <record id="action_queue_ticket_manager" model="ir.actions.act_window">
+        <field name="name">Gestion Complète</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree,kanban,form,pivot,graph</field>
+        <field name="view_id" ref="view_queue_ticket_tree_manager"/>
+        <field name="context">{
+            'search_default_today': 1
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Tableau de bord manager
+            </p>
+            <p>
+                Vue complète avec statistiques et analyses avancées.
+            </p>
+        </field>
+    </record> -->
+
+    <!-- Templates d'emails pour notifications -->
+    <record id="email_ticket_called" model="mail.template">
+        <field name="name">Notification - Ticket Appelé</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="subject">🔔 Ticket #${object.ticket_number} - ${object.service_id.name}</field>
+        <field name="body_html" type="html">
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+                    <h1 style="margin: 0; font-size: 24px;">🔔 Votre ticket est appelé !</h1>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px;">
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h2 style="color: #28a745; margin-top: 0;">Ticket #${object.ticket_number}</h2>
+                        <p><strong>Service:</strong> ${object.service_id.name}</p>
+                        % if object.customer_name:
+                        <p><strong>Client:</strong> ${object.customer_name}</p>
+                        % endif
+                        <p><strong>Heure d'appel:</strong> ${format_datetime(object.called_time, tz=user.tz, dt_format='dd/MM/yyyy HH:mm')}</p>
+                        
+                        <div style="background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0;">
+                            <p style="margin: 0; font-weight: bold; color: #1976d2;">
+                                📍 Veuillez vous présenter au guichet maintenant
+                            </p>
+                        </div>
+                        
+                        <p style="color: #666; font-size: 14px;">
+                            Vous pouvez suivre l'état de votre ticket en temps réel sur : 
+                            <a href="${object.qr_code or '#'}" style="color: #007bff;">cette page</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+
+    <record id="email_feedback_request" model="mail.template">
+        <field name="name">Demande de Feedback</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="subject">⭐ Évaluez votre expérience - ${object.service_id.name}</field>
+        <field name="body_html" type="html">
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+                    <h1 style="margin: 0; font-size: 24px;">⭐ Comment s'est passé votre visite ?</h1>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px;">
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <p>Bonjour % if object.customer_name:${object.customer_name}% endif,</p>
+                        
+                        <p>Nous espérons que votre passage pour le service <strong>${object.service_id.name}</strong> 
+                        s'est bien déroulé.</p>
+                        
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 4px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                            <p style="margin: 0;"><strong>Ticket #${object.ticket_number}</strong></p>
+                            <p style="margin: 5px 0 0 0; color: #856404;">
+                                Service terminé le : ${format_datetime(object.completed_time, tz=user.tz, dt_format='dd/MM/yyyy à HH:mm')}
+                            </p>
+                        </div>
+                        
+                        <p>Votre avis nous aide à améliorer nos services. 
+                        <a href="${object.qr_code or '#'}/feedback" style="color: #007bff; text-decoration: none; font-weight: bold;">
+                            Cliquez ici pour nous donner votre avis
+                        </a></p>
+                        
+                        <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                            Merci de nous avoir fait confiance !<br/>
+                            L'équipe ${object.service_id.name}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+
+    <record id="email_ticket_cancelled" model="mail.template">
+        <field name="name">Notification - Ticket Annulé</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="subject">❌ Ticket #${object.ticket_number} annulé - ${object.service_id.name}</field>
+        <field name="body_html" type="html">
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+                    <h1 style="margin: 0; font-size: 24px;">❌ Ticket Annulé</h1>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px;">
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <p>Bonjour % if object.customer_name:${object.customer_name}% endif,</p>
+                        
+                        <p>Votre ticket <strong>#${object.ticket_number}</strong> pour le service 
+                        <strong>${object.service_id.name}</strong> a été annulé.</p>
+                        
+                        % if object.cancellation_reason:
+                        <div style="background: #f8d7da; padding: 15px; border-radius: 4px; margin: 20px 0; border-left: 4px solid #dc3545;">
+                            <p style="margin: 0; color: #721c24;">
+                                <strong>Raison :</strong> ${object.cancellation_reason}
+                            </p>
+                        </div>
+                        % endif
+                        
+                        <p>Vous pouvez reprendre un nouveau ticket à tout moment en retournant sur notre système de file d'attente.</p>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="/queue/services" 
+                               style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+                                Prendre un nouveau ticket
+                            </a>
+                        </div>
+                        
+                        <p style="color: #666; font-size: 14px;">
+                            Annulé le : ${format_datetime(object.cancelled_time, tz=user.tz, dt_format='dd/MM/yyyy à HH:mm')}<br/>
+                            % if object.cancelled_by:
+                            Par : ${object.cancelled_by.name}
+                            % endif
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+
+    <!-- Actions automatisées et règles métier -->
+    <record id="action_auto_cancel_timeout_tickets" model="ir.actions.server">
+        <field name="name">Timeout des tickets appelés</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="state">code</field>
+        <field name="code">
+    model.auto_cancel_timeout_tickets()
+        </field>
+    </record>
+
+    <!-- Vues supplémentaires pour analyses spécialisées -->
+    
+    <!-- Vue Statistiques de Performance -->
+    <!-- <record id="view_queue_ticket_performance_pivot" model="ir.ui.view">
+        <field name="name">queue.ticket.performance.pivot</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <pivot string="Performance des Services" sample="1">
+                <field name="service_id" type="row"/>
+                <field name="state" type="row"/>
+                <field name="created_time" interval="hour" type="col"/>
+                
+                <field name="ticket_number" type="measure" string="Nombre de Tickets"/>
+                <field name="waiting_time" type="measure" string="Temps d'Attente Moyen (min)"/>
+                <field name="service_time" type="measure" string="Temps de Service Moyen (min)"/>
+                <field name="estimated_wait_time" type="measure" string="Estimation Moyenne (min)"/>
+            </pivot>
+        </field>
+    </record> -->
+
+    <!-- Vue Analyse des Annulations -->
+    <!-- <record id="view_queue_ticket_cancellation_pivot" model="ir.ui.view">
+        <field name="name">queue.ticket.cancellation.pivot</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <pivot string="Analyse des Annulations" sample="1">
+                <field name="service_id" type="row"/>
+                <field name="cancellation_type" type="row"/>
+                <field name="cancelled_time" interval="day" type="col"/>
+                
+                <field name="ticket_number" type="measure" string="Nombre d'Annulations"/>
+                <field name="waiting_time" type="measure" string="Temps Avant Annulation (min)"/>
+            </pivot>
+        </field>
+    </record> -->
+
+    <!-- Vue Graphique de Satisfaction -->
+    <!-- <record id="view_queue_ticket_satisfaction_graph" model="ir.ui.view">
+        <field name="name">queue.ticket.satisfaction.graph</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <graph string="Satisfaction Client" type="bar" sample="1">
+                <field name="service_id"/>
+                <field name="rating" type="measure"/>
+            </graph>
+        </field>
+    </record> -->
+
+    <!-- Actions pour les analyses spécialisées -->
+    <!-- <record id="action_queue_performance_analysis" model="ir.actions.act_window">
+        <field name="name">Analyse de Performance</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">pivot,graph</field>
+        <field name="view_id" ref="view_queue_ticket_performance_pivot"/>
+        <field name="context">{
+            'search_default_today': 1,
+            'search_default_served': 1
+        }</field>
+        <field name="domain">[('state', '=', 'served')]</field>
+    </record> -->
+
+    <!-- <record id="action_queue_cancellation_analysis" model="ir.actions.act_window">
+        <field name="name">Analyse des Annulations</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">pivot,tree,graph</field>
+        <field name="view_id" ref="view_queue_ticket_cancellation_pivot"/>
+        <field name="context">{
+            'search_default_this_week': 1
+        }</field>
+        <field name="domain">[('state', '=', 'cancelled')]</field>
+    </record> -->
+
+    <!-- <record id="action_queue_satisfaction_analysis" model="ir.actions.act_window">
+        <field name="name">Analyse de Satisfaction</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">graph,pivot,tree</field>
+        <field name="view_id" ref="view_queue_ticket_satisfaction_graph"/>
+        <field name="context">{
+            'search_default_this_month': 1,
+            'search_default_rated': 1
+        }</field>
+        <field name="domain">[('state', '=', 'served'), ('rating', '!=', False)]</field>
+    </record> -->
+
+    <!-- Vue pour le suivi en temps réel (pour les écrans d'affichage) -->
+    <!-- <record id="view_queue_ticket_display" model="ir.ui.view">
+        <field name="name">queue.ticket.display</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false" delete="false">
+                <sheet>
+                    <div class="text-center">
+                        <h1 class="mb-4">
+                            <field name="service_id" readonly="1"/>
+                        </h1>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <h2 class="text-center mb-4">Résumé du Ticket</h2>
+                                
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>Numéro de Ticket:</th>
+                                                        <td><strong><field name="ticket_number"/></strong></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Service:</th>
+                                                        <td><field name="service_id" readonly="1"/></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Client:</th>
+                                                        <td><field name="customer_name" readonly="1"/></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Priorité:</th>
+                                                        <td>
+                                                            <field name="priority_badge" readonly="1"/>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                            
+                                            <div class="col-6">
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>État:</th>
+                                                        <td><field name="state"/></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Créé le:</th>
+                                                        <td><field name="created_time" options="{'widget': 'datetime'}"/></td>
+                                                    </tr>
+                                                    <tr invisible="not called_time">
+                                                        <th>Appelé le:</th>
+                                                        <td><field name="called_time" options="{'widget': 'datetime'}"/></td>
+                                                    </tr>
+                                                    <tr  invisible="not completed_time">
+                                                        <th>Terminé le:</th>
+                                                        <td><field name="completed_time" options="{'widget': 'datetime'}"/></td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4"  invisible="state not in ['served', 'cancelled']">
+                                            <div class="col-12">
+                                                <h4>Métriques de Performance</h4>
+                                                <table class="table table-bordered">
+                                                    <tr>
+                                                        <th class="bg-light">Temps d'Attente:</th>
+                                                        <td><field name="waiting_time" widget="duration"/> minutes</td>
+                                                        <th class="bg-light">Temps de Service:</th>
+                                                        <td><field name="service_time" widget="duration"/> minutes</td>
+                                                    </tr>
+                                                    <tr invisible="not estimated_wait_time">
+                                                        <th class="bg-light">Estimation Initiale:</th>
+                                                        <td><field name="estimated_wait_time" widget="duration"/> minutes</td>
+                                
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4"  invisible="not rating">
+                                            <div class="col-12">
+                                                <h4>Évaluation Client</h4>
+                                                <div class="card bg-light">
+                                                    <div class="card-body">
+                                                        <div class="row">
+                                                            <div class="col-3">
+                                                                <strong>Note:</strong> 
+                                                                <field name="rating"/> ⭐
+                                                            </div>
+                                                            <div class="col-9"  invisible="not feedback">
+                                                                <strong>Commentaire:</strong><br/>
+                                                                <field name="feedback"/>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4"  invisible="state != 'cancelled'">
+                                            <div class="col-12">
+                                                <h4>Détails de l'Annulation</h4>
+                                                <div class="card border-danger">
+                                                    <div class="card-body">
+                                                        <table class="table table-sm mb-0">
+                                                            <tr>
+                                                                <th>Type d'annulation:</th>
+                                                                <td><field name="cancellation_type"/></td>
+                                                            </tr>
+                                                            <tr  invisible="not cancelled_by">
+                                                                <th>Annulé par:</th>
+                                                                <td><field name="cancelled_by"/></td>
+                                                            </tr>
+                                                            <tr invisible=" not cancelled_time">
+                                                                <th>Heure d'annulation:</th>
+                                                                <td><field name="cancelled_time" options="{'widget': 'datetime'}"/></td>
+                                                            </tr>
+                                                            <tr invisible="not cancellation_reason">
+                                                                <th>Raison:</th>
+                                                                <td><field name="cancellation_reason"/></td>
+                                                            </tr>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4" invisible="not notes">
+                                            <div class="col-12">
+                                                <h4>Notes</h4>
+                                                <div class="card">
+                                                    <div class="card-body">
+                                                        <field name="notes"/>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4" invisible="not action_history">
+                                            <div class="col-12">
+                                                <h4>Historique des Actions</h4>
+                                                <div class="card">
+                                                    <div class="card-body">
+                                                        <pre style="white-space: pre-wrap; font-size: 12px;">
+                                                            <field name="action_history"/>
+                                                        </pre>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4" invisible="not qr_code">
+                                            <div class="col-12 text-center">
+                                                <h4>Suivi en Ligne</h4>
+                                                <p>Scannez ce code ou visitez: <field name="qr_code"/></p>
+                                                <div id="qrcode" style="display: inline-block;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record> -->
+
+    <!-- Rapport de performance quotidien -->
+    <record id="report_queue_daily_performance" model="ir.actions.report">
+        <field name="name">Performance Quotidienne</field>
+        <field name="model">queue.ticket</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">queue_management.report_daily_performance_template</field>
+        <field name="report_file">queue_management.report_daily_performance</field>
+    </record>
+
+    <template id="report_daily_performance_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <div class="oe_structure">
+                        <div class="row">
+                            <div class="col-12">
+                                <h1 class="text-center">Rapport de Performance Quotidien</h1>
+                                <h3 class="text-center text-muted">
+                                    <span t-esc="datetime.date.today().strftime('%d/%m/%Y')"/>
+                                </h3>
+                                
+                                <!-- Résumé exécutif -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <h3>Résumé Exécutif</h3>
+                                        <table class="table table-bordered">
+                                            <tr>
+                                                <th class="bg-primary text-white">Total Tickets</th>
+                                                <th class="bg-success text-white">Servis</th>
+                                                <th class="bg-danger text-white">Annulés</th>
+                                                <th class="bg-warning text-white">Absents</th>
+                                                <th class="bg-info text-white">Temps Moyen</th>
+                                            </tr>
+                                            <tr class="text-center">
+                                                <td><h4><span t-esc="total_tickets"/></h4></td>
+                                                <td><h4><span t-esc="served_tickets"/></h4></td>
+                                                <td><h4><span t-esc="cancelled_tickets"/></h4></td>
+                                                <td><h4><span t-esc="no_show_tickets"/></h4></td>
+                                                <td><h4><span t-esc="avg_service_time"/> min</h4></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Performance par service -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <h3>Performance par Service</h3>
+                                        <table class="table table-striped">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>Service</th>
+                                                    <th>Tickets</th>
+                                                    <th>Servis</th>
+                                                    <th>Taux de Service</th>
+                                                    <th>Temps Attente Moyen</th>
+                                                    <th>Temps Service Moyen</th>
+                                                    <th>Satisfaction</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="service_stats" t-as="service">
+                                                    <tr>
+                                                        <td><strong><span t-esc="service['name']"/></strong></td>
+                                                        <td><span t-esc="service['total']"/></td>
+                                                        <td><span t-esc="service['served']"/></td>
+                                                        <td><span t-esc="service['service_rate']"/>%</td>
+                                                        <td><span t-esc="service['avg_wait']"/> min</td>
+                                                        <td><span t-esc="service['avg_service']"/> min</td>
+                                                        <td>
+                                                            <span t-if="service['avg_rating']">
+                                                                <span t-esc="service['avg_rating']"/>/5 ⭐
+                                                            </span>
+                                                            <span t-else="">N/A</span>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Analyse des pics d'affluence -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <h3>Analyse des Pics d'Affluence</h3>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <h5>Par Heure</h5>
+                                                <table class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Heure</th>
+                                                            <th>Tickets</th>
+                                                            <th>Pourcentage</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <t t-foreach="hourly_stats" t-as="hour_stat">
+                                                            <tr>
+                                                                <td><span t-esc="hour_stat['hour']"/>h</td>
+                                                                <td><span t-esc="hour_stat['count']"/></td>
+                                                                <td><span t-esc="hour_stat['percentage']"/>%</td>
+                                                            </tr>
+                                                        </t>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            
+                                            <div class="col-6">
+                                                <h5>Recommandations</h5>
+                                                <ul class="list-unstyled">
+                                                    <li t-if="peak_hour">
+                                                        <i class="fa fa-clock text-warning"></i>
+                                                        <strong>Pic d'affluence:</strong> <span t-esc="peak_hour"/>h
+                                                    </li>
+                                                    <li t-if="avg_wait_time &gt; 20">
+                                                        <i class="fa fa-exclamation-triangle text-danger"></i>
+                                                        <strong>Temps d'attente élevé</strong> (&gt; 20 min)
+                                                    </li>
+                                                    <li t-if="cancellation_rate &gt; 10">
+                                                        <i class="fa fa-times-circle text-danger"></i>
+                                                        <strong>Taux d'annulation élevé</strong> (&gt; 10%)
+                                                    </li>
+                                                    <li t-if="avg_rating and avg_rating &gt;= 4">
+                                                        <i class="fa fa-star text-success"></i>
+                                                        <strong>Excellente satisfaction client</strong>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- Widgets personnalisés pour le tableau de bord -->
+    <record id="queue_ticket_widget_current_queue" model="ir.ui.view">
+        <field name="name">queue.ticket.widget.current</field>
+        <field name="model">queue.ticket</field>
+        <field name="type">qweb</field>
+        <field name="arch" type="xml">
+            <div class="o_queue_current_widget">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fa fa-list"></i> File d'Attente Actuelle
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">
+                            <t t-foreach="current_queue" t-as="ticket">
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            Ticket #<span t-esc="ticket.ticket_number"/>
+                                            <span t-if="ticket.priority != 'normal'" 
+                                                  class="badge badge-warning ml-1">
+                                                <span t-esc="ticket.priority.upper()"/>
+                                            </span>
+                                        </h6>
+                                        <p class="mb-1 text-muted">
+                                            <span t-esc="ticket.service_id.name"/>
+                                            <span t-if="ticket.customer_name"> - <span t-esc="ticket.customer_name"/></span>
+                                        </p>
+                                        <small class="text-muted">
+                                            Attente: <span t-esc="round(ticket.waiting_time)"/> min
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span t-if="ticket.state == 'waiting'" 
+                                              class="badge badge-pill badge-info">En Attente</span>
+                                        <span t-elif="ticket.state == 'called'" 
+                                              class="badge badge-pill badge-warning">Appelé</span>
+                                        <span t-elif="ticket.state == 'serving'" 
+                                              class="badge badge-pill badge-primary">En Service</span>
+                                    </div>
+                                </div>
+                            </t>
+                            
+                            <div t-if="not current_queue" class="list-group-item text-center text-muted">
+                                <i class="fa fa-check-circle fa-2x mb-2"></i>
+                                <p class="mb-0">Aucun ticket en attente</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </field>
+    </record>
+
+    <!-- Vues pour l'export et import de données -->
+    <record id="view_queue_ticket_export" model="ir.ui.view">
+        <field name="name">queue.ticket.export</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <tree create="false" edit="false" export_xlsx="1">
+                <!-- Données principales -->
+                <field name="ticket_number" string="N° Ticket"/>
+                <field name="service_id" string="Service"/>
+                <field name="customer_name" string="Nom Client"/>
+                <field name="customer_phone" string="Téléphone"/>
+                <field name="customer_email" string="Email"/>
+                
+                <!-- États et timing -->
+                <field name="state" string="État"/>
+                <field name="priority" string="Priorité"/>
+                <field name="created_time" string="Heure Création"/>
+                <field name="called_time" string="Heure Appel"/>
+                <field name="served_time" string="Heure Service"/>
+                <field name="completed_time" string="Heure Fin"/>
+                
+                <!-- Métriques -->
+                <field name="waiting_time" string="Temps Attente (min)"/>
+                <field name="service_time" string="Temps Service (min)"/>
+                <field name="estimated_wait_time" string="Temps Estimé (min)"/>
+                
+                <!-- Satisfaction -->
+                <field name="rating" string="Évaluation"/>
+                <field name="feedback" string="Commentaires"/>
+                
+                <!-- Annulation -->
+                <field name="cancellation_type" string="Type Annulation"/>
+                <field name="cancellation_reason" string="Raison Annulation"/>
+                <field name="cancelled_by" string="Annulé Par"/>
+                <field name="cancelled_time" string="Heure Annulation"/>
+                
+                <!-- Métadonnées -->
+                <field name="notification_sent" string="Notification Envoyée"/>
+                <field name="notes" string="Notes"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action d'export spécialisée -->
+    <record id="action_queue_ticket_export" model="ir.actions.act_window">
+        <field name="name">Export des Tickets</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_queue_ticket_export"/>
+        <field name="context">{
+            'search_default_this_month': 1
+        }</field>
+    </record>
+
+    <!-- Actions JavaScript pour l'interface web -->
+    <template id="queue_ticket_assets" name="Queue Ticket Assets">
+        <script type="text/javascript">
+            // Fonctions JavaScript pour l'interface web de suivi des tickets
+            
+            class QueueTicketManager {
+                constructor() {
+                    this.refreshInterval = 30000; // 30 secondes
+                    this.setupEventListeners();
+                    this.startAutoRefresh();
+                }
+                
+                setupEventListeners() {
+                    // Formulaire de recherche de statut
+                    const statusForm = document.getElementById('ticketStatusForm');
+                    if (statusForm) {
+                        statusForm.addEventListener('submit', this.handleStatusCheck.bind(this));
+                    }
+                    
+                    // Formulaire d'annulation
+                    const cancelForm = document.getElementById('cancellationForm');
+                    if (cancelForm) {
+                        cancelForm.addEventListener('submit', this.handleCancellation.bind(this));
+                    }
+                }
+                
+                async handleStatusCheck(event) {
+                    event.preventDefault();
+                    
+                    const ticketNumber = document.getElementById('ticketNumber').value;
+                    const serviceId = document.getElementById('serviceSelect').value;
+                    
+                    if (!ticketNumber || !serviceId) {
+                        this.showAlert('Veuillez remplir tous les champs', 'warning');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await this.checkTicketStatus(ticketNumber, serviceId);
+                        this.displayTicketStatus(response);
+                    } catch (error) {
+                        this.showAlert('Erreur lors de la vérification du statut', 'danger');
+                        console.error(error);
+                    }
+                }
+                
+                async checkTicketStatus(ticketNumber, serviceId) {
+                    const response = await fetch('/queue/api/ticket/status', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            ticket_number: parseInt(ticketNumber),
+                            service_id: parseInt(serviceId)
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Erreur réseau');
+                    }
+                    
+                    return await response.json();
+                }
+                
+                displayTicketStatus(data) {
+                    const resultsDiv = document.getElementById('ticketResults');
+                    const cancellationDiv = document.getElementById('cancellationSection');
+                    
+                    if (!data.success) {
+                        resultsDiv.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                ${data.error || 'Ticket non trouvé'}
+                            </div>
+                        `;
+                        resultsDiv.style.display = 'block';
+                        cancellationDiv.style.display = 'none';
+                        return;
+                    }
+                    
+                    const ticket = data;
+                    const stateColors = {
+                        'waiting': 'info',
+                        'called': 'warning',
+                        'serving': 'primary',
+                        'served': 'success',
+                        'cancelled': 'danger',
+                        'no_show': 'secondary'
+                    };
+                    
+                    const stateColor = stateColors[ticket.state] || 'secondary';
+                    
+                    resultsDiv.innerHTML = `
+                        <div class="card border-${stateColor}">
+                            <div class="card-header bg-${stateColor} text-white">
+                                <h5 class="mb-0">
+                                    <i class="fa fa-ticket"></i>
+                                    Ticket #${ticket.ticket_number} - ${ticket.service_name}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>État:</strong> 
+                                           <span class="badge badge-${stateColor}">${ticket.state_label}</span></p>
+                                        ${ticket.position > 0 ? `<p><strong>Position:</strong> ${ticket.position}</p>` : ''}
+                                        ${ticket.estimated_wait_time > 0 ? `<p><strong>Attente estimée:</strong> ${ticket.estimated_wait_time} min</p>` : ''}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Créé le:</strong> ${ticket.created_time}</p>
+                                        ${ticket.waiting_time > 0 ? `<p><strong>Temps écoulé:</strong> ${ticket.waiting_time} min</p>` : ''}
+                                        <p><strong>Ticket en cours:</strong> #${ticket.current_serving || 'Aucun'}</p>
+                                    </div>
+                                </div>
+                                
+                                ${ticket.can_cancel ? `
+                                    <div class="text-center mt-3">
+                                        <button class="btn btn-outline-danger" onclick="showCancellationForm()">
+                                            <i class="fa fa-times"></i> Annuler mon ticket
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultsDiv.style.display = 'block';
+                    
+                    // Afficher/masquer la section d'annulation
+                    if (ticket.can_cancel) {
+                        // Stocker les données pour l'annulation
+                        window.currentTicketData = {
+                            ticket_number: ticket.ticket_number,
+                            service_id: parseInt(document.getElementById('serviceSelect').value)
+                        };
+                    } else {
+                        cancellationDiv.style.display = 'none';
+                    }
+                }
+                
+                async handleCancellation(event) {
+                    event.preventDefault();
+                    
+                    if (!window.currentTicketData) {
+                        this.showAlert('Données de ticket manquantes', 'danger');
+                        return;
+                    }
+                    
+                    const reason = document.getElementById('cancellationReason').value;
+                    
+                    try {
+                        const response = await this.cancelTicket(
+                            window.currentTicketData.ticket_number,
+                            window.currentTicketData.service_id,
+                            reason
+                        );
+                        
+                        if (response.success) {
+                            this.showAlert(response.message, 'success');
+                            // Rafraîchir le statut
+                            setTimeout(() => {
+                                document.getElementById('ticketStatusForm').dispatchEvent(new Event('submit'));
+                            }, 1000);
+                        } else {
+                            this.showAlert(response.error, 'danger');
+                        }
+                        
+                        // Masquer le formulaire d'annulation
+                        document.getElementById('cancellationSection').style.display = 'none';
+                        
+                    } catch (error) {
+                        this.showAlert('Erreur lors de l\'annulation', 'danger');
+                        console.error(error);
+                    }
+                }
+            }
+        </script>
+    </template>
+
+    <!-- Action pour l'affichage public -->
+    <!-- <record id="action_queue_ticket_display" model="ir.actions.act_window">
+        <field name="name">Affichage Public</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_queue_ticket_display"/>
+        <field name="target">fullscreen</field>
+        <field name="context">{}</field>
+    </record> -->
+
+    <!-- Actions de serveur pour les raccourcis -->
+    <record id="server_action_call_next_tickets" model="ir.actions.server">
+        <field name="name">Appeler les prochains tickets</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="binding_model_id" ref="model_queue_ticket"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+for record in records.filtered(lambda r: r.state == 'waiting'):
+    try:
+        record.action_call_next()
+    except Exception as e:
+        log(f'Erreur appel ticket #{record.ticket_number}: {e}')
+        </field>
+    </record>
+
+    <record id="server_action_complete_multiple_tickets" model="ir.actions.server">
+        <field name="name">Terminer les services sélectionnés</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="binding_model_id" ref="model_queue_ticket"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+for record in records.filtered(lambda r: r.state in ['called', 'serving']):
+    try:
+        record.action_complete_service()
+    except Exception as e:
+        log(f'Erreur completion ticket #{record.ticket_number}: {e}')
+        </field>
+    </record>
+
+    <!-- Tableau de bord avec widgets personnalisés -->
+    <record id="queue_ticket_dashboard" model="ir.ui.view">
+        <field name="name">queue.ticket.dashboard</field>
+        <field name="model">queue.ticket</field>
+        <field name="type">qweb</field>
+        <field name="arch" type="xml">
+            <div class="o_queue_dashboard">
+                <div class="container-fluid">
+                    <div class="row">
+                        <!-- Widget Tickets Actifs -->
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card border-left-primary shadow">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                                Tickets Actifs
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                <t t-esc="active_tickets_count"/>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-ticket-alt fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Widget Temps d'Attente Moyen -->
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card border-left-success shadow">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                                Temps d'Attente Moyen
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                <t t-esc="avg_waiting_time"/> min
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Widget Taux d'Annulation -->
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card border-left-warning shadow">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                                Taux d'Annulation
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                <t t-esc="cancellation_rate"/>%
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Widget Satisfaction -->
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card border-left-info shadow">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                                Satisfaction Moyenne
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                <t t-esc="avg_rating"/>/5 ⭐
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-star fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Graphiques en temps réel -->
+                    <div class="row mt-4">
+                        <div class="col-lg-8">
+                            <div class="card shadow">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 font-weight-bold text-primary">
+                                        Évolution des Tickets (Aujourd'hui)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="ticketChart"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4">
+                            <div class="card shadow">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 font-weight-bold text-primary">
+                                        Répartition par État
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="stateChart"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Liste des tickets prioritaires -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card shadow">
+                                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                                    <h6 class="m-0 font-weight-bold text-primary">Tickets Prioritaires</h6>
+                                    <div class="dropdown no-arrow">
+                                        <a class="dropdown-toggle" href="#" role="button" data-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>Ticket</th>
+                                                    <th>Client</th>
+                                                    <th>Service</th>
+                                                    <th>Priorité</th>
+                                                    <th>Attente</th>
+                                                    <th>État</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="priority_tickets" t-as="ticket">
+                                                    <tr>
+                                                        <td>
+                                                            <strong>#<t t-esc="ticket.ticket_number"/></strong>
+                                                        </td>
+                                                        <td>
+                                                            <t t-esc="ticket.customer_name or 'Anonyme'"/>
+                                                        </td>
+                                                        <td>
+                                                            <t t-esc="ticket.service_id.name"/>
+                                                        </td>
+                                                        <td>
+                                                            <span t-if="ticket.priority == 'urgent'" 
+                                                                  class="badge badge-danger">URGENT</span>
+                                                            <span t-elif="ticket.priority == 'high'" 
+                                                                  class="badge badge-warning">PRIORITÉ</span>
+                                                            <span t-else="" 
+                                                                  class="badge badge-secondary">NORMAL</span>
+                                                        </td>
+                                                        <td>
+                                                            <t t-esc="round(ticket.waiting_time)"/> min
+                                                        </td>
+                                                        <td>
+                                                            <span t-if="ticket.state == 'waiting'" 
+                                                                  class="badge badge-info">En Attente</span>
+                                                            <span t-elif="ticket.state == 'called'" 
+                                                                  class="badge badge-warning">Appelé</span>
+                                                            <span t-elif="ticket.state == 'serving'" 
+                                                                  class="badge badge-primary">En Service</span>
+                                                        </td>
+                                                        <td>
+                                                            <button t-if="ticket.state == 'waiting'" 
+                                                                    class="btn btn-sm btn-primary"
+                                                                    data-ticket-id="{ticket.id}">
+                                                                Appeler
+                                                            </button>
+                                                            <button t-elif="ticket.state == 'called'" 
+                                                                    class="btn btn-sm btn-info"
+                                                                    data-ticket-id="{ticket.id}">
+                                                                Commencer
+                                                            </button>
+                                                            <button t-elif="ticket.state == 'serving'" 
+                                                                    class="btn btn-sm btn-success"
+                                                                    data-ticket-id="{ticket.id}">
+                                                                Terminer
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </field>
+    </record>
+
+    <!-- Vues pour les rapports personnalisés -->
+    <record id="view_queue_ticket_report_tree" model="ir.ui.view">
+        <field name="name">queue.ticket.report.tree</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <tree create="false" edit="false" delete="false" 
+                  decoration-danger="waiting_time &gt; 30"
+                  decoration-warning="waiting_time &gt; 15"
+                  decoration-success="state == 'served' and rating in ['4', '5']"
+                  default_order="created_time desc">
+                
+                <!-- Informations principales -->
+                <field name="created_time" string="Date/Heure"/>
+                <field name="service_id" string="Service"/>
+                <field name="ticket_number" string="N° Ticket"/>
+                <field name="customer_name" string="Client"/>
+                <field name="priority" string="Priorité"/>
+                
+                <!-- Métriques de performance -->
+                <field name="waiting_time" string="Attente (min)" 
+                       sum="Total Attente" avg="Moyenne"/>
+                <field name="service_time" string="Service (min)" 
+                       sum="Total Service" avg="Moyenne"/>
+                <field name="estimated_wait_time" string="Estimation (min)" avg="Moyenne"/>
+                
+                <!-- Résultats -->
+                <field name="state" string="État Final"/>
+                <field name="rating" string="Note" avg="Moyenne"/>
+                
+                <!-- Informations d'annulation -->
+                <field name="cancellation_type" string="Type Annulation" 
+                       invisible="state != 'cancelled'"/>
+                <field name="cancelled_time" string="Heure Annulation" 
+                       invisible="state != 'cancelled'"/>
+                
+                <!-- Calculs de performance -->
+                <!-- <field name="efficiency_score" string="Score Efficacité" 
+                       widget="progressbar" 
+                       invisible="state != 'served'"/> -->
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action pour les rapports détaillés -->
+    <record id="action_queue_ticket_reports" model="ir.actions.act_window">
+        <field name="name">Rapports Détaillés</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree,pivot,graph</field>
+        <field name="view_id" ref="view_queue_ticket_report_tree"/>
+        <field name="context">{
+            'search_default_this_week': 1
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Générer des rapports détaillés
+            </p>
+            <p>
+                Analysez les performances et tendances de vos services.
+            </p>
+        </field>
+    </record>
+
+    <!-- Intégration avec le module Website (si installé) -->
+    <record id="website_queue_ticket_page" model="website.page">
+        <field name="name">Suivi de Ticket</field>
+        <field name="type">qweb</field>
+        <field name="url">/queue/ticket/status</field>
+        <field name="website_published" eval="True"/>
+        <field name="arch" type="xml">
+            <div id="wrap" class="oe_structure oe_empty">
+                <section class="s_banner pt48 pb48" data-snippet="s_banner">
+                    <div class="container">
+                        <div class="row s_nb_column_fixed">
+                            <div class="col-lg-8 offset-lg-2">
+                                <h1 class="text-center">Suivi de votre Ticket</h1>
+                                <p class="lead text-center">
+                                    Entrez les informations de votre ticket pour connaître son statut
+                                </p>
+                                
+                                <!-- Formulaire de recherche -->
+                                <div class="card mt-4">
+                                    <div class="card-body">
+                                        <form id="ticketStatusForm" class="needs-validation" novalidate="">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <label for="ticketNumber" class="form-label">Numéro de Ticket</label>
+                                                    <input type="number" class="form-control" id="ticketNumber" 
+                                                           placeholder="Ex: 123" required=""/>
+                                                    <div class="invalid-feedback">
+                                                        Veuillez entrer un numéro de ticket valide
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="serviceSelect" class="form-label">Service</label>
+                                                    <select class="form-control" id="serviceSelect" required="">
+                                                        <option value="">Sélectionnez un service</option>
+                                                        <!-- Options dynamiques via JavaScript -->
+                                                    </select>
+                                                    <div class="invalid-feedback">
+                                                        Veuillez sélectionner un service
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="text-center mt-3">
+                                                <button type="submit" class="btn btn-primary btn-lg">
+                                                    <i class="fa fa-search"></i> Vérifier le Statut
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                                
+                                <!-- Zone de résultats -->
+                                <div id="ticketResults" class="mt-4" style="display: none;">
+                                    <!-- Contenu dynamique via JavaScript -->
+                                </div>
+                                
+                                <!-- Zone d'annulation -->
+                                <div id="cancellationSection" class="mt-4" style="display: none;">
+                                    <div class="card border-danger">
+                                        <div class="card-header bg-danger text-white">
+                                            <h5 class="mb-0">Annuler votre Ticket</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <form id="cancellationForm">
+                                                <div class="mb-3">
+                                                    <label for="cancellationReason" class="form-label">
+                                                        Raison de l'annulation (optionnel)
+                                                    </label>
+                                                    <textarea class="form-control" id="cancellationReason" 
+                                                              rows="3" placeholder="Pourquoi annulez-vous votre ticket ?"></textarea>
+                                                </div>
+                                                
+                                                <div class="text-center">
+                                                    <button type="button" class="btn btn-secondary me-2" 
+                                                            onclick="hideCancellationForm()">
+                                                        Annuler
+                                                    </button>
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fa fa-trash"></i> Confirmer l'Annulation
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </field>
+    </record>
+
+    <!-- Formulaire modal pour création rapide de ticket -->
+    <record id="view_queue_ticket_quick_create" model="ir.ui.view">
+        <field name="name">queue.ticket.quick.create</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <form string="Nouveau Ticket Rapide">
+                <group>
+                    <field name="service_id" options="{'no_create': True}" 
+                           domain="[('active', '=', True)]" required="1"/>
+                    <field name="customer_name" placeholder="Nom du client (optionnel)"/>
+                    <field name="customer_phone" placeholder="+225 XX XX XX XX"/>
+                    <field name="customer_email" placeholder="email@exemple.com"/>
+                    <field name="priority"/>
+                </group>
+                
+                <footer>
+                    <!-- <button string="Créer Ticket" name="create_quick_ticket" 
+                            type="object" class="btn-primary"/> -->
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action pour création rapide -->
+    <record id="action_queue_ticket_quick_create" model="ir.actions.act_window">
+        <field name="name">Nouveau Ticket Rapide</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_queue_ticket_quick_create"/>
+        <field name="target">new</field>
+        <field name="context">{'default_state': 'waiting'}</field>
+    </record>
+
+    <!-- Vues pour l'intégration mobile -->
+    <record id="view_queue_ticket_mobile_tree" model="ir.ui.view">
+        <field name="name">queue.ticket.mobile.tree</field>
+        <field name="model">queue.ticket</field>
+        <field name="priority">15</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state=='waiting'"
+                  decoration-warning="state=='called'"
+                  decoration-primary="state=='serving'"
+                  create="false" edit="false"
+                  default_order="priority desc, ticket_number asc">
+                
+                <field name="display_name" string="Ticket"/>
+                <field name="customer_name" string="Client"/>
+                <field name="state" string="État"/>
+                <field name="waiting_time" string="Attente" widget="float_time"/>
+                
+                <!-- Actions mobiles simplifiées -->
+                <button name="action_call_next" string="📞"
+                        type="object" invisible="state != 'waiting'"/>
+                <button name="action_complete_service" string="✅"
+                        type="object" invisible="state not in ['called', 'serving']"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vue pour les notifications push -->
+    <record id="view_queue_ticket_notification" model="ir.ui.view">
+        <field name="name">queue.ticket.notification</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <form string="Envoi de Notification" create="false" edit="false">
+                <group>
+                    <group>
+                        <field name="ticket_number" readonly="1"/>
+                        <field name="customer_name" readonly="1"/>
+                        <field name="customer_phone" readonly="1"/>
+                        <field name="customer_email" readonly="1"/>
+                    </group>
+                    <group>
+                        <field name="state" readonly="1"/>
+                        <field name="notification_sent" readonly="1"/>
+                        <field name="service_id" readonly="1"/>
+                    </group>
+                </group>
+                
+                <!-- <group string="Message de Notification">
+                    <field name="notification_message" widget="text" 
+                           placeholder="Tapez votre message personnalisé..."/>
+                </group> -->
+                
+                <footer>
+                    <!-- <button string="Envoyer SMS" name="send_custom_sms" 
+                            type="object" class="btn-primary"
+                            invisible="not customer_phone"/> -->
+                    <!-- <button string="Envoyer Email" name="send_custom_email" 
+                            type="object" class="btn-info"
+                            invisible="not customer_email"/> -->
+                    <!-- <button string="Envoyer Tout" name="send_all_notifications" 
+                            type="object" class="btn-success"/> -->
+                    <button string="Fermer" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Actions contextuelles pour les notifications -->
+    <record id="action_send_notification" model="ir.actions.act_window">
+        <field name="name">Envoyer Notification</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_queue_ticket_notification"/>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_queue_ticket"/>
+    </record>
+
+    <!-- Configuration avancée des filtres et tri -->
+    <record id="view_queue_ticket_search_advanced" model="ir.ui.view">
+        <field name="name">queue.ticket.search.advanced</field>
+        <field name="model">queue.ticket</field>
+        <field name="priority">5</field>
+        <field name="arch" type="xml">
+            <search>
+                <!-- Recherche avancée -->
+                <field name="ticket_number" string="N° Ticket"
+                       filter_domain="[('ticket_number', '=', self)]"/>
+                <field name="display_name" string="Ticket"/>
+                <field name="service_id" string="Service"/>
+                <field name="customer_name" string="Client"
+                       filter_domain="[('customer_name', 'ilike', self)]"/>
+                <field name="customer_phone" string="Téléphone"
+                       filter_domain="[('customer_phone', 'ilike', self)]"/>
+                <field name="customer_email" string="Email"
+                       filter_domain="[('customer_email', 'ilike', self)]"/>
+                <field name="notes" string="Notes"
+                       filter_domain="[('notes', 'ilike', self)]"/>
+                
+                <separator/>
+                
+                <!-- Filtres de performance -->
+                <filter string="🐌 Attente Longue (&gt; 30min)" name="long_wait"
+                        domain="[('waiting_time', '&gt;', 30)]"/>
+                <filter string="⚡ Service Rapide (&lt; 5min)" name="fast_service"
+                        domain="[('service_time', '&lt;', 5), ('service_time', '&gt;', 0)]"/>
+                <filter string="🐢 Service Lent (&gt; 15min)" name="slow_service"
+                        domain="[('service_time', '&gt;', 15)]"/>
+                
+                <separator/>
+                
+                <!-- Filtres de satisfaction -->
+                <filter string="😟 Mauvaises Notes (1-2★)" name="bad_rating"
+                        domain="[('rating', 'in', ['1', '2'])]"/>
+                <filter string="😐 Notes Moyennes (3★)" name="average_rating"
+                        domain="[('rating', '=', '3')]"/>
+                <filter string="😊 Bonnes Notes (4-5★)" name="good_rating"
+                        domain="[('rating', 'in', ['4', '5'])]"/>
+                <filter string="📝 Avec Commentaires" name="has_feedback"
+                        domain="[('feedback', '!=', False)]"/>
+                
+                <separator/>
+                
+                <!-- Filtres par tranches horaires -->
+                <filter string="🌅 Matin (8h-12h)" name="morning"
+                        domain="[('created_time', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(8,0,0))),
+                                 ('created_time', '&lt;', datetime.datetime.combine(context_today(), datetime.time(12,0,0)))]"/>
+                <filter string="🌞 Après-midi (12h-18h)" name="afternoon"
+                        domain="[('created_time', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(12,0,0))),
+                                 ('created_time', '&lt;', datetime.datetime.combine(context_today(), datetime.time(18,0,0)))]"/>
+                <filter string="🌙 Soir (18h-20h)" name="evening"
+                        domain="[('created_time', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(18,0,0))),
+                                 ('created_time', '&lt;=', datetime.datetime.combine(context_today(), datetime.time(20,0,0)))]"/>
+                
+                <separator/>
+                
+                <!-- Filtres par jour de la semaine -->
+                <filter string="📅 Lundi" name="monday"
+                        domain="[('created_time', '&gt;=', (context_today() - datetime.timedelta(days=context_today().weekday())).strftime('%Y-%m-%d')),
+                                 ('created_time', '&lt;', (context_today() - datetime.timedelta(days=context_today().weekday()) + datetime.timedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+                <filter string="📅 Vendredi" name="friday"
+                        domain="[('created_time', '&gt;=', (context_today() - datetime.timedelta(days=context_today().weekday()) + datetime.timedelta(days=4)).strftime('%Y-%m-%d')),
+                                 ('created_time', '&lt;', (context_today() - datetime.timedelta(days=context_today().weekday()) + datetime.timedelta(days=5)).strftime('%Y-%m-%d'))]"/>
+                
+                <!-- Groupements avancés -->
+                <group expand="0" string="Grouper Par">
+                    <filter string="Service" name="group_service"
+                            context="{'group_by': 'service_id'}"/>
+                    <filter string="État" name="group_state"
+                            context="{'group_by': 'state'}"/>
+                    <filter string="Priorité" name="group_priority"
+                            context="{'group_by': 'priority'}"/>
+                    <filter string="Agent qui a Annulé" name="group_cancelled_by"
+                            context="{'group_by': 'cancelled_by'}"/>
+                    <filter string="Type d'Annulation" name="group_cancellation_type"
+                            context="{'group_by': 'cancellation_type'}"/>
+                    <filter string="Évaluation" name="group_rating"
+                            context="{'group_by': 'rating'}"/>
+                    <filter string="Jour de Création" name="group_create_day"
+                            context="{'group_by': 'created_time:day'}"/>
+                    <filter string="Semaine de Création" name="group_create_week"
+                            context="{'group_by': 'created_time:week'}"/>
+                    <filter string="Mois de Création" name="group_create_month"
+                            context="{'group_by': 'created_time:month'}"/>
+                    <filter string="Heure de Création" name="group_create_hour"
+                            context="{'group_by': 'created_time:hour'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Actions de raccourci pour la barre d'outils -->
+    <!-- <record id="shortcut_new_ticket" model="ir.actions.act_window">
+        <field name="name">➕ Nouveau Ticket</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_queue_ticket_quick_create"/>
+        <field name="target">new</field>
+        <field name="context">{'default_state': 'waiting'}</field>
+    </record>
+
+    <record id="shortcut_active_tickets" model="ir.actions.act_window">
+        <field name="name">🎫 Tickets Actifs</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">kanban,tree</field>
+        <field name="domain">[('state', 'in', ['waiting', 'called', 'serving'])]</field>
+        <field name="context">{
+            'search_default_group_state': 1
+        }</field>
+    </record> -->
+
+    <!-- Configuration des notifications automatiques -->
+    <!-- <record id="mail_activity_type_ticket_followup" model="mail.activity.type">
+        <field name="name">Suivi de Ticket</field>
+        <field name="summary">Suivi du ticket #${object.ticket_number}</field>
+        <field name="delay_count">1</field>
+        <field name="delay_unit">hours</field>
+        <field name="delay_from">created</field>
+        <field name="default_description">Ticket #${object.ticket_number} créé pour ${object.service_id.name}</field>
+    </record>
+
+    <record id="automated_action_urgent_ticket_alert" model="base.automation">
+        <field name="name">Alerte Ticket Urgent</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="trigger">on_create</field>
+        <field name="filter_domain">[('priority', '=', 'urgent')]</field>
+        <field name="activity_type_id" ref="base.automation_action_execute_python_code"/>
+        <field name="python_code">
+    # Créer une activité pour les tickets urgents
+    activity_type = env.ref('queue_management.mail_activity_type_ticket_followup')
+    for record in records:
+        env['mail.activity'].create({
+            'activity_type_id': activity_type.id,
+            'res_model_id': env['ir.model']._get('queue.ticket').id,
+            'res_id': record.id,
+            'summary': f'Ticket URGENT #{record.ticket_number}',
+            'note': f'Ticket urgent créé pour {record.service_id.name}. Traitement prioritaire requis.',
+            'user_id': record.service_id.manager_id.id if record.service_id.manager_id else env.user.id,
+            'date_deadline': fields.Date.today()
+        })
+        _logger.info(f"Alerte créée pour ticket urgent #{record.ticket_number}")
+        </field>
+        <field name="active" eval="True"/>
+    </record> -->
+
+
+    <!-- Action pour le suivi des activités -->
+    <!-- <record id="automated_action_update_estimated_times" model="base.automation">
+        <field name="name">Mise à jour temps d'attente estimés</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="state">code</field>
+        <field name="trigger">on_time</field>
+        <field name="interval_number">2</field>
+        <field name="interval_type">minutes</field>
+        <field name="numbercall">-1</field>
+        <field name="code">
+# Recalculer les temps d'attente estimés pour tous les tickets en attente
+waiting_tickets = env['queue.ticket'].search([('state', '=', 'waiting')])
+if waiting_tickets:
+    waiting_tickets._compute_estimated_wait()
+    log(f'Temps d\'attente mis à jour pour {len(waiting_tickets)} tickets')
+        </field>
+        <field name="active" eval="True"/>
+    </record> -->
+
+    <!-- Rapports QWeb personnalisés -->
+    <record id="report_queue_ticket_summary" model="ir.actions.report">
+        <field name="name">Résumé des Tickets</field>
+        <field name="model">queue.ticket</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">queue_management.report_ticket_summary_template</field>
+        <field name="report_file">queue_management.report_ticket_summary</field>
+        <field name="binding_model_id" ref="model_queue_ticket"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Template pour le rapport PDF -->
+    <template id="report_ticket_summary_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="ticket">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="row">
+                            <div class="col-12">
+                                <h1 class="text-center">Résumé du Ticket #<span t-esc="ticket.ticket_number"/></h1>
+                                <h3 class="text-center text-muted"><span t-esc="ticket.service_id.name"/></h3>
+                                
+                                <div class="row mt-4">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header bg-primary text-white">
+                                                <h5 class="mb-0">Informations Client</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <table class="table table-sm">
+                                                    <tr t-if="ticket.customer_name">
+                                                        <th>Nom:</th>
+                                                        <td><span t-esc="ticket.customer_name"/></td>
+                                                    </tr>
+                                                    <tr t-if="ticket.customer_phone">
+                                                        <th>Téléphone:</th>
+                                                        <td><span t-esc="ticket.customer_phone"/></td>
+                                                    </tr>
+                                                    <tr t-if="ticket.customer_email">
+                                                        <th>Email:</th>
+                                                        <td><span t-esc="ticket.customer_email"/></td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header bg-primary text-white">
+                                                <h5 class="mb-0">Statut du Ticket</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>État:</th>
+                                                        <td>
+                                                            <span t-if="ticket.state == 'waiting'" class="badge badge-info">En Attente</span>
+                                                            <span t-elif="ticket.state == 'called'" class="badge badge-warning">Appelé</span>
+                                                            <span t-elif="ticket.state == 'serving'" class="badge badge-primary">En Service</span>
+                                                            <span t-elif="ticket.state == 'served'" class="badge badge-success">Servi</span>
+                                                            <span t-elif="ticket.state == 'cancelled'" class="badge badge-danger">Annulé</span>
+                                                            <span t-elif="ticket.state == 'no_show'" class="badge badge-secondary">Absent</span>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Priorité:</th>
+                                                        <td>
+                                                            <span t-if="ticket.priority == 'urgent'" class="badge badge-danger">URGENT</span>
+                                                            <span t-elif="ticket.priority == 'high'" class="badge badge-warning">PRIORITÉ</span>
+                                                            <span t-else="" class="badge badge-secondary">NORMAL</span>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Créé le:</th>
+                                                        <td><span t-field="ticket.created_time" t-options="{'widget': 'datetime'}"/></td>
+                                                    </tr>
+                                                    <tr t-if="ticket.called_time">
+                                                        <th>Appelé le:</th>
+                                                        <td><span t-field="ticket.called_time" t-options="{'widget': 'datetime'}"/></td>
+                                                    </tr>
+                                                    <tr t-if="ticket.completed_time">
+                                                        <th>Terminé le:</th>
+                                                        <td><span t-field="ticket.completed_time" t-options="{'widget': 'datetime'}"/></td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-4">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header bg-primary text-white">
+                                                <h5 class="mb-0">Métriques de Performance</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>Temps d'attente:</th>
+                                                        <td><span t-esc="round(ticket.waiting_time, 1)"/> minutes</td>
+                                                    </tr>
+                                                    <tr t-if="ticket.service_time > 0">
+                                                        <th>Temps de service:</th>
+                                                        <td><span t-esc="round(ticket.service_time, 1)"/> minutes</td>
+                                                    </tr>
+                                                    <tr t-if="ticket.estimated_wait_time > 0">
+                                                        <th>Temps estimé initial:</th>
+                                                        <td><span t-esc="round(ticket.estimated_wait_time, 1)"/> minutes</td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header bg-primary text-white">
+                                                <h5 class="mb-0">Satisfaction Client</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <table class="table table-sm">
+                                                    <tr t-if="ticket.rating">
+                                                        <th>Évaluation:</th>
+                                                        <td>
+                                                            <span t-field="ticket.rating" t-options="{'widget': 'priority'}"/>
+                                                        </td>
+                                                    </tr>
+                                                    <tr t-if="ticket.feedback">
+                                                        <th>Commentaire:</th>
+                                                        <td><span t-field="ticket.feedback"/></td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-4" t-if="ticket.state == 'cancelled'">
+                                    <div class="col-12">
+                                        <div class="card border-danger">
+                                            <div class="card-header bg-danger text-white">
+                                                <h5 class="mb-0">Détails d'Annulation</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>Type d'annulation:</th>
+                                                        <td><span t-field="ticket.cancellation_type"/></td>
+                                                    </tr>
+                                                    <tr t-if="ticket.cancelled_by">
+                                                        <th>Annulé par:</th>
+                                                        <td><span t-field="ticket.cancelled_by.name"/></td>
+                                                    </tr>
+                                                    <tr t-if="ticket.cancelled_time">
+                                                        <th>Heure d'annulation:</th>
+                                                        <td><span t-field="ticket.cancelled_time" t-options="{'widget': 'datetime'}"/></td>
+                                                    </tr>
+                                                    <tr t-if="ticket.cancellation_reason">
+                                                        <th>Raison:</th>
+                                                        <td><span t-field="ticket.cancellation_reason"/></td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-4" t-if="ticket.notes">
+                                    <div class="col-12">
+                                        <div class="card">
+                                            <div class="card-header bg-light">
+                                                <h5 class="mb-0">Notes Internes</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <pre style="white-space: pre-wrap;"><span t-field="ticket.notes"/></pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-4" t-if="ticket.action_history">
+                                    <div class="col-12">
+                                        <div class="card">
+                                            <div class="card-header bg-light">
+                                                <h5 class="mb-0">Historique des Actions</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <pre style="white-space: pre-wrap; font-size: 12px;"><span t-field="ticket.action_history"/></pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <!-- Rapport statistique avancé -->
+    <record id="report_queue_statistics" model="ir.actions.report">
+        <field name="name">Statistiques des Tickets</field>
+        <field name="model">queue.ticket</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">queue_management.report_statistics_template</field>
+        <field name="report_file">queue_management.report_statistics</field>
+        <field name="binding_model_id" ref="model_queue_ticket"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_statistics_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <div class="oe_structure">
+                        <div class="row">
+                            <div class="col-12">
+                                <h1 class="text-center">Statistiques des Tickets</h1>
+                                <h3 class="text-center text-muted">
+                                    Période: <span t-esc="date_from or 'Début'"/> au <span t-esc="date_to or 'Aujourd'hui'"/>
+                                </h3>
+                                
+                                <!-- Statistiques globales -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <h3>Statistiques Globales</h3>
+                                        <table class="table table-bordered">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>Total Tickets</th>
+                                                    <th>Servis</th>
+                                                    <th>Annulés</th>
+                                                    <th>Absents</th>
+                                                    <th>Taux Service</th>
+                                                    <th>Temps Attente Moyen</th>
+                                                    <th>Temps Service Moyen</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><span t-esc="total_tickets"/></td>
+                                                    <td><span t-esc="served_tickets"/></td>
+                                                    <td><span t-esc="cancelled_tickets"/></td>
+                                                    <td><span t-esc="no_show_tickets"/></td>
+                                                    <td><span t-esc="service_rate"/>%</td>
+                                                    <td><span t-esc="avg_waiting_time"/> min</td>
+                                                    <td><span t-esc="avg_service_time"/> min</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Statistiques par service -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <h3>Performance par Service</h3>
+                                        <table class="table table-striped">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>Service</th>
+                                                    <th>Tickets</th>
+                                                    <th>Servis</th>
+                                                    <th>Taux Service</th>
+                                                    <th>Attente Moy.</th>
+                                                    <th>Service Moy.</th>
+                                                    <th>Satisfaction</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="service_stats" t-as="service">
+                                                    <tr>
+                                                        <td><strong><span t-esc="service['name']"/></strong></td>
+                                                        <td><span t-esc="service['total']"/></td>
+                                                        <td><span t-esc="service['served']"/></td>
+                                                        <td><span t-esc="service['service_rate']"/>%</td>
+                                                        <td><span t-esc="service['avg_wait']"/> min</td>
+                                                        <td><span t-esc="service['avg_service']"/> min</td>
+                                                        <td>
+                                                            <span t-if="service['avg_rating']">
+                                                                <span t-esc="service['avg_rating']"/>/5 ⭐
+                                                            </span>
+                                                            <span t-else="">N/A</span>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Analyse des annulations -->
+                                <div class="row mt-4" t-if="cancellation_stats">
+                                    <div class="col-12">
+                                        <h3>Analyse des Annulations</h3>
+                                        <table class="table table-bordered">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>Type d'Annulation</th>
+                                                    <th>Nombre</th>
+                                                    <th>Pourcentage</th>
+                                                    <th>Temps Moyen Avant Annulation</th>
+                                                    <th>Service Concerné</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="cancellation_stats" t-as="stat">
+                                                    <tr>
+                                                        <td><span t-esc="stat['type']"/></td>
+                                                        <td><span t-esc="stat['count']"/></td>
+                                                        <td><span t-esc="stat['percentage']"/>%</td>
+                                                        <td><span t-esc="stat['avg_wait']"/> min</td>
+                                                        <td><span t-esc="stat['service']"/></td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Analyse de satisfaction -->
+                                <div class="row mt-4" t-if="rating_stats">
+                                    <div class="col-12">
+                                        <h3>Satisfaction Client</h3>
+                                        <table class="table table-bordered">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>Note</th>
+                                                    <th>Nombre</th>
+                                                    <th>Pourcentage</th>
+                                                    <th>Service</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="rating_stats" t-as="stat">
+                                                    <tr>
+                                                        <td><span t-esc="stat['rating']"/> ⭐</td>
+                                                        <td><span t-esc="stat['count']"/></td>
+                                                        <td><span t-esc="stat['percentage']"/>%</td>
+                                                        <td><span t-esc="stat['service']"/></td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Graphiques -->
+                                <div class="row mt-4">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h5>Répartition par État</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <div id="stateChart" style="height: 300px;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h5>Temps d'Attente par Service</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <div id="waitingTimeChart" style="height: 300px;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- Vues pour l'API REST -->
+    <record id="view_queue_ticket_api_docs" model="ir.ui.view">
+        <field name="name">queue.ticket.api.docs</field>
+        <field name="model">queue.ticket</field>
+        <field name="type">qweb</field>
+        <field name="arch" type="xml">
+            <div class="container">
+                <h1>API Queue Ticket</h1>
+                <p>Documentation des endpoints API pour interagir avec le système de tickets</p>
+                
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h3>GET /queue/api/ticket/status</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>Obtenir le statut d'un ticket</p>
+                        <h5>Paramètres:</h5>
+                        <pre>
+{
+    "ticket_number": 123,  // Requis
+    "service_id": 1        // Requis
+}
+                        </pre>
+                        <h5>Réponse:</h5>
+                        <pre>
+{
+    "success": true,
+    "ticket_number": 123,
+    "state": "waiting",
+    "state_label": "En Attente",
+    "position": 3,
+    "estimated_wait_time": 15,
+    "service_name": "Service Client",
+    "current_serving": 120,
+    "created_time": "15/08/2023 14:30",
+    "waiting_time": 5.2,
+    "can_cancel": true
+}
+                        </pre>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h3>POST /queue/api/ticket/cancel</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>Annuler un ticket</p>
+                        <h5>Paramètres:</h5>
+                        <pre>
+{
+    "ticket_number": 123,  // Requis
+    "service_id": 1,       // Requis
+    "reason": "Optionnel"  // Optionnel
+}
+                        </pre>
+                        <h5>Réponse:</h5>
+                        <pre>
+{
+    "success": true,
+    "message": "Ticket #123 annulé avec succès",
+    "ticket_id": 42,
+    "new_state": "cancelled"
+}
+                        </pre>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h3>POST /queue/api/ticket/create</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>Créer un nouveau ticket</p>
+                        <h5>Paramètres:</h5>
+                        <pre>
+{
+    "service_id": 1,               // Requis
+    "customer_name": "Optionnel",  // Optionnel
+    "customer_phone": "Optionnel", // Optionnel
+    "customer_email": "Optionnel", // Optionnel
+    "priority": "normal"           // Optionnel (normal|high|urgent)
+}
+                        </pre>
+                        <h5>Réponse:</h5>
+                        <pre>
+{
+    "success": true,
+    "ticket_number": 124,
+    "ticket_id": 43,
+    "qr_code": "https://...",
+    "estimated_wait_time": 10
+}
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </field>
+    </record>
+
+    <!-- Action pour la documentation API -->
+    <record id="action_queue_ticket_api_docs" model="ir.actions.act_window">
+        <field name="name">Documentation API</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_queue_ticket_api_docs"/>
+        <field name="target">new</field>
     </record>
 </odoo>

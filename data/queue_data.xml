@@ -133,4 +133,78 @@ old_tickets.unlink()
         <field name="active">True</field>
         <field name="doall">False</field>
     </record>
+
+    <!-- Cron jobs pour maintenance automatique -->
+    <record id="cron_daily_stats_cleanup" model="ir.cron">
+        <field name="name">Nettoyage Statistiques Anciennes</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="state">code</field>
+        <field name="code">model.cleanup_old_statistics()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active" eval="True"/>
+        <field name="doall" eval="False"/>
+    </record>
+
+    <record id="cron_performance_report" model="ir.cron">
+        <field name="name">Rapport Performance Hebdomadaire</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="state">code</field>
+        <field name="code">
+# Génération du rapport hebdomadaire
+services = model.search([('active', '=', True)])
+report_data = model.generate_performance_report()
+
+# Envoi par email aux managers (si configuré)
+managers = env.ref('queue_management.group_queue_manager').users
+for manager in managers:
+    if manager.email:
+        # Logique d'envoi de rapport par email
+        pass
+
+_logger.info("Rapport de performance hebdomadaire généré")
+        </field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">weeks</field>
+        <field name="numbercall">-1</field>
+        <!-- <field name="nextcall" eval="(DateTime.now() + timedelta(weeks=1)).replace(hour=8, minute=0, second=0)"/> -->
+        <field name="active" eval="True"/>
+        <field name="doall" eval="False"/>
+    </record>
+
+    <record id="cron_auto_cancel_timeout_tickets" model="ir.cron">
+        <field name="name">Timeout des tickets appelés</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="state">code</field>
+        <field name="code">model.auto_cancel_timeout_tickets()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="numbercall">-1</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <record id="ir_cron_cleanup_old_tickets" model="ir.cron">
+        <field name="name">Nettoyage des anciens tickets</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="state">code</field>
+        <field name="code">model.scheduled_cleanup_and_maintenance()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <record id="ir_cron_update_estimated_times" model="ir.cron">
+        <field name="name">Mise à jour temps d'attente estimés</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="state">code</field>
+        <field name="code">model.scheduled_update_estimated_times()</field>
+        <field name="interval_number">2</field>
+        <field name="interval_type">minutes</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False"/>
+        <field name="active" eval="True"/>
+    </record>
 </odoo>

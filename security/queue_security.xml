@@ -69,4 +69,83 @@
         <field name="key">queue_management.max_waiting_alert_threshold</field>
         <field name="value">15</field>
     </record>
+
+    <!-- Groupes de sécurité -->
+    <record id="group_queue_user" model="res.groups">
+        <field name="name">Agent File d'Attente</field>
+        <field name="comment">Peut gérer les tickets et appeler les clients</field>
+        <field name="category_id" ref="base.module_category_services"/>
+    </record>
+
+    <record id="group_queue_manager" model="res.groups">
+        <field name="name">Manager Files d'Attente</field>
+        <field name="comment">Peut configurer les services et consulter les statistiques</field>
+        <field name="category_id" ref="base.module_category_services"/>
+        <field name="implied_ids" eval="[(4, ref('group_queue_user'))]"/>
+    </record>
+
+    <!-- Règles d'accès -->
+    <record id="access_queue_service_user" model="ir.model.access">
+        <field name="name">queue.service.user</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="group_id" ref="group_queue_user"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="access_queue_service_manager" model="ir.model.access">
+        <field name="name">queue.service.manager</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="group_id" ref="group_queue_manager"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Configuration des droits d'accès -->
+    <record id="access_queue_ticket_user" model="ir.model.access">
+        <field name="name">queue.ticket.user</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="access_queue_ticket_manager" model="ir.model.access">
+        <field name="name">queue.ticket.manager</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="group_id" ref="base.group_system"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Règles de sécurité par enregistrement -->
+    <!-- <record id="queue_ticket_rule_own_service" model="ir.rule">
+        <field name="name">Ticket: accès par service</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="domain_force">[('service_id.user_ids', 'in', [user.id])]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record> -->
+
+    <record id="queue_ticket_rule_manager_all" model="ir.rule">
+        <field name="name">Ticket: managers accès complet</field>
+        <field name="model_id" ref="model_queue_ticket"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
 </odoo>

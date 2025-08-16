@@ -519,4 +519,57 @@
             href="/queue_management/static/src/css/queue_reports.css" />
     </template>
 
+    <record id="view_queue_ticket_export" model="ir.ui.view">
+        <field name="name">queue.ticket.export</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <tree create="false" edit="false" export_xlsx="1">
+                <!-- Données principales -->
+                <field name="ticket_number" string="N° Ticket"/>
+                <field name="service_id" string="Service"/>
+                <field name="customer_name" string="Nom Client"/>
+                <field name="customer_phone" string="Téléphone"/>
+                <field name="customer_email" string="Email"/>
+                
+                <!-- États et timing -->
+                <field name="state" string="État"/>
+                <field name="priority" string="Priorité"/>
+                <field name="created_time" string="Heure Création"/>
+                <field name="called_time" string="Heure Appel"/>
+                <field name="served_time" string="Heure Service"/>
+                <field name="completed_time" string="Heure Fin"/>
+                
+                <!-- Métriques -->
+                <field name="waiting_time" string="Temps Attente (min)"/>
+                <field name="service_time" string="Temps Service (min)"/>
+                <field name="estimated_wait_time" string="Temps Estimé (min)"/>
+                
+                <!-- Satisfaction -->
+                <field name="rating" string="Évaluation"/>
+                <field name="feedback" string="Commentaires"/>
+                
+                <!-- Annulation -->
+                <field name="cancellation_type" string="Type Annulation"/>
+                <field name="cancellation_reason" string="Raison Annulation"/>
+                <field name="cancelled_by" string="Annulé Par"/>
+                <field name="cancelled_time" string="Heure Annulation"/>
+                
+                <!-- Métadonnées -->
+                <field name="notification_sent" string="Notification Envoyée"/>
+                <field name="notes" string="Notes"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action d'export spécialisée -->
+    <record id="action_queue_ticket_export" model="ir.actions.act_window">
+        <field name="name">Export des Tickets</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_queue_ticket_export"/>
+        <field name="context">{
+            'search_default_this_month': 1
+        }</field>
+    </record>
+
 </odoo>

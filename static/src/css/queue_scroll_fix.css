@@ -1,0 +1,402 @@
+/* =======================================================
+   STYLES CSS POUR PERMETTRE LE SCROLL SUR TOUS LES TEMPLATES
+   Système de Files d'Attente - Queue Management
+   ======================================================= */
+
+/* Configuration de base pour garantir le scroll */
+html {
+    height: 100%;
+    overflow-y: scroll !important;
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto !important;
+    position: relative;
+}
+
+/* Wrapper principal - doit permettre le scroll */
+#wrap {
+    min-height: calc(100vh - 120px); /* Ajustement pour header/footer */
+    overflow: visible !important;
+    position: relative;
+    padding-bottom: 50px; /* Espace pour le footer */
+}
+
+/* Container principal */
+.container, .container-fluid {
+    position: relative;
+    overflow: visible;
+    min-height: auto;
+}
+
+/* =======================================================
+   CORRECTIONS SPÉCIFIQUES PAR TEMPLATE
+   ======================================================= */
+
+/* Template d'accueil */
+.queue-home-template {
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Template de service */
+.queue-service-template {
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+.queue-service-template .sticky-top {
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+/* Template de suivi de ticket */
+.my-ticket-template {
+    min-height: 100vh;
+    overflow-y: auto;
+    padding-bottom: 100px;
+}
+
+/* Template administrateur */
+.admin-dashboard-template {
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+.admin-dashboard-template .container-fluid {
+    padding-bottom: 50px;
+}
+
+/* Template de confirmation de ticket */
+.ticket-confirmation-template {
+    min-height: 100vh;
+    overflow-y: auto;
+    padding-bottom: 50px;
+}
+
+/* Template d'impression - cas spécial */
+.print-template body {
+    overflow: visible !important;
+    min-height: auto;
+}
+
+@media print {
+    .print-template body {
+        overflow: visible !important;
+        height: auto !important;
+    }
+}
+
+/* Template d'affichage public */
+.public-display-template {
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+.public-display-template .bg-dark {
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+/* =======================================================
+   CORRECTIONS POUR LES CARTES ET COMPOSANTS
+   ======================================================= */
+
+/* Cartes avec contenu dynamique */
+.card {
+    position: relative;
+    overflow: visible;
+}
+
+.card-body {
+    overflow: visible;
+    position: relative;
+}
+
+/* Listes de tickets */
+.list-group {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+.queue-list {
+    max-height: none !important;
+    overflow-y: visible !important;
+}
+
+/* Section des statistiques */
+.queue-stats {
+    overflow: visible;
+}
+
+/* =======================================================
+   CORRECTIONS POUR LA NAVIGATION STICKY
+   ======================================================= */
+
+/* Sidebar collante avec scroll interne si nécessaire */
+.sticky-sidebar {
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+/* Scrollbar personnalisée pour la sidebar */
+.sticky-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sticky-sidebar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.sticky-sidebar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.sticky-sidebar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* =======================================================
+   RESPONSIVE - CORRECTIONS MOBILES
+   ======================================================= */
+
+@media (max-width: 768px) {
+    /* Sur mobile, désactiver les éléments sticky qui peuvent poser problème */
+    .sticky-top {
+        position: relative !important;
+        top: auto !important;
+    }
+    
+    /* Assurer le scroll sur mobile */
+    body {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    #wrap {
+        min-height: calc(100vh - 60px);
+        padding-bottom: 30px;
+    }
+    
+    /* Cartes empilables sur mobile */
+    .card {
+        margin-bottom: 20px;
+    }
+    
+    /* Prévenir les débordements horizontaux */
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+        overflow-x: hidden;
+    }
+}
+
+@media (max-width: 576px) {
+    /* Très petits écrans */
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .display-3 {
+        font-size: 2.5rem;
+    }
+    
+    /* Réduire les marges pour gagner de l'espace */
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    .mt-4, .my-4 {
+        margin-top: 1.5rem !important;
+    }
+    
+    .mb-4, .my-4 {
+        margin-bottom: 1.5rem !important;
+    }
+}
+
+/* =======================================================
+   CORRECTIONS POUR LES MODALES ET POPUPS
+   ======================================================= */
+
+.modal {
+    overflow-y: auto !important;
+}
+
+.modal-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+}
+
+/* =======================================================
+   CORRECTIONS POUR LES TABLEAUX LONGS
+   ======================================================= */
+
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+    max-width: 100%;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+/* =======================================================
+   CORRECTIONS POUR LES FORMULAIRES LONGS
+   ======================================================= */
+
+.form-container {
+    overflow: visible;
+    min-height: auto;
+}
+
+.form-group {
+    overflow: visible;
+}
+
+/* =======================================================
+   UTILITAIRES DE SCROLL
+   ======================================================= */
+
+/* Classe utilitaire pour forcer le scroll */
+.force-scroll {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+/* Classe pour scroll horizontal */
+.scroll-x {
+    overflow-x: auto !important;
+    overflow-y: hidden;
+}
+
+/* Classe pour désactiver le scroll (cas particuliers) */
+.no-scroll {
+    overflow: hidden !important;
+}
+
+/* Smooth scroll pour les ancres */
+.smooth-scroll {
+    scroll-behavior: smooth;
+}
+
+/* =======================================================
+   CORRECTIONS POUR LE CONTENU TRÈS LONG
+   ======================================================= */
+
+/* Sections avec beaucoup de contenu */
+.long-content {
+    min-height: auto;
+    overflow-y: visible;
+    word-wrap: break-word;
+}
+
+/* Prévenir les débordements de texte */
+.text-container {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+
+/* =======================================================
+   CORRECTIONS POUR LES ANIMATIONS
+   ======================================================= */
+
+/* S'assurer que les animations n'interfèrent pas avec le scroll */
+.animate__animated {
+    position: relative;
+    overflow: visible;
+}
+
+/* =======================================================
+   DEBUGGING - À RETIRER EN PRODUCTION
+   ======================================================= */
+
+/* Classe de debug pour identifier les problèmes de scroll */
+.debug-scroll {
+    border: 2px dashed red !important;
+    min-height: 200px;
+    overflow: auto;
+    background: rgba(255,0,0,0.1);
+}
+
+/* =======================================================
+   CORRECTIONS SPÉCIFIQUES NAVIGATEUR
+   ======================================================= */
+
+/* Firefox */
+@-moz-document url-prefix() {
+    html {
+        overflow-y: scroll;
+    }
+    
+    body {
+        scrollbar-width: thin;
+        scrollbar-color: #888 #f1f1f1;
+    }
+}
+
+/* Safari */
+@supports (-webkit-appearance: none) {
+    body {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* =======================================================
+   RÈGLES IMPORTANTES DE DERNIÈRE CHANCE
+   ======================================================= */
+
+/* Si rien d'autre ne fonctionne, ces règles forcent le scroll */
+html, body {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+}
+
+#wrap, .o_main_content, main {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    min-height: 100vh;
+}
+
+/* =======================================================
+   ACCESSIBILITÉ
+   ======================================================= */
+
+/* Améliorer la navigation au clavier */
+*:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Indicateur de scroll pour les utilisateurs */
+.scroll-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(to right, #007bff 0%, #28a745 100%);
+    z-index: 9999;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+}
+
+.scroll-indicator.active {
+    transform: scaleX(var(--scroll-progress, 0));
+}

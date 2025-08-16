@@ -17,30 +17,33 @@
         parent="menu_queue_management_root"
         sequence="20" />
 
-    <menuitem id="menu_queue_services_all"
-        name="Tous les Services"
-        parent="menu_queue_services"
-        sequence="10"
-        action="action_queue_service" />
-    
-    <menuitem id="menu_queue_services_open" 
-              name="Services Ouverts" 
-              parent="menu_queue_services" 
-              action="action_queue_service_open" 
-              sequence="15"/>
-    
-    <menuitem id="menu_queue_services_busy" 
-              name="Services Occupés" 
-              parent="menu_queue_services" 
-              action="action_queue_service_with_queue" 
-              sequence="20"/>
+    <menuitem id="menu_queue_service_main" 
+              name="Tous les Services" 
+              parent="menu_queue_services"
+              action="action_queue_service" 
+              sequence="10"/>
 
+    <menuitem id="menu_queue_service_config" 
+              name="Configuration" 
+              parent="menu_queue_services"
+              sequence="90"/>
 
-    <menuitem id="menu_queue_tickets"
+    <menuitem id="menu_queue_tickets_root"
         name="Tickets"
         parent="menu_queue_management_root"
-        sequence="30"
-        action="action_queue_ticket" />
+        sequence="30" />
+
+    <menuitem id="menu_queue_tickets"
+        name="Tous Les Tickets"
+        parent="menu_queue_tickets_root"
+        sequence="10"
+        action="action_main_queue_ticket" />
+
+    <menuitem id="menu_queue_ticket_cancelled" 
+        name="Tickets Annulés" 
+        parent="menu_queue_tickets_root" 
+        action="action_queue_ticket_cancelled" 
+        sequence="20" />
 
     <menuitem id="menu_queue_reports"
         name="Rapports"
@@ -53,13 +56,6 @@
               parent="menu_queue_reports"
               action="action_queue_report_wizard"
               sequence="10"/>
-    
-    <!-- Menu pour l'historique -->
-    <!-- <menuitem id="menu_queue_report_wizard_history"
-              name="Historique des Rapports"
-              parent="menu_queue_reports"
-              action="action_queue_report_wizard_history"
-              sequence="20"/> -->
 
     <menuitem id="menu_queue_config"
         name="Configuration"
@@ -137,56 +133,20 @@
               action="action_queue_monthly_report" 
               sequence="13"/>
 
-    <!-- Menus pour les outils d'administration -->
-    <menuitem id="menu_queue_administration"
-        name="Administration"
-        parent="menu_queue_management_root"
-        sequence="100" groups="base.group_system" />
+    <!-- <menuitem id="menu_queue_export" 
+              name="Export/Import" 
+              parent="menu_queue_services" 
+              action="action_queue_ticket_export" 
+              sequence="30"/> -->
 
-    <menuitem id="menu_queue_maintenance"
-        name="Maintenance Système"
-        parent="menu_queue_administration"
-        action="action_queue_maintenance_wizard"
-        sequence="10" />
+    <!-- <menuitem id="menu_queue_analytics" 
+              name="Analyses" 
+              parent="menu_queue_management_root" 
+              sequence="20" />
 
-    <!-- <menuitem id="menu_queue_reports"
-        name="Rapports de Performance"
-        parent="menu_queue_administration"
-        action="action_queue_stats_wizard"
-        sequence="20" /> -->
-
-    <menuitem id="menu_queue_maintenance_actions"
-        name="Actions Programmées"
-        parent="menu_queue_administration"
-        action="action_queue_maintenance_actions"
-        sequence="30" />
-
-    <!-- <menuitem id="menu_queue_performance_metrics" name="Métriques de Performance" action="action_queue_performance_metrics" 
-              parent="menu_queue_administration" sequence="40"/> -->
-    <!-- <menuitem id="menu_queue_system_alerts" name="Alertes Système" action="action_queue_system_alerts" 
-              parent="menu_queue_administration" sequence="10"/> -->
-
-    <menuitem id="menu_queue_logs" name="Logs" action="action_queue_dashboard_metrics" 
-              parent="menu_queue_administration" sequence="50"/>
-
-    <!-- Menu opérateur dans la barre principale -->
-    <!-- <menuitem id="menu_queue_operator" 
-              name="Poste Opérateur" 
-              parent="menu_queue_administration" 
-              action="action_queue_service_operator" 
-              sequence="25"/> -->
-
-    <!-- Menu administration (pour les gestionnaires) -->    
-    <!-- <menuitem id="menu_queue_admin_services" 
-              name="Gestion Services" 
-              parent="menu_queue_administration" 
-              action="action_queue_service_admin" 
-              sequence="10"/>
-    
-    <menuitem id="menu_queue_admin_config" 
-              name="Configuration Rapide" 
-              parent="menu_queue_administration" 
-              action="action_queue_service_quick_config" 
-              sequence="20"/> -->
-    
+    <menuitem id="menu_queue_ticket_dashboard" 
+              name="Tableau de Bord" 
+              parent="menu_queue_analytics" 
+              action="action_queue_ticket_dashboard" 
+              sequence="10" /> -->
 </odoo>

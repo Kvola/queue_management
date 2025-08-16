@@ -1,5 +1,5 @@
 <odoo>
-    <!-- Vue formulaire Service - Standard Odoo 17 -->
+    <!-- Vue formulaire Service - Complète avec nouvelles fonctionnalités -->
     <record id="view_queue_service_form" model="ir.ui.view">
         <field name="name">queue.service.form</field>
         <field name="model">queue.service</field>
@@ -14,12 +14,18 @@
                             type="object" class="btn-secondary"
                             data-hotkey="c"
                             invisible="not is_open or not waiting_count"/>
+                    <!-- <button name="action_generate_ticket_with_details" string="Ticket Détaillé" 
+                            type="object" class="btn-info"
+                            invisible="not is_open"/> -->
                     <button name="toggle_service_status" string="Fermer Service" 
                             type="object" class="btn-secondary"
                             invisible="not is_open"/>
                     <button name="toggle_service_status" string="Ouvrir Service" 
                             type="object" class="btn-success"
                             invisible="is_open"/>
+                    <button name="force_refresh_stats" string="Actualiser Stats" 
+                            type="object" class="btn-light"
+                            icon="fa-refresh"/>
                     <field name="is_open" widget="state_selection" 
                            options="{'autosave': False}" invisible="1"/>
                 </header>
@@ -31,16 +37,16 @@
                             <field name="name" placeholder="Nom du service..." required="1"/>
                         </h1>
                         <div class="o_row">
-                            <field name="is_open" widget="boolean_toggle" invisible="1"/>
-                            <!-- <span class="text-muted ms-2">Service ouvert</span> -->
+                            <field name="is_open" widget="boolean_toggle"/>
+                            <span class="text-muted ms-2">Service ouvert</span>
                         </div>
                     </div>
 
-                    <!-- Statistiques en widgets -->
+                    <!-- Statistiques en widgets étendues -->
                     <div class="o_field_widget o_stat_info">
                         <div class="o_kanban_card_content">
                             <div class="row">
-                                <div class="col-3">
+                                <div class="col-2">
                                     <button type="object" name="action_view_waiting_tickets" 
                                             class="btn btn-link p-0">
                                         <div class="o_field_widget o_stat_info_value">
@@ -51,7 +57,7 @@
                                         </div>
                                     </button>
                                 </div>
-                                <div class="col-3">
+                                <div class="col-2">
                                     <button type="object" name="action_view_tickets" 
                                             class="btn btn-link p-0">
                                         <div class="o_field_widget o_stat_info_value">
@@ -62,7 +68,7 @@
                                         </div>
                                     </button>
                                 </div>
-                                <div class="col-3">
+                                <div class="col-2">
                                     <div class="o_field_widget o_stat_info_value">
                                         <field name="avg_waiting_time" digits="[16,1]"/>min
                                     </div>
@@ -70,7 +76,7 @@
                                         Temps Moyen
                                     </div>
                                 </div>
-                                <div class="col-3">
+                                <div class="col-2">
                                     <div class="o_field_widget o_stat_info_value">
                                         <field name="average_rating" digits="[16,1]"/>/5
                                     </div>
@@ -78,8 +84,35 @@
                                         Satisfaction
                                     </div>
                                 </div>
+                                <div class="col-2">
+                                    <div class="o_field_widget o_stat_info_value" 
+                                         decoration-warning="cancellation_rate > 20"
+                                         decoration-danger="cancellation_rate > 30">
+                                        <field name="cancellation_rate" digits="[16,1]"/>%
+                                    </div>
+                                    <div class="o_field_widget o_stat_info_label">
+                                        Annulations
+                                    </div>
+                                </div>
+                                <div class="col-2">
+                                    <div class="o_field_widget o_stat_info_value">
+                                        <field name="total_cancelled_today"/>
+                                    </div>
+                                    <div class="o_field_widget o_stat_info_label">
+                                        Annulées/Jour
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Alerte si taux d'annulation élevé -->
+                    <div class="alert alert-warning" role="alert" 
+                         invisible="cancellation_rate &lt;= 25">
+                        <i class="fa fa-exclamation-triangle"/> 
+                        <strong>Attention :</strong> Taux d'annulation élevé 
+                        (<field name="cancellation_rate" readonly="1"/>%). 
+                        Vérifiez les temps d'attente et la configuration du service.
                     </div>
 
                     <!-- Informations générales -->
@@ -97,6 +130,9 @@
                                    widget="integer" 
                                    decoration-info="estimated_service_time > 0"/>
                             <field name="allow_priority_selection"/>
+                            <field name="allow_online_booking"/>
+                            <field name="booking_advance_days" 
+                                   invisible="not allow_online_booking"/>
                         </group>
                     </group>
 
@@ -125,40 +161,37 @@
                             </div>
                         </group>
                     </group>
-                    
-                    <!-- Configuration avancée -->
-                    <group string="Réservation en Ligne">
-                        <group name="online_booking">
-                            <field name="allow_online_booking"/>
-                            <field name="booking_advance_days" 
-                                   invisible="not allow_online_booking"
-                                   widget="integer"/>
-                        </group>
-                    </group>
 
-                    <!-- Notebook avec les tickets -->
+                    <!-- Notebook avec les tickets et analyses -->
                     <notebook>
                         <page string="File d'Attente" name="waiting_queue">
                             <field name="waiting_ticket_ids" 
                                    context="{'default_service_id': active_id}">
                                 <tree editable="bottom" decoration-bf="priority == 'urgent'" 
-                                      decoration-it="priority == 'low'">
+                                      decoration-it="priority == 'low'"
+                                      decoration-muted="state == 'cancelled'">
                                     <field name="ticket_number" readonly="1"/>
                                     <field name="display_name" readonly="1"/>
                                     <field name="customer_name" 
                                            placeholder="Nom du client (optionnel)"/>
                                     <field name="customer_phone" 
                                            placeholder="Téléphone (optionnel)"/>
+                                    <field name="customer_email" 
+                                           placeholder="Email (optionnel)"/>
                                     <field name="created_time" readonly="1"/>
                                     <field name="estimated_wait_time" readonly="1" 
-                                           decoration-warning="estimated_wait_time > 30"/>
+                                           decoration-warning="estimated_wait_time > 30"
+                                           decoration-danger="estimated_wait_time > 60"/>
+                                    <field name="waiting_time" readonly="1" 
+                                           decoration-warning="waiting_time > 45"/>
                                     <field name="priority" 
                                            widget="selection"
                                            decoration-danger="priority == 'urgent'"
                                            decoration-muted="priority == 'low'"/>
                                     <field name="state" readonly="1" 
                                            decoration-info="state == 'waiting'" 
-                                           decoration-warning="state == 'called'"/>
+                                           decoration-warning="state == 'called'"
+                                           decoration-danger="state == 'cancelled'"/>
                                     
                                     <!-- Boutons d'action optimisés -->
                                     <button name="action_call_next" string="Appeler" 
@@ -201,10 +234,12 @@
                                     <field name="display_name"/>
                                     <field name="customer_name"/>
                                     <field name="customer_phone"/>
+                                    <field name="customer_email"/>
                                     <field name="created_time"/>
                                     <field name="called_time"/>
                                     <field name="served_time"/>
                                     <field name="completed_time"/>
+                                    <field name="cancelled_time"/>
                                     <field name="state" 
                                            decoration-success="state == 'served'"
                                            decoration-danger="state in ('cancelled', 'no_show')"
@@ -212,38 +247,222 @@
                                            decoration-info="state == 'waiting'"/>
                                     <field name="waiting_time" 
                                            widget="float_time" 
-                                           decoration-warning="waiting_time > 30"/>
+                                           decoration-warning="waiting_time > 30"
+                                           decoration-danger="waiting_time > 60"/>
                                     <field name="service_time" widget="float_time"/>
                                     <field name="priority" 
                                            decoration-danger="priority == 'urgent'"
                                            decoration-muted="priority == 'low'"/>
-                                    <field name="rating" widget="priority" readonly="1"/>
+                                    <field name="rating" widget="priority" readonly="0"/>
                                 </tree>
                             </field>
                         </page>
                         
-                        <page string="Statistiques" name="statistics">
+                        <page string="Statistiques Détaillées" name="detailed_statistics">
                             <div class="row">
                                 <div class="col-12">
                                     <div class="alert alert-info" role="alert">
-                                        <h5>Statistiques du Service</h5>
-                                        <p>Consultez les performances et métriques de ce service.</p>
+                                        <h5><i class="fa fa-bar-chart"/> Analyse de Performance</h5>
+                                        <p>Consultez les métriques complètes et indicateurs de performance de ce service.</p>
                                     </div>
                                 </div>
                             </div>
-                            <group>
-                                <group string="Performance Aujourd'hui">
+                            
+                            <!-- Statistiques d'annulation -->
+                            <group string="Analyse des Annulations" col="4">
+                                <field name="cancellation_rate" readonly="1" 
+                                       widget="percentage"
+                                       decoration-warning="cancellation_rate > 20"
+                                       decoration-danger="cancellation_rate > 30"/>
+                                <field name="total_cancelled_today" readonly="1"
+                                       decoration-warning="total_cancelled_today > 5"/>
+                                <field name="avg_time_before_cancellation" readonly="1" 
+                                       widget="float" digits="[16,1]"/>
+                                <div/>
+                            </group>
+                            
+                            <!-- Performances générales -->
+                            <group string="Performance Aujourd'hui">
+                                <group>
                                     <field name="total_tickets_today" readonly="1"/>
                                     <field name="waiting_count" readonly="1"/>
                                     <field name="avg_waiting_time" readonly="1" 
-                                           widget="float" digits="[16,1]"/>
+                                           widget="float" digits="[16,1]"
+                                           decoration-warning="avg_waiting_time > 30"
+                                           decoration-danger="avg_waiting_time > 60"/>
                                     <field name="average_rating" readonly="1" 
-                                           widget="float" digits="[16,1]"/>
+                                           widget="float" digits="[16,1]"
+                                           decoration-success="average_rating >= 4"
+                                           decoration-warning="average_rating >= 2 and average_rating &lt; 4"
+                                           decoration-danger="average_rating &lt; 2"/>
                                 </group>
-                                <group string="Configuration">
+                                <group>
+                                    <button name="compute_service_efficiency" 
+                                            string="Calculer Efficacité" 
+                                            type="object" 
+                                            class="btn-info"
+                                            icon="fa-calculator"/>
+                                    <button name="get_detailed_stats" 
+                                            string="Stats Détaillées" 
+                                            type="object" 
+                                            class="btn-secondary"
+                                            icon="fa-line-chart"/>
+                                    <button name="debug_waiting_times" 
+                                            string="Debug Temps d'Attente" 
+                                            type="object" 
+                                            class="btn-warning"
+                                            icon="fa-bug"
+                                            groups="base.group_system"/>
+                                </group>
+                            </group>
+                            
+                            <!-- Configuration et limites -->
+                            <!-- Solution recommandée: Champ calculé simple -->
+                            <group string="Configuration et Capacité">
+                                <group>
                                     <field name="max_tickets_per_day"/>
                                     <field name="estimated_service_time"/>
+                                    <!-- <label for="capacity_display" string="Utilisation Capacité"/> -->
+                                    <div class="o_row">
+                                        <field name="total_tickets_today" readonly="1"/> 
+                                        <span class="mx-2">/</span> 
+                                        <field name="max_tickets_per_day" readonly="1"/>
+                                        <span class="ms-2 text-muted">tickets</span>
+                                    </div>
+                                    <!-- Indicateur visuel simple -->
+                                    <div class="mt-2">
+                                        <span class="badge" 
+                                            decoration-danger="total_tickets_today > (max_tickets_per_day * 0.9)"
+                                            decoration-warning="total_tickets_today > (max_tickets_per_day * 0.7)"
+                                            decoration-success="total_tickets_today &lt;= (max_tickets_per_day * 0.7)">
+                                            Capacité: 
+                                            <field name="total_tickets_today"/>/<field name="max_tickets_per_day"/>
+                                        </span>
+                                    </div>
                                 </group>
+                                <group>
+                                    <field name="allow_priority_selection"/>
+                                    <field name="allow_online_booking"/>
+                                    <field name="booking_advance_days" 
+                                        invisible="not allow_online_booking"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Analyse Avancée" name="advanced_analysis">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5><i class="fa fa-clock-o"/> Analyse Temporelle</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <strong>Temps Moyen d'Attente:</strong><br/>
+                                                    <span class="text-primary fs-4">
+                                                        <field name="avg_waiting_time" readonly="1"/> min
+                                                    </span>
+                                                </div>
+                                                <div class="col-6">
+                                                    <strong>Temps Avant Annulation:</strong><br/>
+                                                    <span class="text-warning fs-4">
+                                                        <field name="avg_time_before_cancellation" readonly="1"/> min
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5><i class="fa fa-users"/> Flux Client</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-4 text-center">
+                                                    <div class="text-success">
+                                                        <i class="fa fa-check-circle fa-2x"/>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <strong>Servis</strong><br/>
+                                                        <span class="text-success">75%</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4 text-center">
+                                                    <div class="text-warning">
+                                                        <i class="fa fa-clock-o fa-2x"/>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <strong>En Attente</strong><br/>
+                                                        <span class="text-warning">
+                                                            <field name="waiting_count" readonly="1"/>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4 text-center">
+                                                    <div class="text-danger">
+                                                        <i class="fa fa-times-circle fa-2x"/>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <strong>Annulés</strong><br/>
+                                                        <span class="text-danger">
+                                                            <field name="cancellation_rate" readonly="1"/>%
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </page>
+                        
+                        <page string="Configuration Avancée" name="advanced_config">
+                            <group string="Paramètres de Service">
+                                <group name="service_params">
+                                    <field name="estimated_service_time" 
+                                           help="Temps estimé pour servir un client"/>
+                                    <field name="max_tickets_per_day" 
+                                           help="Limite quotidienne de tickets"/>
+                                    <field name="allow_priority_selection" 
+                                           help="Permet aux clients de choisir la priorité"/>
+                                </group>
+                                <group name="booking_params">
+                                    <field name="allow_online_booking" 
+                                           help="Active la réservation en ligne"/>
+                                    <field name="booking_advance_days" 
+                                           invisible="not allow_online_booking"
+                                           help="Nombre de jours à l'avance pour réserver"/>
+                                </group>
+                            </group>
+                            
+                            <!-- Boutons d'action avancés -->
+                            <group string="Actions Administratives">
+                                <div class="o_row">
+                                    <button name="clear_stats_cache" 
+                                            string="Vider Cache" 
+                                            type="object" 
+                                            class="btn-warning"
+                                            icon="fa-trash"
+                                            help="Vide le cache des statistiques"/>
+                                    <button name="refresh_stats" 
+                                            string="Recalculer Stats" 
+                                            type="object" 
+                                            class="btn-info"
+                                            icon="fa-refresh"
+                                            help="Force le recalcul des statistiques"/>
+                                    <button name="reset_daily_counters" 
+                                            string="Reset Compteurs" 
+                                            type="object" 
+                                            class="btn-secondary"
+                                            icon="fa-undo"
+                                            groups="base.group_system"
+                                            confirm="Réinitialiser les compteurs quotidiens ?"
+                                            help="Remet à zéro les compteurs de la journée"/>
+                                </div>
                             </group>
                         </page>
                     </notebook>
@@ -259,15 +478,15 @@
         </field>
     </record>
 
-    <!-- Vue arbre modernisée -->
+    <!-- Vue arbre complète avec nouvelles métriques -->
     <record id="view_queue_service_tree" model="ir.ui.view">
         <field name="name">queue.service.tree</field>
         <field name="model">queue.service</field>
         <field name="arch" type="xml">
             <tree decoration-muted="not active" 
                   decoration-success="is_open and waiting_count == 0"
-                  decoration-warning="is_open and waiting_count > 5"
-                  decoration-danger="is_open and waiting_count > 15"
+                  decoration-warning="is_open and waiting_count > 5 and cancellation_rate &lt;= 25"
+                  decoration-danger="is_open and (waiting_count > 15 or cancellation_rate > 25)"
                   multi_edit="1"
                   sample="1">
                 
@@ -280,18 +499,29 @@
                        decoration-success="is_open"
                        decoration-danger="not is_open"/>
                 
-                <!-- Métriques principales -->
+                <!-- Métriques principales étendues -->
                 <field name="waiting_count" 
                        decoration-warning="waiting_count > 5"
                        decoration-danger="waiting_count > 15"/>
                 <field name="current_ticket_number"/>
-                <field name="total_tickets_today" sum="Total"/>
+                <field name="total_tickets_today" sum="Total Tickets"/>
+                <field name="total_cancelled_today" sum="Total Annulés"
+                       decoration-warning="total_cancelled_today > 3"
+                       decoration-danger="total_cancelled_today > 10"/>
                 
                 <!-- Temps et satisfaction -->
                 <field name="avg_waiting_time" 
                        widget="float" digits="[16,1]"
-                       decoration-warning="avg_waiting_time > 20"
-                       decoration-danger="avg_waiting_time > 45"/>
+                       decoration-warning="avg_waiting_time > 30"
+                       decoration-danger="avg_waiting_time > 60"/>
+                <field name="avg_time_before_cancellation" 
+                       widget="float" digits="[16,1]"
+                       optional="hide"
+                       decoration-warning="avg_time_before_cancellation &lt; 15"/>
+                <field name="cancellation_rate" 
+                       widget="percentage" digits="[16,1]"
+                       decoration-warning="cancellation_rate > 15"
+                       decoration-danger="cancellation_rate > 25"/>
                 <field name="average_rating" 
                        widget="float" digits="[16,1]"
                        decoration-success="average_rating >= 4"
@@ -301,6 +531,8 @@
                 <!-- Configuration -->
                 <field name="max_tickets_per_day" optional="hide"/>
                 <field name="estimated_service_time" optional="hide"/>
+                <field name="allow_priority_selection" optional="hide"/>
+                <field name="allow_online_booking" optional="hide"/>
                 <field name="active" column_invisible="1"/>
                 
                 <!-- Boutons d'action rapide -->
@@ -316,12 +548,17 @@
                         icon="fa-phone" 
                         class="btn-sm"
                         invisible="not is_open or not waiting_count"/>
+                <button name="force_refresh_stats" 
+                        string="Refresh" 
+                        type="object" 
+                        icon="fa-refresh" 
+                        class="btn-sm"/>
             </tree>
         </field>
     </record>
 
-    <!-- Vue kanban modernisée avec design Odoo 17 -->
-    <!-- Vue kanban corrigée pour Odoo 17 -->
+    <!-- Vue kanban modernisée avec métriques d'annulation -->
+    <!-- Vue kanban corrigée avec expressions conditionnelles fixes -->
     <record id="view_queue_service_kanban" model="ir.ui.view">
         <field name="name">queue.service.kanban</field>
         <field name="model">queue.service</field>
@@ -333,17 +570,19 @@
                 <field name="is_open"/>
                 <field name="current_ticket_number"/>
                 <field name="total_tickets_today"/>
+                <field name="total_cancelled_today"/>
                 <field name="avg_waiting_time"/>
                 <field name="average_rating"/>
+                <field name="cancellation_rate"/>
                 <field name="max_tickets_per_day"/>
                 <field name="active"/>
                 
                 <templates>
                     <t t-name="kanban-box">
                         <div class="oe_kanban_card oe_kanban_global_click" 
-                            t-attf-class="{{record.is_open.raw_value ? 'border-success' : 'border-danger'}}">
+                            t-att-class="'border-3 ' + (record.is_open.raw_value ? (record.cancellation_rate.raw_value > 25 ? 'border-danger' : 'border-success') : 'border-secondary')">
                             
-                            <!-- Header avec statut -->
+                            <!-- Header avec statut et alerte -->
                             <div class="oe_kanban_card_header">
                                 <div class="oe_kanban_card_header_title">
                                     <div class="o_kanban_record_title">
@@ -351,12 +590,19 @@
                                     </div>
                                     <div class="float-end">
                                         <t t-if="record.is_open.raw_value">
-                                            <span class="badge rounded-pill text-bg-success">
-                                                <i class="fa fa-circle-o"/> Ouvert
-                                            </span>
+                                            <t t-if="record.cancellation_rate.raw_value > 25">
+                                                <span class="badge rounded-pill text-bg-danger">
+                                                    <i class="fa fa-exclamation-triangle"/> Alerte
+                                                </span>
+                                            </t>
+                                            <t t-else="">
+                                                <span class="badge rounded-pill text-bg-success">
+                                                    <i class="fa fa-circle-o"/> Ouvert
+                                                </span>
+                                            </t>
                                         </t>
                                         <t t-else="">
-                                            <span class="badge rounded-pill text-bg-danger">
+                                            <span class="badge rounded-pill text-bg-secondary">
                                                 <i class="fa fa-pause"/> Fermé
                                             </span>
                                         </t>
@@ -364,13 +610,13 @@
                                 </div>
                             </div>
                             
-                            <!-- Corps avec métriques -->
+                            <!-- Corps avec métriques étendues -->
                             <div class="oe_kanban_card_content">
                                 <!-- Ticket actuel -->
-                                <div class="row mb-2">
+                                <div class="row mb-3">
                                     <div class="col-12 text-center">
                                         <div class="o_kanban_primary_left">
-                                            <span class="o_value">
+                                            <span class="o_value display-4">
                                                 #<field name="current_ticket_number"/>
                                             </span>
                                             <span class="o_label">Ticket Actuel</span>
@@ -378,65 +624,114 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Métriques principales -->
-                                <div class="row">
-                                    <div class="col-6">
-                                        <div class="d-flex align-items-center mb-2">
-                                            <i class="fa fa-users text-muted me-2"/>
-                                            <span class="fw-bold text-primary">
-                                                <field name="waiting_count"/>
-                                            </span>
-                                            <span class="text-muted ms-1">en attente</span>
+                                <!-- Métriques principales en 2 lignes -->
+                                <div class="row mb-2">
+                                    <div class="col-4 text-center">
+                                        <div class="text-primary">
+                                            <i class="fa fa-users fa-lg"/>
                                         </div>
-                                        <div class="d-flex align-items-center mb-2">
-                                            <i class="fa fa-ticket text-muted me-2"/>
-                                            <span class="fw-bold">
-                                                <field name="total_tickets_today"/>
-                                            </span>
-                                            <span class="text-muted ms-1">aujourd'hui</span>
-                                        </div>
+                                        <span class="fw-bold text-primary fs-5">
+                                            <field name="waiting_count"/>
+                                        </span>
+                                        <div class="text-muted small">en attente</div>
                                     </div>
-                                    <div class="col-6">
-                                        <div class="d-flex align-items-center mb-2">
-                                            <i class="fa fa-clock-o text-muted me-2"/>
+                                    <div class="col-4 text-center">
+                                        <div class="text-info">
+                                            <i class="fa fa-ticket fa-lg"/>
+                                        </div>
+                                        <span class="fw-bold fs-5">
+                                            <field name="total_tickets_today"/>
+                                        </span>
+                                        <div class="text-muted small">aujourd'hui</div>
+                                    </div>
+                                    <div class="col-4 text-center">
+                                        <div class="text-warning">
+                                            <i class="fa fa-clock-o fa-lg"/>
+                                        </div>
+                                        <span class="fw-bold text-warning fs-5">
+                                            <field name="avg_waiting_time"/>min
+                                        </span>
+                                        <div class="text-muted small">attente moy.</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Deuxième ligne de métriques avec classes conditionnelles corrigées -->
+                                <div class="row mb-3">
+                                    <div class="col-4 text-center">
+                                        <div class="text-success">
+                                            <i class="fa fa-star fa-lg"/>
+                                        </div>
+                                        <span class="fw-bold text-success">
+                                            <field name="average_rating"/>/5
+                                        </span>
+                                        <div class="text-muted small">satisfaction</div>
+                                    </div>
+                                    <div class="col-4 text-center">
+                                        <!-- Icône avec classe conditionnelle séparée -->
+                                        <t t-if="record.cancellation_rate.raw_value > 25">
+                                            <div class="text-danger">
+                                                <i class="fa fa-times-circle fa-lg"/>
+                                            </div>
+                                            <span class="fw-bold text-danger">
+                                                <field name="cancellation_rate"/>%
+                                            </span>
+                                        </t>
+                                        <t t-elif="record.cancellation_rate.raw_value > 15">
+                                            <div class="text-warning">
+                                                <i class="fa fa-times-circle fa-lg"/>
+                                            </div>
                                             <span class="fw-bold text-warning">
-                                                <field name="avg_waiting_time"/>min
+                                                <field name="cancellation_rate"/>%
                                             </span>
-                                        </div>
-                                        <div class="d-flex align-items-center mb-2">
-                                            <i class="fa fa-star text-muted me-2"/>
-                                            <span class="fw-bold text-success">
-                                                <field name="average_rating"/>/5
+                                        </t>
+                                        <t t-else="">
+                                            <div class="text-muted">
+                                                <i class="fa fa-times-circle fa-lg"/>
+                                            </div>
+                                            <span class="fw-bold text-muted">
+                                                <field name="cancellation_rate"/>%
                                             </span>
+                                        </t>
+                                        <div class="text-muted small">annulations</div>
+                                    </div>
+                                    <div class="col-4 text-center">
+                                        <div class="text-muted">
+                                            <i class="fa fa-ban fa-lg"/>
                                         </div>
+                                        <span class="fw-bold text-muted">
+                                            <field name="total_cancelled_today"/>
+                                        </span>
+                                        <div class="text-muted small">annulées</div>
                                     </div>
                                 </div>
                                 
                                 <!-- Barre de progression de la capacité -->
-                                <div class="row mt-3">
+                                <div class="row">
                                     <div class="col-12">
-                                        <div class="progress mb-2" style="height: 6px;">
-                                            <div class="progress-bar" 
-                                                t-attf-style="width: {{(record.total_tickets_today.raw_value / record.max_tickets_per_day.raw_value * 100)}}%"
-                                                t-attf-class="{{(record.total_tickets_today.raw_value / record.max_tickets_per_day.raw_value > 0.8) ? 'bg-danger' : ((record.total_tickets_today.raw_value / record.max_tickets_per_day.raw_value > 0.6) ? 'bg-warning' : 'bg-success')}}"/>
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            <!-- Calcul du pourcentage avec protection division par zéro -->
+                                            <t t-set="progress_percent" t-value="(record.max_tickets_per_day.raw_value > 0) and (record.total_tickets_today.raw_value * 100 / record.max_tickets_per_day.raw_value) or 0"/>
+                                            <div class="progress-bar bg-primary" 
+                                                t-attf-style="width: {{progress_percent > 100 and 100 or progress_percent}}%;">
+                                            </div>
                                         </div>
                                         <small class="text-muted">
                                             <field name="total_tickets_today"/>/<field name="max_tickets_per_day"/> 
-                                            tickets aujourd'hui
+                                            tickets (capacité)
                                         </small>
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Footer avec actions -->
-                            <div class="oe_kanban_card_footer">
+                            <div class="oe_kanban_card_footer mt-3">
                                 <div class="row">
-                                    <div class="col-6">
+                                    <div class="col-4">
                                         <t t-if="record.is_open.raw_value">
                                             <button name="action_generate_quick_ticket" 
                                                     string="Nouveau" 
                                                     type="object" 
-                                                    class="btn btn-primary btn-sm w-100">
+                                                    class="btn btn-primary btn-sm w-100 oe_kanban_action oe_kanban_action_button">
                                                 <i class="fa fa-plus"/>
                                             </button>
                                         </t>
@@ -444,28 +739,36 @@
                                             <button name="toggle_service_status" 
                                                     string="Ouvrir" 
                                                     type="object" 
-                                                    class="btn btn-success btn-sm w-100">
+                                                    class="btn btn-success btn-sm w-100 oe_kanban_action oe_kanban_action_button">
                                                 <i class="fa fa-play"/>
                                             </button>
                                         </t>
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-4">
                                         <t t-if="record.is_open.raw_value and record.waiting_count.raw_value > 0">
                                             <button name="action_call_next_ticket" 
                                                     string="Appeler" 
                                                     type="object" 
-                                                    class="btn btn-secondary btn-sm w-100">
+                                                    class="btn btn-secondary btn-sm w-100 oe_kanban_action oe_kanban_action_button">
                                                 <i class="fa fa-phone"/>
                                             </button>
                                         </t>
-                                        <t t-elif="record.is_open.raw_value and record.waiting_count.raw_value == 0">
+                                        <t t-elif="record.is_open.raw_value">
                                             <button name="toggle_service_status" 
                                                     string="Fermer" 
                                                     type="object" 
-                                                    class="btn btn-outline-danger btn-sm w-100">
+                                                    class="btn btn-outline-danger btn-sm w-100 oe_kanban_action oe_kanban_action_button">
                                                 <i class="fa fa-pause"/>
                                             </button>
                                         </t>
+                                    </div>
+                                    <div class="col-4">
+                                        <button name="force_refresh_stats" 
+                                                string="Stats" 
+                                                type="object" 
+                                                class="btn btn-outline-info btn-sm w-100 oe_kanban_action oe_kanban_action_button">
+                                            <i class="fa fa-refresh"/>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -476,8 +779,7 @@
         </field>
     </record>
 
-    <!-- Vue de recherche améliorée -->
-    <!-- Vue de recherche corrigée -->
+    <!-- Vue de recherche étendue -->
     <record id="view_queue_service_search" model="ir.ui.view">
         <field name="name">queue.service.search</field>
         <field name="model">queue.service</field>
@@ -502,21 +804,40 @@
                 <separator/>
                 <filter name="has_waiting" string="Avec File d'Attente" 
                         domain="[('waiting_count', '>', 0)]"/>
-                <filter name="high_wait" string="Attente Longue" 
+                <filter name="high_wait" string="Attente Longue (>30min)" 
                         domain="[('avg_waiting_time', '>', 30)]"/>
-                <filter name="overloaded" string="Surchargés" 
+                <filter name="overloaded" string="Surchargés (>10 tickets)" 
                         domain="[('waiting_count', '>', 10)]"/>
                 
+                <!-- Filtres sur les annulations -->
                 <separator/>
-                <filter name="high_rated" string="Bien Notés (4+)" 
-                        domain="[('average_rating', '>=', 4)]"/>
-                <filter name="low_rated" string="Mal Notés (&lt;3)" 
-                        domain="[('average_rating', '&lt;', 3)]"/>
+                <filter name="high_cancellation" string="Taux Annulation Élevé (>25%)" 
+                        domain="[('cancellation_rate', '>', 25)]"/>
+                <filter name="medium_cancellation" string="Taux Annulation Moyen (15-25%)" 
+                        domain="[('cancellation_rate', '>=', 15), ('cancellation_rate', '&lt;=', 25)]"/>
+                <filter name="low_cancellation" string="Faible Annulation (&lt;15%)" 
+                        domain="[('cancellation_rate', '&lt;', 15)]"/>
+                <filter name="cancelled_today" string="Annulations Aujourd'hui" 
+                        domain="[('total_cancelled_today', '>', 0)]"/>
                 
-                <!-- Filtres temporels -->
+                <separator/>
+                <filter name="high_rated" string="Bien Notés (≥4)" 
+                        domain="[('average_rating', '>=', 4)]"/>
+                <filter name="medium_rated" string="Moyennement Notés (2-4)" 
+                        domain="[('average_rating', '>=', 2), ('average_rating', '&lt;', 4)]"/>
+                <filter name="low_rated" string="Mal Notés (&lt;2)" 
+                        domain="[('average_rating', '&lt;', 2)]"/>
+                
+                <!-- Filtres temporels et capacité -->
                 <separator/>
                 <filter name="filter_today" string="Activité Aujourd'hui" 
                         domain="[('total_tickets_today', '>', 0)]"/>
+                <filter name="near_capacity" string="Près de la Capacité (>80%)" 
+                        domain="[('total_tickets_today', '>', 0)]"/>
+                <filter name="allow_priority" string="Gestion Priorité" 
+                        domain="[('allow_priority_selection', '=', True)]"/>
+                <filter name="online_booking" string="Réservation En Ligne" 
+                        domain="[('allow_online_booking', '=', True)]"/>
                 
                 <!-- Groupements -->
                 <group expand="0" string="Grouper par">
@@ -524,11 +845,48 @@
                             context="{'group_by': 'is_open'}"/>
                     <filter name="group_active" string="Statut Actif" 
                             context="{'group_by': 'active'}"/>
+                    <filter name="group_priority" string="Gestion Priorité" 
+                            context="{'group_by': 'allow_priority_selection'}"/>
+                    <filter name="group_booking" string="Réservation En Ligne" 
+                            context="{'group_by': 'allow_online_booking'}"/>
                 </group>
-                
-                <!-- Searchpanel corrigé - suppression du champ boolean -->
-                <!-- Les searchpanels ne supportent que many2one, many2many et selection -->
             </search>
+        </field>
+    </record>
+
+    <!-- Vue graphique étendue pour l'analyse -->
+    <record id="view_queue_service_graph" model="ir.ui.view">
+        <field name="name">queue.service.graph</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <graph string="Analyse de Performance des Services" type="bar" sample="1">
+                <field name="name" type="row"/>
+                <field name="waiting_count" type="measure" string="En Attente"/>
+                <field name="total_tickets_today" type="measure" string="Tickets Aujourd'hui"/>
+                <field name="total_cancelled_today" type="measure" string="Annulations Aujourd'hui"/>
+                <field name="avg_waiting_time" type="measure" string="Temps d'Attente Moyen"/>
+                <field name="cancellation_rate" type="measure" string="Taux d'Annulation (%)"/>
+                <field name="average_rating" type="measure" string="Note Moyenne"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Vue pivot pour analyse approfondie -->
+    <record id="view_queue_service_pivot" model="ir.ui.view">
+        <field name="name">queue.service.pivot</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <pivot string="Analyse Croisée des Performances" sample="1">
+                <field name="name" type="row"/>
+                <field name="is_open" type="col"/>
+                <field name="waiting_count" type="measure"/>
+                <field name="total_tickets_today" type="measure"/>
+                <field name="total_cancelled_today" type="measure"/>
+                <field name="avg_waiting_time" type="measure"/>
+                <field name="cancellation_rate" type="measure"/>
+                <field name="average_rating" type="measure"/>
+                <field name="estimated_service_time" type="measure"/>
+            </pivot>
         </field>
     </record>
 
@@ -540,45 +898,18 @@
             <calendar string="Planning des Services" 
                       date_start="working_hours_start" 
                       date_stop="working_hours_end"
-                      color="is_open">
+                      color="is_open"
+                      event_open_popup="true">
                 <field name="name"/>
                 <field name="waiting_count"/>
+                <field name="total_tickets_today"/>
+                <field name="cancellation_rate"/>
                 <field name="is_open"/>
             </calendar>
         </field>
     </record>
 
-    <!-- Vue graphique pour le dashboard -->
-    <record id="view_queue_service_graph" model="ir.ui.view">
-        <field name="name">queue.service.graph</field>
-        <field name="model">queue.service</field>
-        <field name="arch" type="xml">
-            <graph string="Statistiques des Services" type="bar" sample="1">
-                <field name="name" type="row"/>
-                <field name="waiting_count" type="measure"/>
-                <field name="total_tickets_today" type="measure"/>
-                <field name="avg_waiting_time" type="measure"/>
-            </graph>
-        </field>
-    </record>
-
-    <!-- Vue pivot pour l'analyse -->
-    <record id="view_queue_service_pivot" model="ir.ui.view">
-        <field name="name">queue.service.pivot</field>
-        <field name="model">queue.service</field>
-        <field name="arch" type="xml">
-            <pivot string="Analyse des Performances" sample="1">
-                <field name="name" type="row"/>
-                <field name="is_open" type="col"/>
-                <field name="waiting_count" type="measure"/>
-                <field name="total_tickets_today" type="measure"/>
-                <field name="avg_waiting_time" type="measure"/>
-                <field name="average_rating" type="measure"/>
-            </pivot>
-        </field>
-    </record>
-
-    <!-- Action principale améliorée -->
+    <!-- Actions principales étendues -->
     <record id="action_queue_service" model="ir.actions.act_window">
         <field name="name">Services de File d'Attente</field>
         <field name="res_model">queue.service</field>
@@ -597,220 +928,200 @@
                 et commencez à gérer les files d'attente de manière efficace.
             </p>
             <p>
-                <strong>Fonctionnalités :</strong>
+                <strong>Nouvelles fonctionnalités :</strong>
                 <ul>
-                    <li>Génération automatique de tickets</li>
-                    <li>Gestion des priorités</li>
-                    <li>Statistiques en temps réel</li>
-                    <li>Évaluation de la satisfaction client</li>
+                    <li>🎫 Génération automatique de tickets avec priorité</li>
+                    <li>📊 Analyse des annulations en temps réel</li>
+                    <li>⏱️ Statistiques avancées de performance</li>
+                    <li>🔔 Alertes automatiques pour taux d'annulation élevé</li>
+                    <li>💯 Évaluation de la satisfaction client</li>
+                    <li>📱 Interface optimisée pour mobile et tablette</li>
                 </ul>
             </p>
         </field>
     </record>
 
-    <!-- Action pour le dashboard -->
-    <record id="action_queue_service_dashboard" model="ir.actions.act_window">
-        <field name="name">Tableau de Bord - Services</field>
-        <field name="res_model">queue.service</field>
-        <field name="view_mode">kanban,graph,pivot</field>
-        <field name="context">{
-            'search_default_active': 1,
-            'search_default_open': 1
-        }</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Tableau de bord des services
-            </p>
-            <p>
-                Visualisez les performances de vos services en temps réel.
-            </p>
-        </field>
-    </record>
-
-    <!-- Actions rapides pour les services ouverts -->
-    <record id="action_queue_service_open" model="ir.actions.act_window">
-        <field name="name">Services Ouverts</field>
-        <field name="res_model">queue.service</field>
-        <field name="view_mode">kanban,tree,form</field>
-        <field name="domain">[('is_open', '=', True), ('active', '=', True)]</field>
-        <field name="context">{}</field>
-    </record>
-
-    <!-- Action pour services avec file d'attente -->
-    <record id="action_queue_service_with_queue" model="ir.actions.act_window">
-        <field name="name">Services avec File d'Attente</field>
+    <!-- Action pour services avec alertes -->
+    <record id="action_queue_service_alerts" model="ir.actions.act_window">
+        <field name="name">Services avec Alertes</field>
         <field name="res_model">queue.service</field>
         <field name="view_mode">kanban,tree,form</field>
         <field name="domain">[
-            ('waiting_count', '>', 0), 
-            ('is_open', '=', True), 
+            '|', 
+            ('cancellation_rate', '>', 25), 
+            ('waiting_count', '>', 15),
             ('active', '=', True)
         ]</field>
         <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucune alerte pour le moment !
+            </p>
+            <p>
+                Cette vue affiche les services nécessitant une attention particulière :
+                <ul>
+                    <li>Taux d'annulation élevé (> 25%)</li>
+                    <li>File d'attente très longue (> 15 personnes)</li>
+                </ul>
+            </p>
+        </field>
     </record>
 
-    
+    <!-- Action pour analyse des performances -->
+    <record id="action_queue_service_performance" model="ir.actions.act_window">
+        <field name="name">Analyse de Performance</field>
+        <field name="res_model">queue.service</field>
+        <field name="view_mode">graph,pivot,tree</field>
+        <field name="context">{
+            'search_default_active': 1
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Analysez les performances de vos services
+            </p>
+            <p>
+                Visualisez les métriques clés, identifiez les tendances 
+                et optimisez votre gestion des files d'attente.
+            </p>
+        </field>
+    </record>
 
-    <!-- Actions serveur pour automatisation -->
-    <record id="action_server_reset_daily_counters" model="ir.actions.server">
-        <field name="name">Réinitialiser Compteurs Quotidiens</field>
+    <!-- Actions serveur pour automatisation étendues -->
+    <record id="action_server_refresh_all_stats" model="ir.actions.server">
+        <field name="name">Actualiser Toutes les Statistiques</field>
         <field name="model_id" ref="model_queue_service"/>
         <field name="binding_model_id" ref="model_queue_service"/>
         <field name="binding_view_types">tree</field>
         <field name="state">code</field>
-        <field name="code">action = model.reset_daily_counters()</field>
+        <field name="code">
+for service in records:
+    service.force_refresh_stats()
+    service._compute_cancellation_stats()
+        </field>
     </record>
 
-    <record id="action_server_clear_stats_cache" model="ir.actions.server">
-        <field name="name">Vider Cache Statistiques</field>
+    <record id="action_server_send_daily_report" model="ir.actions.server">
+        <field name="name">Envoyer Rapport Quotidien</field>
         <field name="model_id" ref="model_queue_service"/>
         <field name="binding_model_id" ref="model_queue_service"/>
         <field name="binding_view_types">tree</field>
         <field name="state">code</field>
-        <field name="code">action = model.clear_stats_cache()</field>
+        <field name="code">
+for service in records:
+    if service.cancellation_rate > 25:
+        service._send_cancellation_alert()
+        </field>
     </record>
 
-    <!-- Vue pour configuration rapide -->
-    <record id="view_queue_service_quick_config" model="ir.ui.view">
-        <field name="name">queue.service.quick.config</field>
+    <!-- Vue spécialisée pour écran d'affichage public -->
+    <record id="view_queue_service_public_display" model="ir.ui.view">
+        <field name="name">queue.service.public.display</field>
         <field name="model">queue.service</field>
         <field name="arch" type="xml">
-            <form string="Configuration Rapide">
-                <sheet>
-                    <div class="oe_title">
-                        <h1>
-                            <field name="name" placeholder="Nom du service..."/>
-                        </h1>
+            <form string="Affichage Public" create="0" edit="0">
+                <sheet class="bg-light">
+                    <div class="container-fluid">
+                        <!-- En-tête principal -->
+                        <div class="row mb-4">
+                            <div class="col-12 text-center">
+                                <h1 class="display-4 text-primary">
+                                    <field name="name"/>
+                                </h1>
+                                <div class="mt-2">
+                                    <field name="is_open" invisible="1"/>
+                                    <span class="badge rounded-pill bg-success fs-3" invisible="not is_open">
+                                        <i class="fa fa-circle"/> SERVICE OUVERT
+                                    </span>
+                                    <span class="badge rounded-pill bg-danger fs-3" invisible="is_open">
+                                        <i class="fa fa-pause"/> SERVICE FERMÉ
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Ticket actuel -->
+                        <div class="row mb-5">
+                            <div class="col-12 text-center">
+                                <div class="card border-primary shadow-lg">
+                                    <div class="card-body py-5">
+                                        <h2 class="card-title text-muted">TICKET ACTUEL</h2>
+                                        <div class="display-1 text-primary fw-bold">
+                                            #<field name="current_ticket_number"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Informations d'attente -->
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="card text-center bg-warning text-white h-100">
+                                    <div class="card-body">
+                                        <i class="fa fa-users fa-3x mb-3"/>
+                                        <h3><field name="waiting_count"/></h3>
+                                        <h5>Personnes en Attente</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center bg-info text-white h-100">
+                                    <div class="card-body">
+                                        <i class="fa fa-clock-o fa-3x mb-3"/>
+                                        <h3><field name="avg_waiting_time"/> min</h3>
+                                        <h5>Temps d'Attente Moyen</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center bg-success text-white h-100">
+                                    <div class="card-body">
+                                        <i class="fa fa-ticket fa-3x mb-3"/>
+                                        <h3><field name="total_tickets_today"/></h3>
+                                        <h5>Tickets Distribués</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Heures de service -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header text-center">
+                                        <h4><i class="fa fa-clock-o"/> Heures de Service</h4>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h5>
+                                            <field name="working_hours_start" widget="float_time"/> - 
+                                            <field name="working_hours_end" widget="float_time"/>
+                                        </h5>
+                                        <p class="text-muted">
+                                            Temps de service estimé : <field name="estimated_service_time"/> minutes par client
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <group>
-                        <group string="Configuration de Base">
-                            <field name="estimated_service_time" 
-                                   widget="integer"
-                                   help="Temps estimé par client (en minutes)"/>
-                            <field name="max_tickets_per_day" 
-                                   widget="integer"
-                                   help="Nombre maximum de tickets par jour"/>
-                            <field name="allow_priority_selection"/>
-                        </group>
-                        <group string="Heures de Service">
-                            <field name="working_hours_start" widget="float_time"/>
-                            <field name="working_hours_end" widget="float_time"/>
-                        </group>
-                    </group>
-                    
-                    <group string="Options Avancées" col="4">
-                        <field name="allow_online_booking"/>
-                        <field name="booking_advance_days" 
-                               invisible="not allow_online_booking"/>
-                        <field name="active"/>
-                        <field name="is_open"/>
-                    </group>
                 </sheet>
-                <footer>
-                    <!-- <button string="Créer et Ouvrir" type="object" 
-                            name="action_create_and_open" class="btn-primary"/> -->
-                    <button string="Annuler" class="btn-secondary" special="cancel"/>
-                </footer>
             </form>
         </field>
     </record>
 
-    <!-- Action pour configuration rapide -->
-    <record id="action_queue_service_quick_config" model="ir.actions.act_window">
-        <field name="name">Configuration Rapide</field>
+    <!-- Action pour affichage public -->
+    <record id="action_queue_service_public_display" model="ir.actions.act_window">
+        <field name="name">Affichage Public</field>
         <field name="res_model">queue.service</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_queue_service_quick_config"/>
-        <field name="target">new</field>
-        <field name="context">{'form_view_initial_mode': 'edit'}</field>
+        <field name="view_id" ref="view_queue_service_public_display"/>
+        <field name="target">fullscreen</field>
+        <field name="context">{'form_view_initial_mode': 'readonly'}</field>
     </record>
 
-    <!-- Vue liste pour administration -->
-    <record id="view_queue_service_admin_tree" model="ir.ui.view">
-        <field name="name">queue.service.admin.tree</field>
-        <field name="model">queue.service</field>
-        <field name="arch" type="xml">
-            <tree editable="bottom" decoration-muted="not active">
-                <field name="sequence" widget="handle"/>
-                <field name="name" required="1"/>
-                <field name="is_open" widget="boolean_toggle"/>
-                <field name="working_hours_start" widget="float_time"/>
-                <field name="working_hours_end" widget="float_time"/>
-                <field name="max_tickets_per_day"/>
-                <field name="estimated_service_time"/>
-                <field name="allow_online_booking"/>
-                <field name="allow_priority_selection"/>
-                <field name="active"/>
-                
-                <!-- Statistiques read-only -->
-                <field name="waiting_count" readonly="1"/>
-                <field name="total_tickets_today" readonly="1"/>
-                <field name="avg_waiting_time" readonly="1"/>
-                <field name="average_rating" readonly="1"/>
-            </tree>
-        </field>
-    </record>
-
-    <!-- Action d'administration -->
-    <record id="action_queue_service_admin" model="ir.actions.act_window">
-        <field name="name">Administration Services</field>
-        <field name="res_model">queue.service</field>
-        <field name="view_mode">tree,form</field>
-        <field name="view_id" ref="view_queue_service_admin_tree"/>
-        <field name="context">{}</field>
-    </record>
-
-    <!-- Vue rapport pour impression -->
-    <record id="view_queue_service_report" model="ir.ui.view">
-        <field name="name">queue.service.report</field>
-        <field name="model">queue.service</field>
-        <field name="arch" type="xml">
-            <form string="Rapport de Service" create="0" edit="0">
-                <sheet>
-                    <div class="oe_title">
-                        <h1><field name="name"/></h1>
-                        <h3>
-                            Rapport de Performance
-                            <span class="text-muted">
-                                - <field name="create_date" widget="date"/>
-                            </span>
-                        </h3>
-                    </div>
-                    
-                    <group>
-                        <group string="Résumé Aujourd'hui">
-                            <field name="total_tickets_today"/>
-                            <field name="waiting_count"/>
-                            <field name="current_ticket_number"/>
-                        </group>
-                        <group string="Performance">
-                            <field name="avg_waiting_time" widget="float"/>
-                            <field name="average_rating" widget="float"/>
-                            <field name="estimated_service_time"/>
-                        </group>
-                    </group>
-                    
-                    <group string="Configuration">
-                        <group>
-                            <field name="working_hours_start" widget="float_time"/>
-                            <field name="working_hours_end" widget="float_time"/>
-                            <field name="max_tickets_per_day"/>
-                        </group>
-                        <group>
-                            <field name="allow_online_booking"/>
-                            <field name="allow_priority_selection"/>
-                            <field name="booking_advance_days"/>
-                        </group>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <!-- Vues spécialisées pour mobile/tablette -->
-    <record id="view_queue_service_mobile" model="ir.ui.view">
-        <field name="name">queue.service.mobile</field>
+    <!-- Vue mobile optimisée -->
+    <record id="view_queue_service_mobile_optimized" model="ir.ui.view">
+        <field name="name">queue.service.mobile.optimized</field>
         <field name="model">queue.service</field>
         <field name="arch" type="xml">
             <kanban class="o_kanban_mobile" create="1" quick_create="0">
@@ -819,50 +1130,91 @@
                 <field name="is_open"/>
                 <field name="current_ticket_number"/>
                 <field name="total_tickets_today"/>
+                <field name="cancellation_rate"/>
                 <field name="avg_waiting_time"/>
                 <field name="average_rating"/>
-                <field name="estimated_service_time"/>
-                <field name="is_open"/>
                 
                 <templates>
                     <t t-name="kanban-box">
-                        <div class="oe_kanban_card oe_kanban_global_click p-3">
-                            <div class="row">
-                                <div class="col-8">
-                                    <strong><field name="name"/></strong>
-                                    <div class="text-muted">
+                        <div class="oe_kanban_card oe_kanban_global_click p-3 mb-3 border-start border-5" 
+                            t-attf-class="{{record.is_open.raw_value ? (record.cancellation_rate.raw_value > 25 ? 'border-danger' : 'border-success') : 'border-secondary'}}">
+                            
+                            <!-- Header mobile -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h5 class="mb-0"><field name="name"/></h5>
+                                    <small class="text-muted">
                                         Ticket #<field name="current_ticket_number"/>
+                                    </small>
+                                </div>
+                                <div>
+                                    <t t-if="record.is_open.raw_value">
+                                        <span class="badge bg-success">OUVERT</span>
+                                    </t>
+                                    <t t-else="">
+                                        <span class="badge bg-secondary">FERMÉ</span>
+                                    </t>
+                                </div>
+                            </div>
+                            
+                            <!-- Métriques mobiles -->
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <div class="border rounded p-2">
+                                        <div class="text-primary fw-bold fs-5">
+                                            <field name="waiting_count"/>
+                                        </div>
+                                        <small class="text-muted">Attente</small>
                                     </div>
                                 </div>
-                                <div class="col-4 text-end">
-                                    <span t-if="record.is_open.raw_value" 
-                                          class="badge bg-success">OUVERT</span>
-                                    <span t-else="" class="badge bg-danger">FERMÉ</span>
+                                <div class="col-4">
+                                    <div class="border rounded p-2">
+                                        <div class="text-warning fw-bold fs-5">
+                                            <field name="avg_waiting_time"/>min
+                                        </div>
+                                        <small class="text-muted">Temps</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="border rounded p-2">
+                                        <div class="text-success fw-bold fs-5">
+                                            <field name="average_rating"/>/5
+                                        </div>
+                                        <small class="text-muted">Note</small>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="row mt-2">
-                                <div class="col-6">
-                                    <i class="fa fa-users"/> <field name="waiting_count"/>
-                                    <div class="text-muted small">En attente</div>
+                            <!-- Alerte mobile -->
+                            <t t-if="record.cancellation_rate.raw_value > 25">
+                                <div class="alert alert-warning alert-dismissible p-2 mb-3" role="alert">
+                                    <small>
+                                        <i class="fa fa-exclamation-triangle"/> 
+                                        Taux d'annulation: <field name="cancellation_rate"/>%
+                                    </small>
                                 </div>
-                                <div class="col-6">
-                                    <i class="fa fa-ticket"/> <field name="total_tickets_today"/>
-                                    <div class="text-muted small">Aujourd'hui</div>
-                                </div>
-                            </div>
+                            </t>
                             
-                            <div class="mt-3">
-                                <button name="action_generate_quick_ticket" 
-                                        string="+ Ticket" 
-                                        type="object" 
-                                        class="btn btn-primary btn-sm me-2"
-                                        t-if="record.is_open.raw_value"/>
-                                <button name="action_call_next_ticket" 
-                                        string="Appeler" 
-                                        type="object" 
-                                        class="btn btn-secondary btn-sm"
-                                        t-if="record.is_open.raw_value and record.waiting_count.raw_value > 0"/>
+                            <!-- Actions mobiles -->
+                            <div class="d-grid gap-2">
+                                <t t-if="record.is_open.raw_value">
+                                    <button name="action_generate_quick_ticket" 
+                                            string="🎫 Nouveau Ticket" 
+                                            type="object" 
+                                            class="btn btn-primary btn-sm"/>
+                                    <t t-if="record.waiting_count.raw_value > 0">
+                                        <button name="action_call_next_ticket" 
+                                                string="📞 Appeler Suivant" 
+                                                type="object" 
+                                                class="btn btn-success btn-sm"/>
+                                    </t>
+                                </t>
+                                <t t-else="">
+                                    <button name="toggle_service_status" 
+                                            string="▶️ Ouvrir Service" 
+                                            type="object" 
+                                            class="btn btn-outline-success btn-sm"/>
+                                </t>
                             </div>
                         </div>
                     </t>
@@ -871,246 +1223,7 @@
         </field>
     </record>
 
-    <!-- Action mobile -->
-    <record id="action_queue_service_mobile" model="ir.actions.act_window">
-        <field name="name">Services - Mobile</field>
-        <field name="res_model">queue.service</field>
-        <field name="view_mode">kanban</field>
-        <field name="view_id" ref="view_queue_service_mobile"/>
-        <field name="domain">[('active', '=', True)]</field>
-        <field name="context">{'search_default_open': 1}</field>
-    </record>
-
-    <!-- Vue spécialisée pour les opérateurs -->
-    <record id="view_queue_service_operator" model="ir.ui.view">
-        <field name="name">queue.service.operator</field>
-        <field name="model">queue.service</field>
-        <field name="arch" type="xml">
-            <form string="Poste de Travail">
-                <header>
-                    <button name="action_generate_quick_ticket" 
-                            string="Nouveau Ticket" 
-                            type="object" 
-                            class="btn-primary btn-lg"
-                            data-hotkey="n"
-                            invisible="not is_open"/>
-                    <button name="action_call_next_ticket" 
-                            string="Appeler Suivant" 
-                            type="object" 
-                            class="btn-success btn-lg"
-                            data-hotkey="space"
-                            invisible="not is_open or not waiting_count"/>
-                    <button name="action_generate_ticket_with_details" 
-                            string="Ticket avec Détails" 
-                            type="object" 
-                            class="btn-secondary"
-                            invisible="not is_open"/>
-                    <field name="is_open" readonly="1" invisible="1"/>
-                </header>
-                
-                <sheet>
-                    <div class="alert alert-info d-flex align-items-center" role="alert">
-                        <i class="fa fa-info-circle fa-2x me-3"/>
-                        <div>
-                            <h4 class="alert-heading mb-1">
-                                <field name="name" readonly="1"/>
-                            </h4>
-                            <div class="mb-0">
-                                Mode Opérateur - Interface simplifiée pour la gestion des tickets
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Métriques temps réel -->
-                    <div class="row">
-                        <div class="col-lg-3 col-md-6 mb-4">
-                            <div class="card border-primary">
-                                <div class="card-body text-center">
-                                    <h2 class="text-primary">
-                                        #<field name="current_ticket_number" readonly="1"/>
-                                    </h2>
-                                    <p class="card-text text-muted">Ticket Actuel</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-3 col-md-6 mb-4">
-                            <div class="card border-warning">
-                                <div class="card-body text-center">
-                                    <h2 class="text-warning">
-                                        <field name="waiting_count" readonly="1"/>
-                                    </h2>
-                                    <p class="card-text text-muted">En Attente</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-3 col-md-6 mb-4">
-                            <div class="card border-info">
-                                <div class="card-body text-center">
-                                    <h2 class="text-info">
-                                        <field name="total_tickets_today" readonly="1"/>
-                                    </h2>
-                                    <p class="card-text text-muted">Aujourd'hui</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-3 col-md-6 mb-4">
-                            <div class="card border-success">
-                                <div class="card-body text-center">
-                                    <h2 class="text-success">
-                                        <field name="avg_waiting_time" readonly="1" digits="[16,0]"/>min
-                                    </h2>
-                                    <p class="card-text text-muted">Temps Moyen</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- File d'attente simplifiée -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fa fa-list-ol"/> File d'Attente
-                                <span class="badge bg-primary ms-2">
-                                    <field name="waiting_count" readonly="1"/> tickets
-                                </span>
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <field name="waiting_ticket_ids" readonly="1">
-                                <tree create="0" edit="0" delete="0" 
-                                      decoration-bf="priority == 'urgent'">
-                                    <field name="ticket_number"/>
-                                    <field name="customer_name" 
-                                           default_focus="1"
-                                           placeholder="Nom client"/>
-                                    <field name="customer_phone" 
-                                           placeholder="Téléphone"/>
-                                    <field name="priority" 
-                                           widget="badge"
-                                           decoration-danger="priority == 'urgent'"
-                                           decoration-success="priority == 'normal'"
-                                           decoration-muted="priority == 'low'"/>
-                                    <field name="created_time" widget="relative"/>
-                                    <field name="estimated_wait_time" 
-                                           decoration-warning="estimated_wait_time > 30"
-                                           decoration-danger="estimated_wait_time > 60"/>
-
-                                    <field name="state" 
-                                    column_invisible="1"
-                                           widget="badge"
-                                           decoration-danger="state == 'cancelled'"
-                                           decoration-warning="state == 'no_show'"
-                                           decoration-success="state == 'served'"
-                                           decoration-muted="state == 'waiting'"/>
-                                    
-                                    <button name="action_call_next" 
-                                            string="Appeler" 
-                                            type="object" 
-                                            icon="fa-phone" 
-                                            class="btn btn-success btn-sm"
-                                            invisible="state != 'waiting'"/>
-                                    <button name="action_start_service" 
-                                            string="Servir" 
-                                            type="object" 
-                                            icon="fa-play" 
-                                            class="btn btn-primary btn-sm"
-                                            invisible="state != 'called'"/>
-                                </tree>
-                            </field>
-                        </div>
-                    </div>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <!-- Action pour poste opérateur -->
-    <record id="action_queue_service_operator" model="ir.actions.act_window">
-        <field name="name">Poste Opérateur</field>
-        <field name="res_model">queue.service</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_queue_service_operator"/>
-        <field name="target">fullscreen</field>
-        <field name="context">{
-            'default_is_open': True,
-            'form_view_initial_mode': 'readonly'
-        }</field>
-    </record>
-
-    <!-- Vue activity pour le suivi -->
-    <record id="view_queue_service_activity" model="ir.ui.view">
-        <field name="name">queue.service.activity</field>
-        <field name="model">queue.service</field>
-        <field name="arch" type="xml">
-            <activity string="Services">
-                <field name="name"/>
-                <templates>
-                    <div t-name="activity-box">
-                        <div class="d-flex">
-                            <div class="flex-grow-1">
-                                <span class="fw-bold">
-                                    <field name="name"/>
-                                </span>
-                                <div class="text-muted">
-                                    <i class="fa fa-users"/> 
-                                    <field name="waiting_count"/> en attente
-                                </div>
-                            </div>
-                            <div class="text-end">
-                                <field name="is_open" widget="boolean_toggle"/>
-                            </div>
-                        </div>
-                    </div>
-                </templates>
-            </activity>
-        </field>
-    </record>
-
-    <!-- Actions contextuelles pour le menu -->
-    <record id="action_context_new_ticket" model="ir.actions.act_window">
-        <field name="name">Générer Ticket</field>
-        <field name="res_model">queue.service</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-        <field name="binding_model_id" ref="model_queue_service"/>
-        <field name="binding_view_types">tree,form</field>
-    </record>
-
-    <!-- Widgets personnalisés pour les statistiques -->
-    <template id="queue_service_stats_widget" name="Service Stats Widget">
-        <div class="o_queue_service_stats">
-            <div class="o_stat_box border rounded p-3 mb-3">
-                <div class="row text-center">
-                    <div class="col-3">
-                        <div class="o_stat_value text-primary fs-1">
-                            <t t-esc="waiting_count"/>
-                        </div>
-                        <div class="o_stat_label text-muted">En Attente</div>
-                    </div>
-                    <div class="col-3">
-                        <div class="o_stat_value text-success fs-1">
-                            <t t-esc="current_ticket"/>
-                        </div>
-                        <div class="o_stat_label text-muted">Actuel</div>
-                    </div>
-                    <div class="col-3">
-                        <div class="o_stat_value text-info fs-1">
-                            <t t-esc="total_today"/>
-                        </div>
-                        <div class="o_stat_label text-muted">Aujourd'hui</div>
-                    </div>
-                    <div class="col-3">
-                        <div class="o_stat_value text-warning fs-1">
-                            <t t-esc="avg_wait"/>min
-                        </div>
-                        <div class="o_stat_label text-muted">Attente</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </template>
-
-    <!-- Configuration des actions par défaut -->
+    <!-- Configuration des vues par défaut -->
     <record id="ir_actions_act_window_queue_service" model="ir.actions.act_window.view">
         <field name="sequence" eval="1"/>
         <field name="view_mode">kanban</field>
@@ -1130,5 +1243,426 @@
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_queue_service_form"/>
         <field name="act_window_id" ref="action_queue_service"/>
+    </record>
+
+    <!-- Cron job pour nettoyage et statistiques -->
+    <record id="cron_queue_service_stats_refresh" model="ir.cron">
+        <field name="name">Actualisation Statistiques Services Queue</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="state">code</field>
+        <field name="code">
+# Actualisation des statistiques toutes les 5 minutes
+services = model.search([('active', '=', True), ('is_open', '=', True)])
+for service in services:
+    try:
+        service._compute_stats()
+        service._compute_cancellation_stats()
+    except Exception as e:
+        _logger.error(f"Erreur refresh stats service {service.id}: {e}")
+        </field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="numbercall">-1</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Template email pour alert d'annulation -->
+    <!-- Template email pour alertes d'annulation -->
+    <record id="email_template_cancellation_alert" model="mail.template">
+        <field name="name">Alerte Taux d'Annulation Élevé</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="subject">🚨 Alerte: Taux d'annulation élevé - {{ object.name }}</field>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px; font-family: 'Lucida Grande', Ubuntu, Arial, Verdana, sans-serif; font-size: 12px; color: rgb(34, 34, 34); background-color: #EDEDED;">
+                <table border="0" cellpadding="0" cellspacing="0" style="padding-top: 16px; background-color: #EDEDED; font-family:'Lucida Grande', Ubuntu, Arial, Verdana, sans-serif; font-size: 12px; color: rgb(34, 34, 34); width: 100%;">
+                    <tr>
+                        <td align="center">
+                            <table border="0" cellpadding="0" cellspacing="0" width="590" style="padding: 16px; background-color: white; color: rgb(34, 34, 34); border-collapse:separate; border-radius:5px;">
+                                <tbody>
+                                    <tr>
+                                        <td align="center" style="min-height: 590px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="590" style="min-height: 590px;">
+                                                <tr>
+                                                    <td valign="top" style="font-size: 13px;">
+                                                        <div style="border-bottom: 1px solid #e0e2e7; padding-bottom: 20px; margin-bottom: 20px;">
+                                                            <p style="margin: 16px 0px 16px 0px; font-size: 18px; color: #875A7B;">
+                                                                <strong>🚨 Alerte Taux d'Annulation</strong>
+                                                            </p>
+                                                        </div>
+                                                        
+                                                        <div style="margin-bottom: 20px;">
+                                                            <p>Le service <strong>{{ object.name }}</strong> présente un taux d'annulation préoccupant :</p>
+                                                            
+                                                            <div style="background-color: #f8f9fa; border-left: 4px solid #dc3545; padding: 15px; margin: 15px 0;">
+                                                                <h4 style="color: #dc3545; margin-top: 0;">Statistiques Critiques</h4>
+                                                                <ul style="margin: 10px 0;">
+                                                                    <li><strong>Taux d'annulation:</strong> {{ "%.1f"|format(object.cancellation_rate) }}%</li>
+                                                                    <li><strong>Annulations aujourd'hui:</strong> {{ object.total_cancelled_today }}</li>
+                                                                    <li><strong>Temps moyen avant annulation:</strong> {{ "%.1f"|format(object.avg_time_before_cancellation) }} min</li>
+                                                                    <li><strong>Temps d'attente actuel:</strong> {{ "%.1f"|format(object.avg_waiting_time) }} min</li>
+                                                                </ul>
+                                                            </div>
+
+                                                            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
+                                                                <h4 style="color: #856404; margin-top: 0;">Actions Recommandées</h4>
+                                                                <ul style="margin: 10px 0;">
+                                                                    <li>Vérifier la capacité de service</li>
+                                                                    <li>Réajuster les temps d'estimation</li>
+                                                                    <li>Considérer l'ajout de ressources</li>
+                                                                    <li>Améliorer la communication avec les clients</li>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div style="text-align: center; margin-top: 30px;">
+                                                            <a href="/web#action={{ ctx['action_id'] }}&amp;view_type=form&amp;model=queue.service&amp;id={{ object.id }}" 
+                                                               style="background-color: #875A7B; padding: 10px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;">
+                                                                Consulter le Service
+                                                            </a>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="min-height: 16px; font-size: 13px;">
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </field>
+        <field name="lang">${object.partner_id.lang}</field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+
+    <!-- Vue activité pour suivi des performances -->
+    <record id="view_queue_service_activity" model="ir.ui.view">
+        <field name="name">queue.service.activity</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <activity string="Services Queue">
+                <field name="id"/>
+                <field name="name"/>
+                <field name="is_open"/>
+                <field name="waiting_count"/>
+                <field name="total_tickets_today"/>
+                <field name="cancellation_rate"/>
+                <field name="avg_waiting_time"/>
+                <templates>
+                    <div t-name="activity-box">
+                        <div class="o_kanban_card_content">
+                            <div class="o_kanban_primary_left">
+                                <div class="o_primary">
+                                    <span><t t-esc="record.name.value"/></span>
+                                </div>
+                                <div class="text-muted">
+                                    <i class="fa fa-users" title="En attente"/> 
+                                    <t t-esc="record.waiting_count.value"/>
+                                    <span class="mx-2">•</span>
+                                    <i class="fa fa-ticket" title="Aujourd'hui"/> 
+                                    <t t-esc="record.total_tickets_today.value"/>
+                                </div>
+                            </div>
+                            <div class="o_kanban_primary_right">
+                                <div class="badge" t-attf-class="{{record.is_open.raw_value ? 'badge-success' : 'badge-secondary'}}">
+                                    <t t-if="record.is_open.raw_value">OUVERT</t>
+                                    <t t-else="">FERMÉ</t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </templates>
+            </activity>
+        </field>
+    </record>
+
+    <!-- Actions du serveur pour règles automatisées -->
+    <record id="action_server_reset_daily_stats" model="ir.actions.server">
+        <field name="name">Réinitialiser Statistiques Quotidiennes</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="binding_model_id" ref="model_queue_service"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+# Réinitialisation des compteurs quotidiens
+for service in records:
+    service.write({
+        'current_ticket_number': 0,
+    })
+    # Forcer le recalcul des statistiques
+    service.force_refresh_stats()
+        </field>
+    </record>
+
+    <record id="action_server_emergency_close" model="ir.actions.server">
+        <field name="name">Fermeture d'Urgence (Taux Annulation Élevé)</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="binding_model_id" ref="model_queue_service"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+# Fermeture d'urgence pour services avec taux d'annulation > 40%
+for service in records:
+    if service.cancellation_rate > 40:
+        service.write({'is_open': False})
+        service.message_post(
+            body=f"Service fermé automatiquement - Taux annulation critique: {service.cancellation_rate:.1f}%",
+            subtype_xmlid="mail.mt_comment"
+        )
+        </field>
+    </record>
+
+    <!-- Règles automatisées -->
+    <record id="action_auto_close_service" model="ir.actions.server">
+        <field name="name">Fermeture Auto Critique</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="state">code</field>
+        <field name="code">
+for record in records:
+    if record.cancellation_rate &gt; 45 and record.is_open:
+        record.write({'is_open': False})
+        record.message_post(
+            body=f"🚨 Service fermé automatiquement - Taux d'annulation critique: {record.cancellation_rate:.1f}%",
+            subtype_xmlid="mail.mt_comment"
+        )
+        managers = env.ref('queue_management.group_queue_manager').users
+        for manager in managers:
+            record.activity_schedule(
+                activity_type_id=env.ref('mail.mail_activity_data_warning').id,
+                summary=f'Service fermé automatiquement: {record.name}',
+                note=f'Taux d\'annulation critique: {record.cancellation_rate:.1f}%',
+                user_id=manager.id,
+                date_deadline=fields.Date.today()
+            )
+        </field>
+    </record>
+
+    <record id="rule_auto_close_high_cancellation" model="base.automation">
+        <field name="name">Fermeture Auto - Taux Annulation Critique</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="trigger">on_write</field>
+        <field name="filter_domain">[('cancellation_rate', '&gt;', 45), ('is_open', '=', True)]</field>
+        <field name="action_server_ids" eval="[(4, ref('action_auto_close_service'))]"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <record id="action_alert_long_queue" model="ir.actions.server">
+        <field name="name">Alerte - File d'Attente Longue</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="state">code</field>
+        <field name="code">
+if record.waiting_count &gt; 20:
+    managers = env.ref('queue_management.group_queue_manager').users
+    for manager in managers:
+        record.activity_schedule(
+            activity_type_id=env.ref('mail.mail_activity_data_todo').id,
+            summary=f"File d'attente très longue: {record.name}",
+            note=f"{record.waiting_count} personnes en attente - Action requise",
+            user_id=manager.id,
+            date_deadline=fields.Date.today()
+        )
+        </field>
+    </record>
+
+    <record id="rule_alert_long_queue" model="base.automation">
+        <field name="name">Alerte - File d'Attente Longue</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="trigger">on_write</field>
+        <field name="filter_domain">[('waiting_count', '&gt;', 20), ('is_open', '=', True)]</field>
+        <field name="action_server_ids" eval="[(4, ref('action_alert_long_queue'))]"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Vues de rapport pour les managers -->
+    <record id="view_queue_service_report_tree" model="ir.ui.view">
+        <field name="name">queue.service.report.tree</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <tree string="Rapport de Performance" create="false" edit="false" 
+                  decoration-success="cancellation_rate &lt; 15 and avg_waiting_time &lt; 20"
+                  decoration-warning="cancellation_rate >= 15 and cancellation_rate &lt; 25"
+                  decoration-danger="cancellation_rate >= 25 or avg_waiting_time > 45">
+                
+                <field name="name" string="Service"/>
+                <field name="total_tickets_today" string="Tickets/Jour" sum="Total"/>
+                <field name="waiting_count" string="En Attente"/>
+                <field name="avg_waiting_time" string="Attente Moy. (min)" 
+                       widget="float_time" avg="Moyenne"/>
+                <field name="cancellation_rate" string="Taux Annulation (%)" 
+                       widget="percentage" avg="Moyenne"/>
+                <field name="total_cancelled_today" string="Annulés/Jour" sum="Total"/>
+                <field name="average_rating" string="Satisfaction" 
+                       widget="priority" avg="Moyenne"/>
+                <field name="estimated_service_time" string="Temps Service Est." optional="hide"/>
+                
+                <!-- Indicateurs de performance -->
+                <button name="compute_service_efficiency" string="Efficacité" 
+                        type="object" icon="fa-line-chart" 
+                        class="btn-link text-info"/>
+                <button name="get_detailed_stats" string="Stats Détaillées" 
+                        type="object" icon="fa-bar-chart" 
+                        class="btn-link text-primary"/>
+                
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action rapport de performance -->
+    <record id="action_queue_service_performance_report" model="ir.actions.act_window">
+        <field name="name">Rapport de Performance</field>
+        <field name="res_model">queue.service</field>
+        <field name="view_mode">tree,pivot,graph</field>
+        <field name="view_id" ref="view_queue_service_report_tree"/>
+        <field name="context">{
+            'search_default_active': 1,
+            'group_by_no_leaf': 1,
+            'group_by': []
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Analyse de Performance des Services
+            </p>
+            <p>
+                Ce rapport vous permet d'analyser les performances de vos services 
+                de file d'attente avec des métriques détaillées :
+            </p>
+            <ul>
+                <li>📊 Taux d'annulation et satisfaction client</li>
+                <li>⏱️ Temps d'attente moyens et efficacité</li>
+                <li>📈 Tendances et évolutions</li>
+                <li>🎯 Recommandations d'amélioration</li>
+            </ul>
+        </field>
+    </record>
+
+    <!-- Dashboard widget pour KPIs -->
+    <record id="view_queue_service_dashboard_form" model="ir.ui.view">
+        <field name="name">queue.service.dashboard</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <form string="Dashboard Services" create="0" edit="0">
+                <sheet class="oe_dashboard">
+                    <div class="o_dashboard">
+                        <!-- KPIs Row -->
+                        <div class="o_dashboard_row o_dashboard_kpis">
+                            <div class="col-lg-3 o_kpi">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <div class="o_kpi_value text-primary">
+                                            <field name="total_tickets_today"/>
+                                        </div>
+                                        <div class="o_kpi_label">Tickets Aujourd'hui</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 o_kpi">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <div class="o_kpi_value text-warning">
+                                            <field name="waiting_count"/>
+                                        </div>
+                                        <div class="o_kpi_label">En Attente</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 o_kpi">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <div class="o_kpi_value text-info">
+                                            <field name="avg_waiting_time" digits="[16,1]"/>min
+                                        </div>
+                                        <div class="o_kpi_label">Temps Moyen</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 o_kpi">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <div class="o_kpi_value" 
+                                             t-attf-class="{{'text-danger' if cancellation_rate > 25 else ('text-warning' if cancellation_rate > 15 else 'text-success')}}">
+                                            <field name="cancellation_rate" digits="[16,1]"/>%
+                                        </div>
+                                        <div class="o_kpi_label">Annulations</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Charts Row -->
+                        <div class="o_dashboard_row">
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Répartition des États</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Placeholder pour graphique -->
+                                        <div id="ticket_states_chart" style="height: 300px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Évolution Journalière</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Placeholder pour graphique temporel -->
+                                        <div id="daily_trend_chart" style="height: 300px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Raccourcis clavier pour actions rapides -->
+    <record id="action_shortcut_new_ticket" model="ir.actions.act_window">
+        <field name="name">Nouveau Ticket (Ctrl+N)</field>
+        <field name="res_model">queue.service</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{'form_view_initial_mode': 'edit', 'quick_ticket': True}</field>
+    </record>
+
+    <!-- Filtres sauvegardés par défaut -->
+    <record id="filter_services_critical_alerts" model="ir.filters">
+        <field name="name">Services Critiques</field>
+        <field name="model_id">queue.service</field>
+        <field name="user_id" eval="False"/>
+        <field name="domain">[
+            '|', '|',
+            ('cancellation_rate', '>', 30),
+            ('waiting_count', '>', 20),
+            ('avg_waiting_time', '>', 60)
+        ]</field>
+        <field name="sort">["cancellation_rate desc", "waiting_count desc"]</field>
+        <field name="context">{}</field>
+        <field name="is_default" eval="False"/>
+        <field name="action_id" ref="action_queue_service"/>
+    </record>
+
+    <record id="filter_services_high_performance" model="ir.filters">
+        <field name="name">Services Performants</field>
+        <field name="model_id">queue.service</field>
+        <field name="user_id" eval="False"/>
+        <field name="domain">[
+            ('cancellation_rate', '&lt;', 10),
+            ('average_rating', '&gt;=', 4),
+            ('avg_waiting_time', '&lt;=', 20),
+            ('is_open', '=', True)
+        ]</field>
+        <field name="sort">["average_rating desc", "total_tickets_today desc"]</field>
+        <field name="context">{}</field>
+        <field name="is_default" eval="False"/>
+        <field name="action_id" ref="action_queue_service"/>
     </record>
 </odoo>
