@@ -253,7 +253,7 @@
                                     <field name="priority" 
                                            decoration-danger="priority == 'urgent'"
                                            decoration-muted="priority == 'low'"/>
-                                    <field name="rating" widget="priority" readonly="0"/>
+                                    <field name="rating" widget="priority" readonly="1"/>
                                 </tree>
                             </field>
                         </page>

@@ -433,7 +433,7 @@
     <template id="admin_dashboard_template" name="Dashboard Administrateur">
         <t t-call="website.layout">
             <!-- Appel des assets -->
-        <t t-call="queue_management.queue_assets_common"/>
+            <t t-call="queue_management.queue_assets_common"/>
             <div id="wrap">
                 <div class="container-fluid mt-4">
                     <h1 class="mb-4">
@@ -464,18 +464,18 @@
                                         </div>
 
                                         <div class="d-grid gap-2">
-                                            <button class="btn btn-primary btn-sm" onclick="generateTicket(&lt;t t-esc='service.id'/>)">
+                                            <button class="btn btn-primary btn-sm" t-attf-onclick="generateTicket(#{service.id})">
                                                 <i class="fa fa-plus"/> Nouveau Ticket
                                             </button>
                                             
-                                            <button class="btn btn-success btn-sm" onclick="callNext(&lt;t t-esc='service.id'/>)">
+                                            <button class="btn btn-success btn-sm" t-attf-onclick="callNext(#{service.id})">
                                                 <i class="fa fa-phone"/> Appeler Suivant
                                             </button>
                                             
-                                            <button t-if="service.is_open" class="btn btn-warning btn-sm" onclick="toggleService(&lt;t t-esc='service.id'/>, false)">
+                                            <button t-if="service.is_open" class="btn btn-warning btn-sm" t-attf-onclick="toggleService(#{service.id}, false)">
                                                 <i class="fa fa-pause"/> Fermer Service
                                             </button>
-                                            <button t-else="" class="btn btn-success btn-sm" onclick="toggleService(&lt;t t-esc='service.id'/>, true)">
+                                            <button t-else="" class="btn btn-success btn-sm" t-attf-onclick="toggleService(#{service.id}, true)">
                                                 <i class="fa fa-play"/> Ouvrir Service
                                             </button>
                                         </div>
@@ -488,11 +488,11 @@
                                                 <t t-foreach="next_tickets" t-as="next_ticket">
                                                     <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
                                                         <span>
-                                                            <strong>#<t t-field="next_ticket.ticket_number"/></strong>
-                                                            <t t-if="next_ticket.customer_name"> - <t t-field="next_ticket.customer_name"/></t>
+                                                            <strong>#<span t-field="next_ticket.ticket_number"/></strong>
+                                                            <t t-if="next_ticket.customer_name"> - <span t-field="next_ticket.customer_name"/></t>
                                                         </span>
                                                         <button class="btn btn-sm btn-info" 
-                                                                onclick="callSpecificTicket(&lt;t t-esc='next_ticket.id'/>)">
+                                                                t-attf-onclick="callSpecificTicket(#{next_ticket.id})">
                                                             <i class="fa fa-phone"/> Appeler
                                                         </button>
                                                     </div>
