@@ -760,7 +760,7 @@ class QueueController(http.Controller):
     # ROUTES DE RECHERCHE ET NAVIGATION
     # ========================================
     
-    @http.route('/queue/search', type='http', auth='public', website=True, methods=['GET', 'POST'])
+    @http.route('/queue/search', type='http', auth='public', website=True, methods=['GET', 'POST'], csrf=False)
     def search_ticket(self, **kwargs):
         """Page de recherche de ticket par référence"""
         try:

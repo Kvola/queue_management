@@ -485,7 +485,7 @@
                                 </div>
                                 
                                 <div class="card-body">
-                                    <form method="post">
+                                    <form method="post" action="/queue/search">
                                         <div class="mb-3">
                                             <label for="search_query" class="form-label">
                                                 Référence du ticket ou numéro
@@ -1449,7 +1449,7 @@
                                         </div>
                                     </div>
                                     
-                                    <form method="post">
+                                    <form method="post" action="'/queue/feedback/' + reference if reference else '/queue/feedback/' + ticket.ticket_number if ticket.ticket_number else '/queue'">
                                         <!-- Évaluation par étoiles -->
                                         <div class="mb-4 text-center">
                                             <label class="form-label">Note globale</label>
