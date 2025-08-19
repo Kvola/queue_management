@@ -186,9 +186,9 @@
     
     <!-- Template de confirmation de ticket -->
     <template id="ticket_confirmation_template" name="Confirmation de Ticket">
-        <!-- Appel des assets -->
-            <t t-call="queue_management.queue_assets_common"/>
         <t t-call="website.layout">
+            <!-- Appel des assets -->
+            <t t-call="queue_management.queue_assets_common"/>
             <div id="wrap" class="oe_structure oe_empty">
                 <div class="container mt-4">
                     <div class="row justify-content-center">
