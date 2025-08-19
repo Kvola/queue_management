@@ -241,9 +241,12 @@
                                         </div>
                                         <div class="col-4">
                                             <div class="h3 text-success mb-1">
-                                                <t t-if="ticket.state == 'done'">Terminé</t>
-                                                <t t-if="ticket.state == 'in_progress'">En cours</t>
                                                 <t t-if="ticket.state == 'waiting'">En attente</t>
+                                                <t t-if="ticket.state == 'called'">Appelé</t>
+                                                <t t-if="ticket.state == 'serving'">En Service</t>
+                                                <t t-if="ticket.state == 'served'">Servi</t>
+                                                <t t-if="ticket.state == 'cancelled'">Annulé</t>
+                                                <t t-if="ticket.state == 'no_show'">Absent</t>
                                             </div>
                                             <small class="text-muted">État</small>
                                         </div>
@@ -1910,9 +1913,12 @@
                             <small>Temps estimé</small>
                         </td>
                         <td style="padding: 10px; text-align: center; border: 1px solid #dee2e6;">
-                            <t t-if="ticket.state == 'done'"><strong style="color: #28a745; font-size: 1.5em;">Terminé</strong></t>
-                            <t t-if="ticket.state == 'in_progress'"><strong style="color: #28a745; font-size: 1.5em;">En cours</strong></t>
                             <t t-if="ticket.state == 'waiting'"><strong style="color: #28a745; font-size: 1.5em;">En attente</strong></t>
+                            <t t-if="ticket.state == 'called'"><strong style="color: #28a745; font-size: 1.5em;">Appelé</strong></t>
+                            <t t-if="ticket.state == 'serving'"><strong style="color: #28a745; font-size: 1.5em;">En Service</strong></t>
+                            <t t-if="ticket.state == 'served'"><strong style="color: #28a745; font-size: 1.5em;">Servi</strong></t>
+                            <t t-if="ticket.state == 'cancelled'"><strong style="color: #28a745; font-size: 1.5em;">Annulé</strong></t>
+                            <t t-if="ticket.state == 'no_show'"><strong style="color: #dc3545; font-size: 1.5em;">Absent</strong></t>
                             <small>État</small>
                         </td>
                     </tr>
