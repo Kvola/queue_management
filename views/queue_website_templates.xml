@@ -241,7 +241,9 @@
                                         </div>
                                         <div class="col-4">
                                             <div class="h3 text-success mb-1">
-                                                <t t-esc="ticket.state.title()"/>
+                                                <t t-if="ticket.state == 'done'">Terminé</t>
+                                                <t t-if="ticket.state == 'in_progress'">En cours</t>
+                                                <t t-if="ticket.state == 'waiting'">En attente</t>
                                             </div>
                                             <small class="text-muted">État</small>
                                         </div>
@@ -1908,7 +1910,9 @@
                             <small>Temps estimé</small>
                         </td>
                         <td style="padding: 10px; text-align: center; border: 1px solid #dee2e6;">
-                            <strong style="color: #28a745; font-size: 1.5em;"><t t-esc="ticket.state.title()"/></strong><br/>
+                            <t t-if="ticket.state == 'done'"><strong style="color: #28a745; font-size: 1.5em;">Terminé</strong></t>
+                            <t t-if="ticket.state == 'in_progress'"><strong style="color: #28a745; font-size: 1.5em;">En cours</strong></t>
+                            <t t-if="ticket.state == 'waiting'"><strong style="color: #28a745; font-size: 1.5em;">En attente</strong></t>
                             <small>État</small>
                         </td>
                     </tr>
