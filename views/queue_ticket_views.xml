@@ -71,6 +71,8 @@
                         <group name="ticket_info" string="Informations du Ticket">
                             <field name="service_id" options="{'no_create': True, 'no_edit': True}" />
                             <field name="ticket_number" readonly="1" />
+                            <field name="ticket_reference" readonly="1" />
+                            <field name="short_reference" readonly="1" />
                             <field name="priority" />
                             <field name="created_time" readonly="1" />
                             <field name="qr_code" readonly="1" widget="url" string="Lien de suivi" />
@@ -90,6 +92,7 @@
                             <field name="called_time" readonly="1" />
                             <field name="served_time" readonly="1" />
                             <field name="completed_time" readonly="1" />
+                            <field name="cancelled_time" readonly="1" invisible="state != 'cancelled'" />
                         </group>
                         
                         <group name="durations" string="Durées (minutes)">
@@ -140,6 +143,7 @@
                               groups="base.group_system">
                             <group>
                                 <field name="cancellation_lock" readonly="1" />
+                                <field name="security_hash" readonly="1" />
                                 <field name="id" readonly="1" />
                             </group>
                         </page>
@@ -173,6 +177,8 @@
                 <!-- Champs principaux -->
                 <field name="service_id" readonly="1" />
                 <field name="ticket_number" readonly="1" />
+                <field name="ticket_reference" readonly="1" />
+                <field name="short_reference" readonly="1" />
                 <field name="display_name" string="Ticket" readonly="1" />
                 <field name="customer_name" />
                 <field name="customer_phone" />
@@ -237,7 +243,6 @@
                 <field name="estimated_wait_time" />
                 <field name="waiting_time" />
                 <field name="rating" />
-                
                 <templates>
                     <t t-name="kanban-box">
                         <div class="oe_kanban_card oe_kanban_global_click">

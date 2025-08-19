@@ -1,13 +1,25 @@
-# controllers/main.py - VERSION CORRIGÉE IMPRESSION
+# controllers/main.py - VERSION MISE À JOUR AVEC RÉFÉRENCES UNIQUES
 from odoo import http, fields
 from odoo.http import request
 from datetime import datetime
 import json
 import logging
+import hashlib
 
 _logger = logging.getLogger(__name__)
 
-# Routes additionnelles pour la robustesse
+class QueueDashboardController(http.Controller):
+    @http.route('/queue_dashboard', type='json', auth='user')
+    def get_dashboard_data(self, **kwargs):
+        # Your data fetching logic here
+        return {
+            'services': [],
+            'waiting_tickets': [],
+            'serving_tickets': [],
+            'stats': {},
+            'last_update': fields.Datetime.now()
+        }
+
 class QueueControllerFallback(http.Controller):
     """Contrôleur de secours avec routes simplifiées"""
     
@@ -69,52 +81,37 @@ class QueueControllerFallback(http.Controller):
 
 
 class QueueController(http.Controller):
-    def _generate_ticket_number(self, service):
-        """Générer le prochain numéro de ticket pour un service"""
-        try:
-            # Méthode 1: Utiliser le next_ticket_number du service
-            if hasattr(service, 'next_ticket_number') and service.next_ticket_number:
-                next_number = service.next_ticket_number
-                # Incrémenter pour le prochain
-                service.sudo().write({'next_ticket_number': next_number + 1})
-                return next_number
-            
-            # Méthode 2: Trouver le maximum + 1
-            last_ticket = request.env['queue.ticket'].sudo().search([
-                ('service_id', '=', service.id)
-            ], order='ticket_number desc', limit=1)
-            
-            if last_ticket:
-                next_number = last_ticket.ticket_number + 1
-            else:
-                next_number = 1
-            
-            # Mettre à jour le service
-            service.sudo().write({'next_ticket_number': next_number + 1})
-            return next_number
-            
-        except Exception as e:
-            _logger.error(f"Erreur génération numéro ticket: {e}")
-            # Fallback: timestamp-based
-            import time
-            return int(time.time()) % 10000
 
-    # ROUTES D'IMPRESSION CORRIGÉES
-    @http.route('/queue/print_ticket/<int:ticket_number>/<int:service_id>', type='http', auth='public', website=False, csrf=False)
-    def print_ticket(self, ticket_number, service_id, auto_print=None, auto_close=None, **kwargs):
-        """Version imprimable du ticket - ROUTE PRINCIPALE"""
+    # ========================================
+    # ROUTES D'IMPRESSION AMÉLIORÉES AVEC RÉFÉRENCES
+    # ========================================
+    
+    @http.route([
+        '/queue/print_ticket/<int:ticket_number>/<int:service_id>',
+        '/queue/print/<reference>'
+    ], type='http', auth='public', website=False, csrf=False)
+    def print_ticket(self, ticket_number=None, service_id=None, reference=None, auto_print=None, auto_close=None, **kwargs):
+        """Version imprimable du ticket - ROUTE PRINCIPALE avec références"""
         try:
-            _logger.info(f"Impression ticket #{ticket_number} pour service {service_id}")
+            ticket = None
             
-            # Rechercher le ticket
-            ticket = request.env['queue.ticket'].sudo().search([
-                ('ticket_number', '=', ticket_number),
-                ('service_id', '=', service_id)
-            ], limit=1)
+            # Méthode 1: Par référence unique (nouvelle)
+            if reference:
+                _logger.info(f"Impression ticket par référence: {reference}")
+                ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
+                if not ticket:
+                    # Essayer avec référence courte
+                    ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference, 'short')
             
-            service = request.env['queue.service'].sudo().browse(service_id)
+            # Méthode 2: Par numéro + service (legacy)
+            elif ticket_number and service_id:
+                _logger.info(f"Impression ticket #{ticket_number} pour service {service_id}")
+                ticket = request.env['queue.ticket'].sudo().search([
+                    ('ticket_number', '=', ticket_number),
+                    ('service_id', '=', service_id)
+                ], limit=1)
             
-            if not ticket or not service.exists():
+            if not ticket:
                 error_html = f"""
                 <!DOCTYPE html>
                 <html>
@@ -125,7 +122,7 @@ class QueueController(http.Controller):
                 <body>
                     <div style="text-align: center; padding: 50px;">
                         <h2>❌ Ticket Non Trouvé</h2>
-                        <p>Ticket #{ticket_number} pour le service {service.name if service.exists() else 'inconnu'} introuvable.</p>
+                        <p>Référence: {reference or f"#{ticket_number}/{service_id}"} introuvable.</p>
                         <button onclick="window.close()">Fermer</button>
                     </div>
                 </body>
@@ -133,26 +130,20 @@ class QueueController(http.Controller):
                 """
                 return request.make_response(error_html, headers={'Content-Type': 'text/html; charset=utf-8'})
             
-            # Calculer la position
-            position = 1
-            if ticket.state == 'waiting':
-                try:
-                    tickets_before_count = request.env['queue.ticket'].sudo().search_count([
-                        ('service_id', '=', service.id),
-                        ('state', '=', 'waiting'),
-                        ('ticket_number', '<', ticket.ticket_number)
-                    ])
-                    position = tickets_before_count + 1
-                except Exception as e:
-                    _logger.warning(f"Erreur calcul position: {e}")
-                    position = 1
+            service = ticket.service_id
             
-            # Template d'impression optimisé
+            # Calculer la position
+            position = ticket.get_queue_position() if hasattr(ticket, 'get_queue_position') else 1
+            
+            # URL de tracking améliorée (avec référence unique)
+            track_url = f"{request.httprequest.host_url}queue/track/{ticket.ticket_reference}" if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference else f"{request.httprequest.host_url}queue/my_ticket/{ticket.ticket_number}/{service.id}"
+            
+            # Template d'impression optimisé avec références
             print_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Ticket #{ticket.ticket_number}</title>
+                <title>Ticket {ticket.ticket_reference or f'#{ticket.ticket_number}'}</title>
                 <meta charset="utf-8">
                 <style>
                     @media print {{
@@ -173,9 +164,15 @@ class QueueController(http.Controller):
                         margin-bottom: 10px;
                     }}
                     .ticket-number {{
-                        font-size: 24px;
+                        font-size: 20px;
                         font-weight: bold;
-                        margin: 10px 0;
+                        margin: 8px 0;
+                    }}
+                    .reference {{
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin: 5px 0;
+                        color: #333;
                     }}
                     .service-name {{
                         font-size: 14px;
@@ -203,6 +200,8 @@ class QueueController(http.Controller):
                 <div class="header">
                     <div class="service-name">{service.name}</div>
                     <div class="ticket-number">#{ticket.ticket_number}</div>
+                    {f'<div class="reference">{ticket.ticket_reference}</div>' if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference else ''}
+                    {f'<div class="reference">Code: {ticket.short_reference}</div>' if hasattr(ticket, 'short_reference') and ticket.short_reference else ''}
                 </div>
                 
                 <div class="info">
@@ -217,14 +216,17 @@ class QueueController(http.Controller):
                 </div>
                 
                 <div class="qr-code">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={request.httprequest.host_url}queue/my_ticket/{ticket.ticket_number}/{service.id}" 
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={track_url}" 
                          alt="QR Code" style="width: 60px; height: 60px;">
                 </div>
                 
                 <div class="footer">
                     <div>Présentez-vous quand</div>
                     <div>votre numéro sera appelé</div>
-                    <div style="margin-top: 5px;">Suivi: {request.httprequest.host_url.replace('http://', '').replace('https://', '').split('/')[0]}</div>
+                    <div style="margin-top: 5px;">
+                        Suivi: {request.httprequest.host_url.replace('http://', '').replace('https://', '').split('/')[0]}
+                    </div>
+                    {f"<div style='font-size: 9px; margin-top: 3px;'>Ref: {ticket.short_reference}</div>" if hasattr(ticket, 'short_reference') and ticket.short_reference else ""}
                 </div>
                 
                 {"<script>setTimeout(function(){window.close();}, 3000);</script>" if auto_close else ""}
@@ -254,57 +256,118 @@ class QueueController(http.Controller):
             """
             return request.make_response(error_html, headers={'Content-Type': 'text/html; charset=utf-8'})
 
-    @http.route('/queue/print_ticket_minimal/<int:ticket_id>', type='http', auth='public', website=False, csrf=False)
-    def print_ticket_minimal(self, ticket_id, **kwargs):
-        """Version ultra-minimaliste pour impression directe par ID"""
+    # ========================================
+    # NOUVELLES ROUTES AVEC RÉFÉRENCES UNIQUES
+    # ========================================
+    
+    @http.route('/queue/track/<reference>', type='http', auth='public', website=True)
+    def track_ticket_by_reference(self, reference, **kwargs):
+        """Suivi de ticket par référence unique (principale ou courte)"""
         try:
-            ticket = request.env['queue.ticket'].sudo().browse(ticket_id)
-            if not ticket.exists():
-                return request.make_response("Ticket non trouvé", headers={'Content-Type': 'text/plain'})
+            # Utiliser la nouvelle méthode de recherche
+            result = request.env['queue.ticket'].sudo().get_ticket_by_reference_web(reference)
             
-            # Rediriger vers la route principale
-            return request.redirect(f'/queue/print_ticket/{ticket.ticket_number}/{ticket.service_id.id}?auto_print=1&auto_close=1')
+            if not result['success']:
+                return request.render('queue_management.ticket_not_found_template', {
+                    'reference': reference,
+                    'error_message': result.get('error', 'Ticket non trouvé')
+                })
+            
+            ticket_data = result['ticket']
+            ticket = request.env['queue.ticket'].sudo().browse(ticket_data['id'])
+            
+            return request.render('queue_management.my_ticket_template', {
+                'ticket': ticket,
+                'service': ticket.service_id,
+                'position': ticket_data['position'],
+                'reference': reference,
+                'can_cancel': ticket_data['can_cancel'],
+                'security_hash': ticket_data.get('security_hash', '')
+            })
             
         except Exception as e:
-            _logger.error(f"Erreur print minimal: {e}")
-            return request.make_response(f"Erreur: {str(e)}", headers={'Content-Type': 'text/plain'})
+            _logger.error(f"Erreur suivi par référence {reference}: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors du chargement des informations du ticket'
+            })
 
-    @http.route('/queue/print_popup/<int:ticket_number>/<int:service_id>', type='http', auth='public', website=False, csrf=False)
-    def print_ticket_popup(self, ticket_number, service_id, **kwargs):
-        """Ouvre le ticket dans une popup pour impression"""
-        popup_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Impression Ticket</title>
-            <meta charset="utf-8">
-        </head>
-        <body>
-            <script>
-                var printUrl = '/queue/print_ticket/{ticket_number}/{service_id}?auto_print=1&auto_close=1';
-                var printWindow = window.open(printUrl, 'print', 'width=400,height=600,scrollbars=yes');
+    @http.route('/queue/cancel/<reference>', type='http', auth='public', website=True, methods=['GET', 'POST'], csrf=False)
+    def cancel_ticket_by_reference(self, reference, **kwargs):
+        """Annulation de ticket par référence unique"""
+        try:
+            if request.httprequest.method == 'GET':
+                # Afficher le formulaire d'annulation
+                ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
                 
-                if (!printWindow) {{
-                    alert('Popup bloqué. Redirection vers la page d\\'impression...');
-                    window.location.href = printUrl;
-                }} else {{
-                    printWindow.focus();
-                    // Fermer cette fenêtre après 2 secondes
-                    setTimeout(function() {{
-                        window.close();
-                    }}, 2000);
-                }}
-            </script>
-            <div style="text-align: center; padding: 20px;">
-                <p>Ouverture de la fenêtre d'impression...</p>
-                <p>Si rien ne se passe, <a href="/queue/print_ticket/{ticket_number}/{service_id}" target="_blank">cliquez ici</a></p>
-            </div>
-        </body>
-        </html>
-        """
-        return request.make_response(popup_html, headers={'Content-Type': 'text/html; charset=utf-8'})
+                if not ticket:
+                    return request.render('queue_management.error_template', {
+                        'error_message': 'Ticket non trouvé'
+                    })
+                
+                if not ticket.state in ['waiting', 'called']:
+                    return request.render('queue_management.error_template', {
+                        'error_message': 'Ce ticket ne peut plus être annulé'
+                    })
+                
+                # Vérifier que le ticket a bien un security_hash
+                security_hash = getattr(ticket, 'security_hash', '') if ticket else ''
+                
+                return request.render('queue_management.cancel_ticket_template', {
+                    'ticket': ticket,
+                    'reference': reference,
+                    'security_hash': security_hash  # Passer explicitement le hash
+                })
+            
+            elif request.httprequest.method == 'POST':
+                # Traiter l'annulation
+                reason = kwargs.get('reason', '')
+                security_hash = kwargs.get('security_hash', '')
+                
+                # Vérifier à nouveau que le ticket existe
+                ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
+                if not ticket:
+                    return request.render('queue_management.error_template', {
+                        'error_message': 'Ticket non trouvé'
+                    })
+                
+                # Vérifier le hash de sécurité si présent
+                if hasattr(ticket, 'security_hash') and ticket.security_hash:
+                    if security_hash != ticket.security_hash:
+                        return request.render('queue_management.error_template', {
+                            'error_message': 'Code de sécurité invalide'
+                        })
+                
+                result = request.env['queue.ticket'].sudo().cancel_ticket_by_reference_web(
+                    reference, reason, security_hash
+                )
+                # Traiter l'annulation
+                reason = kwargs.get('reason', '')
+                security_hash = kwargs.get('security_hash', '')
+                
+                result = request.env['queue.ticket'].sudo().cancel_ticket_by_reference_web(
+                    reference, reason, security_hash
+                )
+                
+                if result['success']:
+                    return request.render('queue_management.cancellation_success_template', {
+                        'message': result['message'],
+                        'reference': reference
+                    })
+                else:
+                    return request.render('queue_management.error_template', {
+                        'error_message': result['error']
+                    })
+                    
+        except Exception as e:
+            _logger.error(f"Erreur annulation par référence {reference}: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors de l\'annulation'
+            })
 
-    # ROUTES PRINCIPALES
+    # ========================================
+    # ROUTES PRINCIPALES MISES À JOUR
+    # ========================================
+    
     @http.route('/queue', type='http', auth='public', website=True)
     def queue_main(self, **kwargs):
         """Page principale des files d'attente"""
@@ -331,58 +394,19 @@ class QueueController(http.Controller):
                 'error_message': 'Erreur lors du chargement de la page principale'
             })
     
-    @http.route('/queue/service/<int:service_id>', type='http', auth='public', website=True)
-    def queue_service_detail(self, service_id, **kwargs):
-        """Détail d'un service avec file d'attente"""
-        try:
-            service = request.env['queue.service'].sudo().browse(service_id)
-            if not service.exists():
-                return request.render('queue_management.error_template', {
-                    'error_message': 'Service non trouvé'
-                })
-            
-            # Vérifier si le service est fermé
-            if not service.is_open:
-                return request.render('queue_management.service_closed_template', {
-                    'service': service
-                })
-            
-            # Récupérer les tickets en attente de manière sécurisée
-            try:
-                waiting_tickets = service.waiting_ticket_ids.sorted('ticket_number')
-            except Exception as e:
-                _logger.warning(f"Erreur récupération tickets: {e}")
-                waiting_tickets = request.env['queue.ticket'].sudo().search([
-                    ('service_id', '=', service.id),
-                    ('state', '=', 'waiting')
-                ]).sorted('ticket_number')
-            
-            return request.render('queue_management.queue_service_template', {
-                'service': service,
-                'waiting_tickets': waiting_tickets
-            })
-            
-        except Exception as e:
-            _logger.error(f"Erreur détail service {service_id}: {e}")
-            return request.render('queue_management.error_template', {
-                'error_message': 'Erreur lors du chargement du service'
-            })
-    
     @http.route('/queue/take_ticket_http', type='http', auth='public', methods=['POST'], csrf=False, website=True)
     def take_ticket_http(self, service_id, customer_phone='', customer_email='', customer_name='', **kwargs):
-        """Prendre un ticket via formulaire HTTP - VERSION ULTRA-SÉCURISÉE"""
+        """Prendre un ticket via formulaire HTTP - VERSION AVEC RÉFÉRENCES"""
 
         def create_error_response(message, service=None):
             """Créer une réponse d'erreur sans dépendre des templates"""
             try:
-                # Essayer d'abord le template normal
                 context = {'error_message': message}
                 if service:
                     context['service'] = service
                 return request.render('queue_management.error_template', context)
             except Exception as template_error:
                 _logger.error(f"Template error_template échoué: {template_error}")
-                # Fallback HTML direct
                 service_info = f"<p><strong>Service:</strong> {service.name}</p>" if service else ""
                 error_html = f"""
                 <!DOCTYPE html>
@@ -400,7 +424,6 @@ class QueueController(http.Controller):
                             {service_info}
                             <div class="mt-3">
                                 <a href="/queue" class="btn btn-primary">Retour à l'accueil</a>
-                                <a href="/queue/simple" class="btn btn-secondary">Interface simple</a>
                             </div>
                         </div>
                     </div>
@@ -436,117 +459,80 @@ class QueueController(http.Controller):
             if customer_name and customer_name.strip():
                 ticket_data['customer_name'] = customer_name.strip()[:50]
             
-            # Créer le ticket
+            # Créer le ticket (les références sont générées automatiquement)
             ticket = request.env['queue.ticket'].sudo().create(ticket_data)
             
             if not ticket or not ticket.exists():
                 return create_error_response('Impossible de créer le ticket')
             
-            _logger.info(f"Ticket #{ticket.ticket_number} créé avec succès pour service {service.name}")
+            _logger.info(f"Ticket {ticket.ticket_reference or f'#{ticket.ticket_number}'} créé avec succès pour service {service.name}")
             
-            # Redirection vers confirmation
-            return request.redirect(f'/queue/ticket_confirmation/{ticket.id}')
+            # Redirection vers confirmation avec référence
+            if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference:
+                return request.redirect(f'/queue/confirmation/{ticket.ticket_reference}')
+            else:
+                return request.redirect(f'/queue/ticket_confirmation/{ticket.id}')
             
         except Exception as e:
             _logger.error(f"Erreur création ticket: {e}")
             return create_error_response('Une erreur est survenue lors de la création du ticket')
 
-    @http.route('/queue/ticket_confirmation/<int:ticket_id>', type='http', auth='public', website=True)
-    def ticket_confirmation(self, ticket_id, **kwargs):
+    @http.route([
+        '/queue/confirmation/<reference>',
+        '/queue/ticket_confirmation/<int:ticket_id>'
+    ], type='http', auth='public', website=True)
+    def ticket_confirmation(self, reference=None, ticket_id=None, **kwargs):
         """Page de confirmation après création d'un ticket"""
         try:
-            ticket = request.env['queue.ticket'].sudo().browse(ticket_id)
-            if not ticket.exists():
+            ticket = None
+            
+            # Méthode 1: Par référence (nouvelle)
+            if reference:
+                ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
+            
+            # Méthode 2: Par ID (legacy)
+            elif ticket_id:
+                ticket = request.env['queue.ticket'].sudo().browse(ticket_id)
+            
+            if not ticket or not ticket.exists():
                 return request.render('queue_management.error_template', {
                     'error_message': 'Ticket non trouvé'
                 })
             
             # Calculer la position de manière sécurisée
-            position = 0
-            if ticket.state == 'waiting':
-                try:
-                    tickets_before_count = request.env['queue.ticket'].sudo().search_count([
-                        ('service_id', '=', ticket.service_id.id),
-                        ('state', '=', 'waiting'),
-                        ('ticket_number', '<', ticket.ticket_number)
-                    ])
-                    position = tickets_before_count + 1
-                except Exception as e:
-                    _logger.warning(f"Erreur calcul position: {e}")
-                    position = 1
+            position = ticket.get_queue_position() if hasattr(ticket, 'get_queue_position') else 1
+            
+            # URL de tracking avec référence
+            if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference:
+                track_url = f'/queue/track/{ticket.ticket_reference}'
+                print_url = f'/queue/print/{ticket.ticket_reference}'
+            else:
+                track_url = f'/queue/my_ticket/{ticket.ticket_number}/{ticket.service_id.id}'
+                print_url = f'/queue/print_ticket/{ticket.ticket_number}/{ticket.service_id.id}'
             
             return request.render('queue_management.ticket_confirmation_template', {
                 'ticket': ticket,
                 'service': ticket.service_id,
                 'position': position,
-                'track_url': f'/queue/my_ticket/{ticket.ticket_number}/{ticket.service_id.id}'
+                'track_url': track_url,
+                'print_url': print_url,
+                'reference': getattr(ticket, 'ticket_reference', None),
+                'short_reference': getattr(ticket, 'short_reference', None)
             })
             
         except Exception as e:
-            _logger.error(f"Erreur confirmation ticket {ticket_id}: {e}")
+            _logger.error(f"Erreur confirmation ticket: {e}")
             return request.render('queue_management.error_template', {
                 'error_message': 'Erreur lors de l\'affichage de la confirmation'
             })
 
-    @http.route('/queue/my_ticket/<int:ticket_number>/<int:service_id>', 
-                type='http', auth='public', website=True)
-    def my_ticket_status(self, ticket_number, service_id, **kwargs):
-        """Page de suivi d'un ticket spécifique"""
-        try:
-            # Validation des paramètres
-            if not ticket_number or not service_id:
-                return request.render('queue_management.error_template', {
-                    'error_message': 'Paramètres manquants'
-                })
-            
-            # Recherche sécurisée du ticket
-            ticket = request.env['queue.ticket'].sudo().search([
-                ('ticket_number', '=', ticket_number),
-                ('service_id', '=', service_id)
-            ], limit=1)
-            
-            if not ticket:
-                return request.render('queue_management.ticket_not_found_template', {
-                    'ticket_number': ticket_number,
-                    'service_id': service_id
-                })
-            
-            # Calculer la position de manière défensive
-            position = 0
-            if ticket.state == 'waiting':
-                try:
-                    tickets_before = request.env['queue.ticket'].sudo().search([
-                        ('service_id', '=', ticket.service_id.id),
-                        ('state', '=', 'waiting'),
-                        ('ticket_number', '<', ticket.ticket_number)
-                    ])
-                    position = len(tickets_before) + 1
-                    
-                    # Mettre à jour le temps d'attente si nécessaire
-                    if position > 0 and hasattr(ticket.service_id, 'estimated_service_time'):
-                        estimated_wait = position * (ticket.service_id.estimated_service_time or 5)
-                        if abs((ticket.estimated_wait_time or 0) - estimated_wait) > 2:
-                            ticket.sudo().write({'estimated_wait_time': estimated_wait})
-                except Exception as e:
-                    _logger.warning(f"Erreur calcul position pour ticket {ticket_number}: {e}")
-                    position = 1
-            
-            return request.render('queue_management.my_ticket_template', {
-                'ticket': ticket,
-                'service': ticket.service_id,
-                'position': position
-            })
-            
-        except Exception as e:
-            _logger.error(f"Erreur suivi ticket {ticket_number}/{service_id}: {e}")
-            return request.render('queue_management.error_template', {
-                'error_message': 'Erreur lors du chargement des informations du ticket'
-            })
-
-    # API JSON ENDPOINTS
+    # ========================================
+    # API JSON ENDPOINTS AMÉLIORÉS
+    # ========================================
+    
     @http.route('/queue/take_ticket', type='json', auth='public', methods=['POST'], csrf=False)
     def take_ticket_json(self, service_id, customer_phone='', customer_email='', customer_name='', **kwargs):
-        """Prendre un ticket via API JSON"""
+        """Prendre un ticket via API JSON - VERSION AVEC RÉFÉRENCES"""
         try:
             if not service_id:
                 return {'success': False, 'error': 'ID du service requis'}
@@ -568,63 +554,118 @@ class QueueController(http.Controller):
             if customer_name and customer_name.strip():
                 ticket_data['customer_name'] = customer_name.strip()[:50]
             
-            # Créer le ticket
+            # Créer le ticket (références générées automatiquement)
             ticket = request.env['queue.ticket'].sudo().create(ticket_data)
             
             # Calculer la position
-            position = len(service.waiting_ticket_ids.filtered(
-                lambda t: t.ticket_number < ticket.ticket_number
-            )) + 1
+            position = ticket.get_queue_position() if hasattr(ticket, 'get_queue_position') else 1
             
-            return {
+            # Préparer la réponse avec références
+            response = {
                 'success': True,
                 'ticket_number': ticket.ticket_number,
                 'estimated_wait': ticket.estimated_wait_time or 0,
                 'position': position,
-                'service_name': service.name
+                'service_name': service.name,
+                'ticket_id': ticket.id
             }
+            
+            # Ajouter les références si disponibles
+            if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference:
+                response['ticket_reference'] = ticket.ticket_reference
+                response['track_url'] = f'/queue/track/{ticket.ticket_reference}'
+                response['print_url'] = f'/queue/print/{ticket.ticket_reference}'
+            
+            if hasattr(ticket, 'short_reference') and ticket.short_reference:
+                response['short_reference'] = ticket.short_reference
+            
+            if hasattr(ticket, 'security_hash') and ticket.security_hash:
+                response['security_hash'] = ticket.security_hash
+            
+            return response
             
         except Exception as e:
             _logger.error(f"Erreur prise ticket JSON: {e}")
             return {'success': False, 'error': 'Erreur lors de la génération du ticket'}
 
-    @http.route('/queue/status/<int:service_id>', type='json', auth='public', csrf=False)
-    def queue_status(self, service_id, **kwargs):
-        """Statut temps réel d'une file d'attente"""
+    @http.route('/queue/ticket_info', type='json', auth='public', methods=['POST'], csrf=False)
+    def get_ticket_info(self, reference=None, ticket_number=None, service_id=None, **kwargs):
+        """Obtenir les informations d'un ticket par référence ou numéro"""
         try:
-            service = request.env['queue.service'].sudo().browse(service_id)
-            if not service.exists():
-                return {'error': 'Service non trouvé'}
+            ticket = None
             
-            # Récupération sécurisée des tickets
-            try:
-                waiting_tickets = service.waiting_ticket_ids.sorted('ticket_number')[:10]
-            except Exception:
-                waiting_tickets = request.env['queue.ticket'].sudo().search([
-                    ('service_id', '=', service.id),
-                    ('state', '=', 'waiting')
-                ], limit=10, order='ticket_number')
+            # Méthode 1: Par référence unique
+            if reference:
+                result = request.env['queue.ticket'].sudo().get_ticket_by_reference_web(reference)
+                return result
             
-            return {
-                'service_name': service.name,
-                'waiting_count': len(waiting_tickets),
-                'current_ticket': service.current_ticket_number or 0,
-                'is_open': service.is_open,
-                'tickets': [{
-                    'number': t.ticket_number,
-                    'estimated_wait': t.estimated_wait_time or 0
-                } for t in waiting_tickets]
-            }
+            # Méthode 2: Par numéro + service (legacy)
+            elif ticket_number and service_id:
+                try:
+                    ticket_number = int(ticket_number)
+                    service_id = int(service_id)
+                except (ValueError, TypeError):
+                    return {'success': False, 'error': 'Paramètres invalides'}
+                
+                result = request.env['queue.ticket'].sudo().get_ticket_status_web(ticket_number, service_id)
+                return result
             
+            else:
+                return {'success': False, 'error': 'Référence ou numéro de ticket requis'}
+                
         except Exception as e:
-            _logger.error(f"Erreur statut service {service_id}: {e}")
-            return {'error': 'Erreur lors de la récupération du statut'}
+            _logger.error(f"Erreur get_ticket_info: {e}")
+            return {'success': False, 'error': 'Erreur lors de la récupération des informations'}
 
+    @http.route('/queue/cancel_ticket', type='json', auth='public', methods=['POST'], csrf=False)
+    def cancel_ticket(self, reference=None, ticket_number=None, service_id=None, reason='', security_hash=None, **kwargs):
+        """Annuler un ticket - VERSION AVEC RÉFÉRENCES"""
+        try:
+            # Méthode 1: Par référence unique (nouvelle)
+            if reference:
+                result = request.env['queue.ticket'].sudo().cancel_ticket_by_reference_web(
+                    reference, reason, security_hash
+                )
+                return result
+            
+            # Méthode 2: Par numéro + service (legacy)
+            elif ticket_number and service_id:
+                try:
+                    ticket_number = int(ticket_number)
+                    service_id = int(service_id)
+                except (ValueError, TypeError):
+                    return {'success': False, 'error': 'Paramètres invalides'}
+                
+                # Utiliser l'ancienne méthode
+                data = {
+                    'ticket_number': ticket_number,
+                    'service_id': service_id,
+                    'reason': reason
+                }
+                
+                # Essayer la nouvelle méthode d'annulation
+                if hasattr(request.env['queue.ticket'], 'cancel_ticket_web_v2'):
+                    result = request.env['queue.ticket'].sudo().cancel_ticket_web_v2(data)
+                else:
+                    result = request.env['queue.ticket'].sudo().cancel_ticket_web(data)
+                
+                return result
+            
+            else:
+                return {'success': False, 'error': 'Référence ou numéro de ticket requis'}
+                
+        except Exception as e:
+            _logger.error(f"Erreur annulation ticket: {e}")
+            return {'success': False, 'error': 'Erreur lors de l\'annulation'}
+
+    # ========================================
+    # ROUTES D'ADMINISTRATION AMÉLIORÉES
+    # ========================================
+    
     @http.route('/queue/admin', type='http', auth='user', website=True)
     def admin_dashboard(self, **kwargs):
-        """Interface d'administration"""
+        """Interface d'administration avec références"""
         try:
-            # Vérification des permissions
             if not request.env.user.has_group('base.group_user'):
                 return request.render('website.403')
             
@@ -637,8 +678,21 @@ class QueueController(http.Controller):
                 except Exception as e:
                     _logger.warning(f"Erreur invalidation cache service {service.id}: {e}")
             
+            # Statistiques globales avec références
+            total_tickets_today = request.env['queue.ticket'].search_count([
+                ('created_time', '>=', fields.Date.today())
+            ])
+            
+            tickets_with_references = request.env['queue.ticket'].search_count([
+                ('ticket_reference', '!=', False),
+                ('created_time', '>=', fields.Date.today())
+            ])
+            
             return request.render('queue_management.admin_dashboard_template', {
-                'services': services
+                'services': services,
+                'total_tickets_today': total_tickets_today,
+                'tickets_with_references': tickets_with_references,
+                'reference_coverage': (tickets_with_references / max(total_tickets_today, 1)) * 100
             })
             
         except Exception as e:
@@ -647,19 +701,205 @@ class QueueController(http.Controller):
                 'error_message': 'Erreur lors du chargement du tableau de bord'
             })
 
+    @http.route('/queue/admin/references', type='http', auth='user', website=True)
+    def admin_references(self, **kwargs):
+        """Page d'administration des références"""
+        try:
+            if not request.env.user.has_group('base.group_user'):
+                return request.render('website.403')
+            
+            # Statistiques des références
+            stats = {
+                'total_tickets': request.env['queue.ticket'].search_count([]),
+                'tickets_with_main_ref': request.env['queue.ticket'].search_count([('ticket_reference', '!=', False)]),
+                'tickets_with_short_ref': request.env['queue.ticket'].search_count([('short_reference', '!=', False)]),
+                'tickets_with_hash': request.env['queue.ticket'].search_count([('security_hash', '!=', False)])
+            }
+            
+            # Vérification de l'unicité
+            uniqueness_check = request.env['queue.ticket'].check_reference_uniqueness()
+            
+            # Tickets récents avec références
+            recent_tickets = request.env['queue.ticket'].search([
+                ('created_time', '>=', fields.Datetime.now().replace(hour=0, minute=0, second=0))
+            ], order='created_time desc', limit=10)
+            
+            return request.render('queue_management.admin_references_template', {
+                'stats': stats,
+                'uniqueness_check': uniqueness_check,
+                'recent_tickets': recent_tickets
+            })
+            
+        except Exception as e:
+            _logger.error(f"Erreur admin références: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors du chargement de la page des références'
+            })
+
+    @http.route('/queue/admin/generate_references', type='json', auth='user', methods=['POST'], csrf=False)
+    def admin_generate_references(self, **kwargs):
+        """Générer les références manquantes pour les tickets existants"""
+        try:
+            if not request.env.user.has_group('base.group_user'):
+                return {'success': False, 'error': 'Accès non autorisé'}
+            
+            # Générer les références manquantes
+            count = request.env['queue.ticket'].generate_missing_references()
+            
+            return {
+                'success': True,
+                'message': f'Références générées pour {count} tickets',
+                'count': count
+            }
+            
+        except Exception as e:
+            _logger.error(f"Erreur génération références: {e}")
+            return {'success': False, 'error': str(e)}
+
+    # ========================================
+    # ROUTES DE RECHERCHE ET NAVIGATION
+    # ========================================
+    
+    @http.route('/queue/search', type='http', auth='public', website=True, methods=['GET', 'POST'])
+    def search_ticket(self, **kwargs):
+        """Page de recherche de ticket par référence"""
+        try:
+            if request.httprequest.method == 'POST':
+                search_query = kwargs.get('search_query', '').strip()
+                
+                if not search_query:
+                    return request.render('queue_management.search_ticket_template', {
+                        'error': 'Veuillez saisir une référence'
+                    })
+                
+                # Essayer de trouver le ticket
+                ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(search_query)
+                
+                if not ticket:
+                    # Essayer avec référence courte
+                    ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(search_query, 'short')
+                
+                if not ticket:
+                    # Essayer par numéro de ticket (legacy)
+                    try:
+                        ticket_number = int(search_query.replace('#', ''))
+                        tickets = request.env['queue.ticket'].sudo().search([
+                            ('ticket_number', '=', ticket_number)
+                        ])
+                        if len(tickets) == 1:
+                            ticket = tickets
+                        elif len(tickets) > 1:
+                            return request.render('queue_management.search_ticket_template', {
+                                'error': f'Plusieurs tickets trouvés avec le numéro {ticket_number}. Utilisez la référence complète.',
+                                'multiple_tickets': tickets
+                            })
+                    except ValueError:
+                        pass
+                
+                if ticket:
+                    # Rediriger vers le suivi du ticket
+                    if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference:
+                        return request.redirect(f'/queue/track/{ticket.ticket_reference}')
+                    else:
+                        return request.redirect(f'/queue/my_ticket/{ticket.ticket_number}/{ticket.service_id.id}')
+                else:
+                    return request.render('queue_management.search_ticket_template', {
+                        'error': f'Aucun ticket trouvé avec la référence "{search_query}"'
+                    })
+            
+            # Affichage du formulaire de recherche
+            return request.render('queue_management.search_ticket_template', {})
+            
+        except Exception as e:
+            _logger.error(f"Erreur recherche ticket: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors de la recherche'
+            })
+
+    # ========================================
+    # ROUTES HÉRITÉES (COMPATIBILITÉ)
+    # ========================================
+    
+    @http.route('/queue/my_ticket/<int:ticket_number>/<int:service_id>', 
+                type='http', auth='public', website=True)
+    def my_ticket_status(self, ticket_number, service_id, **kwargs):
+        """Page de suivi d'un ticket spécifique (legacy)"""
+        try:
+            # Validation des paramètres
+            if not ticket_number or not service_id:
+                return request.render('queue_management.error_template', {
+                    'error_message': 'Paramètres manquants'
+                })
+            
+            # Recherche sécurisée du ticket
+            ticket = request.env['queue.ticket'].sudo().search([
+                ('ticket_number', '=', ticket_number),
+                ('service_id', '=', service_id)
+            ], limit=1)
+            
+            if not ticket:
+                return request.render('queue_management.ticket_not_found_template', {
+                    'ticket_number': ticket_number,
+                    'service_id': service_id
+                })
+            
+            # Si le ticket a une référence, rediriger vers la nouvelle route
+            if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference:
+                return request.redirect(f'/queue/track/{ticket.ticket_reference}')
+            
+            # Calculer la position de manière défensive
+            position = ticket.get_queue_position() if hasattr(ticket, 'get_queue_position') else 1
+            
+            return request.render('queue_management.my_ticket_template', {
+                'ticket': ticket,
+                'service': ticket.service_id,
+                'position': position
+            })
+            
+        except Exception as e:
+            _logger.error(f"Erreur suivi ticket {ticket_number}/{service_id}: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors du chargement des informations du ticket'
+            })
+
+    # ========================================
+    # ROUTES UTILITAIRES ET MAINTENANCE
+    # ========================================
+    
     @http.route('/queue/health', type='json', auth='public', csrf=False)
     def health_check(self, **kwargs):
-        """Vérification de santé du système"""
+        """Vérification de santé du système avec références"""
         try:
             # Test basique des modèles
             services_count = request.env['queue.service'].sudo().search_count([])
             tickets_count = request.env['queue.ticket'].sudo().search_count([])
+            
+            # Test des références
+            tickets_with_references = request.env['queue.ticket'].sudo().search_count([
+                ('ticket_reference', '!=', False)
+            ])
+            
+            # Test de recherche par référence
+            reference_search_working = False
+            if tickets_with_references > 0:
+                try:
+                    sample_ticket = request.env['queue.ticket'].sudo().search([
+                        ('ticket_reference', '!=', False)
+                    ], limit=1)
+                    if sample_ticket:
+                        found = request.env['queue.ticket'].sudo().find_ticket_by_reference(sample_ticket.ticket_reference)
+                        reference_search_working = bool(found)
+                except:
+                    reference_search_working = False
             
             return {
                 'success': True,
                 'status': 'healthy',
                 'services_count': services_count,
                 'tickets_count': tickets_count,
+                'tickets_with_references': tickets_with_references,
+                'reference_coverage': (tickets_with_references / max(tickets_count, 1)) * 100,
+                'reference_search_working': reference_search_working,
                 'database_responsive': True,
                 'timestamp': fields.Datetime.now().isoformat()
             }
@@ -673,28 +913,89 @@ class QueueController(http.Controller):
                 'timestamp': fields.Datetime.now().isoformat()
             }
 
-    # Route simplifiée pour les tests
+    @http.route('/queue/maintenance', type='json', auth='user', methods=['POST'], csrf=False)
+    def maintenance_operations(self, operation=None, **kwargs):
+        """Opérations de maintenance du système"""
+        try:
+            if not request.env.user.has_group('base.group_user'):
+                return {'success': False, 'error': 'Accès non autorisé'}
+            
+            if operation == 'generate_references':
+                count = request.env['queue.ticket'].generate_missing_references()
+                return {'success': True, 'message': f'Références générées pour {count} tickets'}
+            
+            elif operation == 'check_uniqueness':
+                result = request.env['queue.ticket'].check_reference_uniqueness()
+                return {'success': True, 'result': result}
+            
+            elif operation == 'cleanup_old_tickets':
+                count = request.env['queue.ticket'].cleanup_old_cancelled_tickets(days_to_keep=30)
+                return {'success': True, 'message': f'{count} anciens tickets nettoyés'}
+            
+            elif operation == 'refresh_stats':
+                result = request.env['queue.ticket'].bulk_update_statistics()
+                return {'success': True, 'result': result}
+            
+            elif operation == 'scheduled_maintenance':
+                result = request.env['queue.ticket'].scheduled_data_maintenance()
+                return {'success': True, 'result': result}
+            
+            else:
+                return {'success': False, 'error': 'Opération non reconnue'}
+                
+        except Exception as e:
+            _logger.error(f"Erreur maintenance {operation}: {e}")
+            return {'success': False, 'error': str(e)}
+
+    # ========================================
+    # ROUTES DE TEST ET DEBUG
+    # ========================================
+    
     @http.route('/queue/test', type='http', auth='public', website=True)
     def test_basic_functionality(self, **kwargs):
         """Page de test basique pour vérifier le bon fonctionnement"""
         try:
-            # Test simple sans dépendances complexes
             services = request.env['queue.service'].sudo().search([('active', '=', True)], limit=5)
             
-            html_content = """
+            # Test de génération de référence
+            test_reference = None
+            test_short_reference = None
+            if services:
+                try:
+                    test_vals = {'service_id': services[0].id, 'ticket_number': 999}
+                    test_reference = request.env['queue.ticket']._generate_unique_reference(test_vals)
+                    test_short_reference = request.env['queue.ticket']._generate_short_reference(test_vals)
+                except Exception as e:
+                    _logger.warning(f"Test référence échoué: {e}")
+            
+            html_content = f"""
             <div class="container mt-4">
-                <h1>Test Queue Management</h1>
+                <h1>Test Queue Management avec Références</h1>
                 <div class="alert alert-success">
                     <h4>✅ Système fonctionnel!</h4>
-                    <p>Services trouvés: %d</p>
+                    <p>Services trouvés: {len(services)}</p>
                 </div>
-                <ul class="list-group">
-            """ % len(services)
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5>Test des Références</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Référence test:</strong> {test_reference or 'Erreur génération'}</p>
+                        <p><strong>Référence courte test:</strong> {test_short_reference or 'Erreur génération'}</p>
+                    </div>
+                </div>
+                
+                <ul class="list-group mt-3">
+            """
             
             for service in services:
                 html_content += f"""
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>{service.name}</span>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{service.name}</strong>
+                            <br><small>ID: {service.id}</small>
+                        </div>
                         <span class="badge bg-{'success' if service.is_open else 'danger'}">
                             {'Ouvert' if service.is_open else 'Fermé'}
                         </span>
@@ -705,6 +1006,8 @@ class QueueController(http.Controller):
                 </ul>
                 <div class="mt-3">
                     <a href="/queue" class="btn btn-primary">Aller à la page principale</a>
+                    <a href="/queue/search" class="btn btn-secondary">Test recherche</a>
+                    <a href="/queue/admin" class="btn btn-info">Administration</a>
                 </div>
             </div>
             """
@@ -730,391 +1033,290 @@ class QueueController(http.Controller):
                 headers={'Content-Type': 'text/html; charset=utf-8'}
             )
 
-    # ROUTES D'ADMINISTRATION AVANCÉES
-    @http.route('/queue/admin/action', type='json', auth='user', methods=['POST'], csrf=False)
-    def admin_action(self, action, ticket_id=None, service_id=None, **kwargs):
-        """Actions d'administration via AJAX"""
+    # ========================================
+    # ROUTES QR CODE ET MOBILE
+    # ========================================
+    
+    @http.route('/queue/qr/<reference>', type='http', auth='public')
+    def qr_redirect(self, reference, **kwargs):
+        """Redirection depuis QR code vers suivi ticket"""
         try:
-            # Vérification des permissions
-            if not request.env.user.has_group('base.group_user'):
-                return {'success': False, 'error': 'Accès non autorisé'}
+            # Vérifier si la référence existe
+            ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
             
-            if action == 'call_next':
-                if ticket_id:
-                    try:
-                        ticket = request.env['queue.ticket'].browse(int(ticket_id))
-                        if ticket.exists() and ticket.state == 'waiting':
-                            ticket.action_call_next()
-                            return {'success': True, 'message': f'Ticket #{ticket.ticket_number} appelé'}
-                        else:
-                            return {'success': False, 'error': 'Ticket non trouvé ou non en attente'}
-                    except Exception as e:
-                        _logger.error(f"Erreur appel ticket {ticket_id}: {e}")
-                        return {'success': False, 'error': 'Erreur lors de l\'appel du ticket'}
-                
-                elif service_id:
-                    try:
-                        service = request.env['queue.service'].browse(int(service_id))
-                        if not service.exists():
-                            return {'success': False, 'error': 'Service non trouvé'}
-                        
-                        # Trouver le prochain ticket en attente
-                        next_ticket = request.env['queue.ticket'].search([
-                            ('service_id', '=', service.id),
-                            ('state', '=', 'waiting')
-                        ], order='ticket_number', limit=1)
-                        
-                        if next_ticket:
-                            next_ticket.action_call_next()
-                            return {'success': True, 'message': f'Ticket #{next_ticket.ticket_number} appelé'}
-                        else:
-                            return {'success': False, 'error': 'Aucun ticket en attente'}
-                    except Exception as e:
-                        _logger.error(f"Erreur appel suivant service {service_id}: {e}")
-                        return {'success': False, 'error': 'Erreur lors de l\'appel du ticket suivant'}
-            
-            elif action == 'generate_ticket' and service_id:
-                try:
-                    service = request.env['queue.service'].browse(int(service_id))
-                    if not service.exists():
-                        return {'success': False, 'error': 'Service non trouvé'}
-                    
-                    if not service.is_open:
-                        return {'success': False, 'error': 'Service fermé'}
-                    
-                    # Créer un ticket manuel
-                    ticket = request.env['queue.ticket'].create({
-                        'service_id': service.id,
-                        'customer_name': 'Ticket manuel'
-                    })
-                    return {'success': True, 'message': f'Ticket #{ticket.ticket_number} généré'}
-                    
-                except Exception as e:
-                    _logger.error(f"Erreur génération ticket service {service_id}: {e}")
-                    return {'success': False, 'error': 'Erreur lors de la génération du ticket'}
-            
-            elif action == 'toggle_service' and service_id:
-                try:
-                    service = request.env['queue.service'].browse(int(service_id))
-                    if not service.exists():
-                        return {'success': False, 'error': 'Service non trouvé'}
-                    
-                    service.is_open = not service.is_open
-                    status = "ouvert" if service.is_open else "fermé"
-                    return {'success': True, 'message': f'Service {status}'}
-                    
-                except Exception as e:
-                    _logger.error(f"Erreur toggle service {service_id}: {e}")
-                    return {'success': False, 'error': 'Erreur lors du changement de statut'}
-            
-            elif action == 'complete_service' and ticket_id:
-                try:
-                    ticket = request.env['queue.ticket'].browse(int(ticket_id))
-                    if ticket.exists() and ticket.state in ['called', 'serving']:
-                        ticket.action_complete_service()
-                        return {'success': True, 'message': f'Service ticket #{ticket.ticket_number} terminé'}
-                    else:
-                        return {'success': False, 'error': 'Ticket non trouvé ou non en service'}
-                except Exception as e:
-                    _logger.error(f"Erreur fin service ticket {ticket_id}: {e}")
-                    return {'success': False, 'error': 'Erreur lors de la finalisation du service'}
-            
+            if ticket:
+                return request.redirect(f'/queue/track/{reference}')
             else:
-                return {'success': False, 'error': 'Action non reconnue ou paramètres manquants'}
-                
-        except Exception as e:
-            _logger.error(f"Erreur générale admin_action: {e}")
-            return {'success': False, 'error': 'Erreur système'}
-
-    # ROUTES D'ANNULATION DE TICKETS
-    @http.route('/queue/cancel_ticket', type='json', auth='public', methods=['POST'], csrf=False)
-    def cancel_ticket(self, ticket_number, service_id, reason='', **kwargs):
-        """Annuler un ticket - VERSION ULTRA-SÉCURISÉE"""
-        try:
-            # Validation stricte
-            if not ticket_number or not service_id:
-                return {'success': False, 'error': 'Paramètres manquants'}
-            
-            try:
-                ticket_number = int(ticket_number)
-                service_id = int(service_id)
-            except (ValueError, TypeError):
-                return {'success': False, 'error': 'Paramètres invalides'}
-            
-            # Recherche sécurisée du ticket
-            ticket = request.env['queue.ticket'].sudo().search([
-                ('ticket_number', '=', ticket_number),
-                ('service_id', '=', service_id),
-                ('state', 'in', ['waiting', 'called'])
-            ], limit=1)
-            
-            if not ticket:
-                return {'success': False, 'error': 'Ticket non trouvé ou déjà traité'}
-            
-            # Annulation sécurisée
-            try:
-                cancel_reason = f"Annulé par le client: {reason.strip()}" if reason else "Annulé par le client"
-                
-                ticket.sudo().write({
-                    'state': 'cancelled',
-                    'completed_time': fields.Datetime.now(),
-                    'notes': cancel_reason
+                return request.render('queue_management.error_template', {
+                    'error_message': f'Ticket avec référence {reference} non trouvé'
                 })
                 
-                _logger.info(f"Ticket #{ticket.ticket_number} annulé par le client")
+        except Exception as e:
+            _logger.error(f"Erreur QR redirect {reference}: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors de la redirection QR'
+            })
+
+    @http.route('/queue/mobile/<reference>', type='http', auth='public', website=True)
+    def mobile_ticket_view(self, reference, **kwargs):
+        """Vue mobile optimisée pour le suivi de ticket"""
+        try:
+            result = request.env['queue.ticket'].sudo().get_ticket_by_reference_web(reference)
+            
+            if not result['success']:
+                return request.render('queue_management.mobile_error_template', {
+                    'error_message': result.get('error', 'Ticket non trouvé')
+                })
+            
+            ticket_data = result['ticket']
+            ticket = request.env['queue.ticket'].sudo().browse(ticket_data['id'])
+            
+            return request.render('queue_management.mobile_ticket_template', {
+                'ticket': ticket,
+                'ticket_data': ticket_data,
+                'reference': reference
+            })
+            
+        except Exception as e:
+            _logger.error(f"Erreur vue mobile {reference}: {e}")
+            return request.render('queue_management.mobile_error_template', {
+                'error_message': 'Erreur lors du chargement'
+            })
+
+    # ========================================
+    # ROUTES D'EXPORT ET REPORTING
+    # ========================================
+    
+    @http.route('/queue/export/tickets', type='http', auth='user', methods=['GET'])
+    def export_tickets_csv(self, date_from=None, date_to=None, service_id=None, **kwargs):
+        """Export CSV des tickets avec références"""
+        try:
+            if not request.env.user.has_group('base.group_user'):
+                return request.make_response("Accès non autorisé", status=403)
+            
+            # Construire le domaine de recherche
+            domain = []
+            
+            if date_from:
+                domain.append(('created_time', '>=', date_from))
+            else:
+                domain.append(('created_time', '>=', fields.Date.today()))
+                
+            if date_to:
+                domain.append(('created_time', '<=', date_to))
+                
+            if service_id:
+                domain.append(('service_id', '=', int(service_id)))
+            
+            tickets = request.env['queue.ticket'].sudo().search(domain)
+            
+            # Préparer les données CSV
+            import csv
+            import io
+            
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # En-têtes
+            headers = [
+                'Référence', 'Référence Courte', 'Numéro', 'Service', 'État',
+                'Client', 'Téléphone', 'Email', 'Date Création', 
+                'Temps Attente (min)', 'Position', 'Hash Sécurité'
+            ]
+            writer.writerow(headers)
+            
+            # Données
+            for ticket in tickets:
+                row = [
+                    getattr(ticket, 'ticket_reference', ''),
+                    getattr(ticket, 'short_reference', ''),
+                    ticket.ticket_number,
+                    ticket.service_id.name,
+                    ticket.state,
+                    ticket.customer_name or '',
+                    ticket.customer_phone or '',
+                    ticket.customer_email or '',
+                    ticket.created_time.strftime('%d/%m/%Y %H:%M') if ticket.created_time else '',
+                    ticket.waiting_time or 0,
+                    ticket.get_queue_position() if hasattr(ticket, 'get_queue_position') else 0,
+                    getattr(ticket, 'security_hash', '')[:8] + '...' if getattr(ticket, 'security_hash', '') else ''
+                ]
+                writer.writerow(row)
+            
+            # Préparer la réponse
+            csv_data = output.getvalue()
+            output.close()
+            
+            filename = f"tickets_{fields.Date.today().strftime('%Y%m%d')}.csv"
+            
+            return request.make_response(
+                csv_data,
+                headers=[
+                    ('Content-Type', 'text/csv; charset=utf-8'),
+                    ('Content-Disposition', f'attachment; filename={filename}')
+                ]
+            )
+            
+        except Exception as e:
+            _logger.error(f"Erreur export CSV: {e}")
+            return request.make_response(f"Erreur export: {str(e)}", status=500)
+
+    # ========================================
+    # ROUTES DE FEEDBACK AMÉLIORÉES
+    # ========================================
+    
+    @http.route([
+        '/queue/feedback/<reference>',
+        '/queue/feedback/<int:ticket_id>'
+    ], type='http', auth='public', website=True, methods=['GET', 'POST'])
+    def ticket_feedback(self, reference=None, ticket_id=None, **kwargs):
+        """Page de feedback pour un ticket"""
+        try:
+            ticket = None
+            
+            # Recherche par référence ou ID
+            if reference:
+                ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
+            elif ticket_id:
+                ticket = request.env['queue.ticket'].sudo().browse(ticket_id)
+            
+            if not ticket or not ticket.exists() or ticket.state != 'served':
+                return request.render('queue_management.error_template', {
+                    'error_message': 'Ticket non trouvé ou non éligible pour un feedback'
+                })
+            
+            if request.httprequest.method == 'POST':
+                # Traitement du feedback
+                rating = kwargs.get('rating')
+                feedback = kwargs.get('feedback', '')
+                
+                if rating:
+                    ticket.write({
+                        'rating': rating,
+                        'feedback': feedback
+                    })
+                    
+                    # Log du feedback
+                    _logger.info(f"Feedback reçu pour ticket {ticket.ticket_reference or ticket.id}: {rating}/5")
+                    
+                    return request.render('queue_management.feedback_thanks_template', {
+                        'ticket': ticket,
+                        'service': ticket.service_id,
+                        'reference': reference
+                    })
+            
+            return request.render('queue_management.feedback_form_template', {
+                'ticket': ticket,
+                'service': ticket.service_id,
+                'reference': reference
+            })
+            
+        except Exception as e:
+            _logger.error(f"Erreur feedback: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors du traitement du feedback'
+            })
+
+    # ========================================
+    # WEBSOCKET ET TEMPS RÉEL (si nécessaire)
+    # ========================================
+    
+    @http.route('/queue/live_updates/<reference>', type='json', auth='public', csrf=False)
+    def get_live_updates(self, reference, **kwargs):
+        """Obtenir les mises à jour en temps réel pour un ticket"""
+        try:
+            result = request.env['queue.ticket'].sudo().get_ticket_by_reference_web(reference)
+            
+            if result['success']:
+                ticket_data = result['ticket']
+                
+                # Ajouter des informations temps réel
+                service = request.env['queue.service'].sudo().browse(ticket_data.get('service_id'))
+                if service:
+                    ticket_data['service_current_ticket'] = service.current_ticket_number or 0
+                    ticket_data['service_waiting_count'] = len(service.waiting_ticket_ids)
+                
+                # Calculer le temps restant estimé
+                if ticket_data['position'] > 0:
+                    avg_service_time = getattr(service, 'avg_service_time', 5)
+                    ticket_data['estimated_remaining_time'] = ticket_data['position'] * avg_service_time
                 
                 return {
                     'success': True,
-                    'message': f'Ticket #{ticket.ticket_number} annulé avec succès'
+                    'data': ticket_data,
+                    'timestamp': fields.Datetime.now().isoformat()
                 }
+            else:
+                return result
                 
-            except Exception as e:
-                _logger.error(f"Erreur lors de l'annulation: {e}")
-                return {'success': False, 'error': 'Erreur lors de l\'annulation'}
-            
         except Exception as e:
-            _logger.error(f"Erreur générale annulation: {e}")
-            return {'success': False, 'error': 'Erreur système'}
+            _logger.error(f"Erreur live updates {reference}: {e}")
+            return {'success': False, 'error': 'Erreur lors de la mise à jour'}
 
-    @http.route('/queue/ticket_position', type='json', auth='public', methods=['POST'], csrf=False)
-    def get_ticket_position(self, ticket_number, service_id, **kwargs):
-        """Obtenir la position actuelle d'un ticket dans la file"""
-        try:
-            if not ticket_number or not service_id:
-                return {'success': False, 'error': 'Paramètres manquants'}
-            
-            # Trouver le ticket
-            ticket = request.env['queue.ticket'].sudo().search([
-                ('ticket_number', '=', int(ticket_number)),
-                ('service_id', '=', int(service_id))
-            ], limit=1)
-            
-            if not ticket:
-                return {'success': False, 'error': 'Ticket non trouvé'}
-            
-            if ticket.state != 'waiting':
-                return {'success': True, 'position': 0, 'state': ticket.state}
-            
-            # Calculer la position
-            tickets_before_count = request.env['queue.ticket'].sudo().search_count([
-                ('service_id', '=', ticket.service_id.id),
-                ('state', '=', 'waiting'),
-                ('ticket_number', '<', ticket.ticket_number)
-            ])
-            position = tickets_before_count + 1
-            
-            # Recalculer le temps d'attente estimé
-            avg_service_time = ticket.service_id.avg_service_time or 5
-            estimated_wait = position * avg_service_time
-            
-            return {
-                'success': True,
-                'position': position,
-                'estimated_wait': estimated_wait,
-                'state': ticket.state,
-                'current_ticket': ticket.service_id.current_ticket_number
-            }
-            
-        except ValueError as e:
-            _logger.error(f"Erreur de validation pour position ticket: {str(e)}")
-            return {'success': False, 'error': 'Données invalides'}
-        except Exception as e:
-            _logger.error(f"Erreur lors du calcul de position: {str(e)}")
-            return {'success': False, 'error': 'Erreur serveur'}
-
-    # ROUTES DE DEBUGGING ET DIAGNOSTICS
-    @http.route('/queue/debug/stats', type='json', auth='user', methods=['GET'], csrf=False)
-    def debug_statistics(self, **kwargs):
-        """Route de debug pour analyser les problèmes de statistiques"""
-        if not request.env.user.has_group('queue_management.group_queue_user'):
-            return {'error': 'Accès non autorisé'}
-        
-        try:
-            services = request.env['queue.service'].search([('active', '=', True)])
-            debug_data = {}
-            
-            for service in services:
-                # Forcer le recalcul
-                service.force_refresh_stats()
-                
-                today_tickets = service.ticket_ids.filtered(
-                    lambda t: t.created_time and t.created_time.date() == fields.Date.today()
-                )
-                
-                debug_data[service.name] = {
-                    'service_id': service.id,
-                    'total_tickets_today': len(today_tickets),
-                    'avg_waiting_time': service.avg_waiting_time,
-                    'waiting_count': service.waiting_count,
-                    'tickets_details': [
-                        {
-                            'number': t.ticket_number,
-                            'state': t.state,
-                            'waiting_time': t.waiting_time,
-                            'created_time': t.created_time.isoformat() if t.created_time else None,
-                            'called_time': t.called_time.isoformat() if t.called_time else None,
-                        }
-                        for t in today_tickets[:3]
-                    ]
-                }
-            
-            return {
-                'success': True,
-                'debug_data': debug_data,
-                'timestamp': fields.Datetime.now().isoformat()
-            }
-            
-        except Exception as e:
-            _logger.error(f"Erreur debug statistiques: {e}")
-            return {'success': False, 'error': str(e)}
-
-    @http.route('/queue/force_refresh', type='json', auth='user', methods=['POST'], csrf=False)
-    def force_refresh_statistics(self, **kwargs):
-        """Force le rafraîchissement des statistiques"""
-        if not request.env.user.has_group('queue_management.group_queue_user'):
-            return {'error': 'Accès non autorisé'}
-        
-        try:
-            services = request.env['queue.service'].search([('active', '=', True)])
-            
-            # Forcer le recalcul pour tous les services
-            for service in services:
-                service.force_refresh_stats()
-            
-            # Récupérer les nouvelles données
-            dashboard_data = request.env['queue.service'].get_dashboard_data()
-            
-            return {
-                'success': True,
-                'message': f'{len(services)} services mis à jour',
-                'data': dashboard_data
-            }
-            
-        except Exception as e:
-            _logger.error(f"Erreur refresh forcé: {e}")
-            return {'success': False, 'error': str(e)}
-
-    # ROUTES D'URGENCE ET RESET
-    @http.route('/queue/emergency_reset', type='http', auth='user', methods=['GET', 'POST'])
-    def emergency_reset(self, **kwargs):
-        """Reset d'urgence pour débloquer le système"""
+    # ========================================
+    # ROUTE DE MIGRATION (UTILITAIRE ADMIN)
+    # ========================================
+    
+    @http.route('/queue/migrate_references', type='http', auth='user', methods=['GET', 'POST'])
+    def migrate_to_references(self, **kwargs):
+        """Page de migration vers le système de références"""
         try:
             if not request.env.user.has_group('base.group_system'):
-                return "Accès admin requis"
+                return request.make_response("Accès administrateur requis", status=403)
             
             if request.httprequest.method == 'POST':
-                # Effectuer le reset
-                request.env.cr.rollback()
-                
-                # Nettoyer les données problématiques
-                request.env['queue.ticket'].sudo().search([
-                    ('state', 'not in', ['waiting', 'called', 'serving', 'served', 'cancelled', 'no_show'])
-                ]).unlink()
-                
-                # Reset les services
-                services = request.env['queue.service'].sudo().search([])
-                for service in services:
-                    service.invalidate_cache()
-                
-                request.env.cr.commit()
-                
-                return """
-                <div class="container mt-4">
-                    <div class="alert alert-success">
-                        <h4>✅ Reset d'urgence effectué!</h4>
-                        <p>Le système a été nettoyé et réinitialisé.</p>
-                        <a href="/queue" class="btn btn-primary">Tester le système</a>
+                # Effectuer la migration
+                try:
+                    count = request.env['queue.ticket'].generate_missing_references()
+                    
+                    return f"""
+                    <div class="container mt-4">
+                        <div class="alert alert-success">
+                            <h4>✅ Migration terminée!</h4>
+                            <p>Références générées pour {count} tickets.</p>
+                            <a href="/queue/admin/references" class="btn btn-primary">Voir les références</a>
+                        </div>
                     </div>
-                </div>
-                """
+                    """
+                except Exception as e:
+                    return f"""
+                    <div class="container mt-4">
+                        <div class="alert alert-danger">
+                            <h4>❌ Erreur de migration</h4>
+                            <p>Erreur: {str(e)}</p>
+                        </div>
+                    </div>
+                    """
             
-            return """
+            # Afficher la page de migration
+            stats = {
+                'total_tickets': request.env['queue.ticket'].search_count([]),
+                'tickets_with_references': request.env['queue.ticket'].search_count([('ticket_reference', '!=', False)])
+            }
+            
+            return f"""
             <div class="container mt-4">
-                <div class="alert alert-warning">
-                    <h4>⚠️ Reset d'urgence du système</h4>
-                    <p>Cette action va nettoyer les données corrompues et réinitialiser les transactions.</p>
-                    <form method="post">
-                        <button type="submit" class="btn btn-danger">Confirmer le reset</button>
-                        <a href="/queue" class="btn btn-secondary">Annuler</a>
-                    </form>
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Migration vers le système de références uniques</h4>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Tickets totaux:</strong> {stats['total_tickets']}</p>
+                        <p><strong>Tickets avec références:</strong> {stats['tickets_with_references']}</p>
+                        <p><strong>Tickets à migrer:</strong> {stats['total_tickets'] - stats['tickets_with_references']}</p>
+                        
+                        <form method="post" class="mt-3">
+                            <button type="submit" class="btn btn-primary" 
+                                    onclick="return confirm('Confirmer la migration ?')">
+                                Démarrer la migration
+                            </button>
+                            <a href="/queue/admin" class="btn btn-secondary">Retour</a>
+                        </form>
+                    </div>
                 </div>
             </div>
             """
             
         except Exception as e:
-            _logger.error(f"Erreur reset urgence: {e}")
-            return f"<h1>Erreur reset: {str(e)}</h1>"
-
-    @http.route('/queue/debug/reset', type='json', auth='user', methods=['POST'], csrf=False)
-    def debug_reset_system(self, confirm=False, **kwargs):
-        """Reset complet du système pour debug - ADMIN SEULEMENT"""
-        try:
-            # Vérification admin stricte
-            if not request.env.user.has_group('base.group_system'):
-                return {'success': False, 'error': 'Accès admin requis'}
-            
-            if not confirm:
-                return {
-                    'success': False, 
-                    'error': 'Confirmation requise',
-                    'message': 'Ajoutez "confirm": true pour confirmer la réinitialisation'
-                }
-            
-            # Reset du système
-            request.env.cr.rollback()  # Nettoyer toute transaction échouée
-            
-            # Supprimer tous les tickets
-            tickets = request.env['queue.ticket'].sudo().search([])
-            tickets.unlink()
-            
-            # Reset des compteurs de services
-            services = request.env['queue.service'].sudo().search([])
-            for service in services:
-                service.sudo().write({
-                    'current_ticket_number': 0,
-                    'next_ticket_number': 1,
-                })
-                # Force recalcul
-                service.invalidate_cache()
-            
-            request.env.cr.commit()
-            
-            return {
-                'success': True,
-                'message': f'Système réinitialisé: {len(tickets)} tickets supprimés, {len(services)} services reset'
-            }
-            
-        except Exception as e:
-            _logger.error(f"Erreur reset système: {e}")
-            request.env.cr.rollback()
-            return {'success': False, 'error': f'Erreur reset: {str(e)}'}
-
-    # ROUTES DE FEEDBACK
-    @http.route('/queue/feedback/<int:ticket_id>', type='http', auth='public', website=True, methods=['GET', 'POST'])
-    def ticket_feedback(self, ticket_id, **kwargs):
-        """Page de feedback pour un ticket"""
-        ticket = request.env['queue.ticket'].sudo().browse(ticket_id)
-        if not ticket.exists() or ticket.state != 'served':
-            return request.render('queue_management.error_template', {
-                'error_message': 'Ticket non trouvé ou non éligible pour un feedback'
-            })
-        
-        if request.httprequest.method == 'POST':
-            # Traitement du feedback
-            rating = kwargs.get('rating')
-            feedback = kwargs.get('feedback', '')
-            
-            if rating:
-                ticket.write({
-                    'rating': rating,
-                    'feedback': feedback
-                })
-                return request.render('queue_management.feedback_thanks_template', {
-                    'ticket': ticket,
-                    'service': ticket.service_id
-                })
-        
-        return request.render('queue_management.feedback_form_template', {
-            'ticket': ticket,
-            'service': ticket.service_id
-        })
+            _logger.error(f"Erreur migration: {e}")
+            return request.make_response(f"Erreur: {str(e)}", status=500)

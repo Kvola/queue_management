@@ -9,6 +9,7 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+
 class QueueService(models.Model):
     _name = "queue.service"
     _inherit = ["mail.thread", "mail.activity.mixin"]  # Ajout du tracking
@@ -73,70 +74,97 @@ class QueueService(models.Model):
     lunch_break_start = fields.Float("Début Déjeuner")
     lunch_break_end = fields.Float("Fin Déjeuner")
     # Nouveaux champs pour les statistiques d'annulation
-    cancellation_rate = fields.Float('Taux d\'annulation (%)', compute='_compute_cancellation_stats', store=True)
-    total_cancelled_today = fields.Integer('Annulations aujourd\'hui', compute='_compute_cancellation_stats', store=True)
-    avg_time_before_cancellation = fields.Float('Temps moyen avant annulation (min)', compute='_compute_cancellation_stats', store=True)
+    cancellation_rate = fields.Float(
+        "Taux d'annulation (%)", compute="_compute_cancellation_stats", store=True
+    )
+    total_cancelled_today = fields.Integer(
+        "Annulations aujourd'hui", compute="_compute_cancellation_stats", store=True
+    )
+    avg_time_before_cancellation = fields.Float(
+        "Temps moyen avant annulation (min)",
+        compute="_compute_cancellation_stats",
+        store=True,
+    )
+
+    # Nouveaux champs pour la référence des tickets
+    ticket_prefix = fields.Char(
+        "Préfixe des tickets",
+        default="QUE",
+        help="Préfixe utilisé pour les références de tickets",
+    )
+    ticket_sequence = fields.Integer(
+        "Séquence des tickets",
+        default=0,
+        help="Compteur séquentiel pour les numéros de ticket",
+    )
 
     @api.model
     def cleanup_old_statistics(self):
         cutoff_date = datetime.now() - timedelta(days=30)
-        old_tickets = self.env['queue.ticket'].search([
-            ('created_time', '<', cutoff_date),
-            ('state', 'in', ['served', 'cancelled', 'no_show'])
-        ])
-        old_tickets.write({'active': False})
+        old_tickets = self.env["queue.ticket"].search(
+            [
+                ("created_time", "<", cutoff_date),
+                ("state", "in", ["served", "cancelled", "no_show"]),
+            ]
+        )
+        old_tickets.write({"active": False})
         _logger.info(f"Archivé {len(old_tickets)} anciens tickets")
-    
-    @api.depends('ticket_ids', 'ticket_ids.state', 'ticket_ids.cancelled_time')
+
+    @api.depends("ticket_ids", "ticket_ids.state", "ticket_ids.cancelled_time")
     def _compute_cancellation_stats(self):
         """Calculer les statistiques d'annulation"""
         for service in self:
             today = fields.Date.today()
-            
+
             # Tickets d'aujourd'hui
             today_tickets = service.ticket_ids.filtered(
                 lambda t: t.created_time and t.created_time.date() == today
             )
-            
+
             total_today = len(today_tickets)
-            cancelled_today = today_tickets.filtered(lambda t: t.state == 'cancelled')
-            
+            cancelled_today = today_tickets.filtered(lambda t: t.state == "cancelled")
+
             service.total_cancelled_today = len(cancelled_today)
-            
+
             if total_today > 0:
                 service.cancellation_rate = (len(cancelled_today) / total_today) * 100
             else:
                 service.cancellation_rate = 0.0
-            
+
             # Temps moyen avant annulation
             if cancelled_today:
-                total_wait_time = sum([
-                    (t.cancelled_time - t.created_time).total_seconds() / 60
-                    for t in cancelled_today 
-                    if t.cancelled_time and t.created_time
-                ])
-                service.avg_time_before_cancellation = total_wait_time / len(cancelled_today)
+                total_wait_time = sum(
+                    [
+                        (t.cancelled_time - t.created_time).total_seconds() / 60
+                        for t in cancelled_today
+                        if t.cancelled_time and t.created_time
+                    ]
+                )
+                service.avg_time_before_cancellation = total_wait_time / len(
+                    cancelled_today
+                )
             else:
                 service.avg_time_before_cancellation = 0.0
-    
+
     def _update_cancellation_stats(self):
         """Méthode appelée après chaque annulation pour mise à jour rapide"""
         self._compute_cancellation_stats()
-        
+
         # Alerte si taux d'annulation trop élevé
         if self.cancellation_rate > 30:  # Plus de 30% d'annulation
             self._send_cancellation_alert()
-    
+
     def _send_cancellation_alert(self):
         """Envoyer une alerte en cas de taux d'annulation élevé"""
         try:
             # Notifier les administrateurs
-            admin_users = self.env.ref('queue_management.group_queue_manager').users
-            
+            admin_users = self.env.ref("queue_management.group_queue_manager").users
+
             for user in admin_users:
-                self.env['mail.mail'].sudo().create({
-                    'subject': f'Alerte: Taux d\'annulation élevé - {self.name}',
-                    'body_html': f'''
+                self.env["mail.mail"].sudo().create(
+                    {
+                        "subject": f"Alerte: Taux d'annulation élevé - {self.name}",
+                        "body_html": f"""
                         <h3>Alerte Taux d'Annulation</h3>
                         <p>Le service <strong>{self.name}</strong> présente un taux d'annulation élevé:</p>
                         <ul>
@@ -145,37 +173,14 @@ class QueueService(models.Model):
                             <li>Temps moyen avant annulation: <strong>{self.avg_time_before_cancellation:.1f} min</strong></li>
                         </ul>
                         <p>Veuillez vérifier la configuration du service et les temps d'attente.</p>
-                    ''',
-                    'email_to': user.email,
-                    'auto_delete': True,
-                }).send()
-                
+                    """,
+                        "email_to": user.email,
+                        "auto_delete": True,
+                    }
+                ).send()
+
         except Exception as e:
             _logger.error(f"Erreur envoi alerte annulation: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def action_generate_quick_ticket(self):
         """Générer rapidement un ticket sans dialogue - Version améliorée"""
@@ -197,35 +202,38 @@ class QueueService(models.Model):
             )
 
         try:
-            # Générer le ticket
+            # Incrémenter le compteur de tickets
             self.current_ticket_number += 1
-            ticket = self.env["queue.ticket"].create(
-                {
-                    "service_id": self.id,
-                    "ticket_number": self.current_ticket_number,
-                    "customer_name": self.env.context.get("customer_name", ""),
-                    "customer_phone": self.env.context.get("customer_phone", ""),
-                    "customer_email": self.env.context.get("customer_email", ""),
-                    "priority": self.env.context.get("priority", "normal"),
-                }
-            )
+
+            # Préparer les valeurs avec le nouveau système de référence
+            vals = {
+                "service_id": self.id,
+                "ticket_number": self.current_ticket_number,
+                "customer_name": self.env.context.get("customer_name", ""),
+                "customer_phone": self.env.context.get("customer_phone", ""),
+                "customer_email": self.env.context.get("customer_email", ""),
+                "priority": self.env.context.get("priority", "normal"),
+            }
+
+            # Créer le ticket avec les références automatiques
+            ticket = self.env["queue.ticket"].create(vals)
 
             # Log de l'activité
             self.message_post(
-                body=_("Nouveau ticket généré: #%s") % ticket.ticket_number,
+                body=_("Nouveau ticket généré: %s") % ticket.ticket_reference,
                 subtype_xmlid="mail.mt_note",
             )
 
-            # Retourner une action client pour afficher le ticket
+            # Retourner la nouvelle référence dans la notification
             return {
                 "type": "ir.actions.client",
                 "tag": "display_notification",
                 "params": {
                     "title": _("Ticket Généré"),
                     "message": _(
-                        "Ticket #%03d créé avec succès pour %s\nTemps d'attente estimé: %d minutes"
+                        "Ticket %s créé avec succès pour %s\nTemps d'attente estimé: %d minutes"
                     )
-                    % (ticket.ticket_number, self.name, ticket.estimated_wait_time),
+                    % (ticket.ticket_reference, self.name, ticket.estimated_wait_time),
                     "type": "success",
                     "sticky": True,
                     "fadeout": 5000,
@@ -239,10 +247,47 @@ class QueueService(models.Model):
                     "target": "new",
                 },
             }
-
         except Exception as e:
             _logger.error(f"Erreur lors de la génération du ticket: {e}")
             raise UserError(_("Erreur lors de la génération du ticket: %s") % str(e))
+
+    # Mettre à jour la méthode generate_ticket()
+    def generate_ticket(self):
+        """Générer un nouveau ticket avec le nouveau système de référence"""
+        if not self.is_open:
+            raise UserError(_("Le service est actuellement fermé"))
+
+        if self.total_tickets_today >= self.max_tickets_per_day:
+            raise UserError(_("Nombre maximum de tickets atteint pour aujourd'hui"))
+
+        self.current_ticket_number += 1
+        ticket = self.env["queue.ticket"].create(
+            {
+                "service_id": self.id,
+                "ticket_number": self.current_ticket_number,
+                "customer_phone": self.env.context.get("customer_phone", ""),
+                "customer_email": self.env.context.get("customer_email", ""),
+            }
+        )
+        return {
+            "ticket_id": ticket.id,
+            "ticket_reference": ticket.ticket_reference,
+            "ticket_number": ticket.ticket_number,
+            "short_reference": ticket.short_reference,
+        }
+
+    # Ajouter une méthode pour trouver un ticket par référence
+    def find_ticket_by_reference(self, reference):
+        """Trouver un ticket par sa référence"""
+        return self.env["queue.ticket"].search(
+            [
+                ("service_id", "=", self.id),
+                "|",
+                ("ticket_reference", "=", reference),
+                ("short_reference", "=", reference),
+            ],
+            limit=1,
+        )
 
     def action_generate_ticket_with_details(self):
         """Ouvrir un wizard pour créer un ticket avec détails client"""
@@ -398,17 +443,27 @@ class QueueService(models.Model):
         for service in self:
             service.next_ticket_number = service.current_ticket_number + 1
 
+    # Ajouter une méthode pour annuler un ticket par référence
+    def cancel_ticket_by_reference(self, reference, reason=None):
+        """Annuler un ticket par sa référence"""
+        self.ensure_one()
+        ticket = self.find_ticket_by_reference(reference)
+        if not ticket:
+            raise UserError(_("Ticket non trouvé avec la référence %s") % reference)
+
+        return ticket.action_cancel_ticket_v2(
+            reason=reason or _("Annulé par l'administration"), cancellation_type="agent"
+        )
+
     # 2. CORRECTION de la méthode _compute_stats dans queue_service.py
+    # Mettre à jour les statistiques pour inclure les nouvelles métriques
     @api.depends("ticket_ids", "ticket_ids.state", "ticket_ids.created_time")
     def _compute_stats(self):
-        """Calcule les statistiques du service de manière robuste - VERSION CORRIGÉE"""
+        """Version améliorée avec les nouveaux champs"""
         for service in self:
             try:
-                # Utilisation d'une méthode plus simple et robuste pour aujourd'hui
                 today = fields.Date.today()
                 tomorrow = today + timedelta(days=1)
-
-                # Convertir en datetime pour les requêtes
                 today_start = fields.Datetime.to_string(
                     datetime.combine(today, time.min)
                 )
@@ -416,56 +471,58 @@ class QueueService(models.Model):
                     datetime.combine(tomorrow, time.min)
                 )
 
-                # Requêtes sécurisées avec gestion d'erreurs
-                try:
-                    # Tickets d'aujourd'hui
-                    today_tickets = service.env["queue.ticket"].search(
-                        [
-                            ("service_id", "=", service.id),
-                            ("created_time", ">=", today_start),
-                            ("created_time", "<", today_end),
-                        ]
+                # Tickets d'aujourd'hui avec les nouveaux champs
+                today_tickets = self.env["queue.ticket"].search(
+                    [
+                        ("service_id", "=", service.id),
+                        ("created_time", ">=", today_start),
+                        ("created_time", "<", today_end),
+                    ]
+                )
+
+                # Tickets en attente
+                waiting_tickets = self.env["queue.ticket"].search(
+                    [("service_id", "=", service.id), ("state", "=", "waiting")]
+                )
+
+                # Calculs de base
+                service.total_tickets_today = len(today_tickets)
+                service.waiting_count = len(waiting_tickets)
+
+                # Temps d'attente moyen (uniquement pour les tickets servis)
+                served_tickets_with_wait = today_tickets.filtered(
+                    lambda t: t.state == "served" and t.waiting_time > 0
+                )
+                if served_tickets_with_wait:
+                    total_wait_time = sum(
+                        t.waiting_time for t in served_tickets_with_wait
                     )
-
-                    # Tickets en attente
-                    waiting_tickets = service.env["queue.ticket"].search(
-                        [("service_id", "=", service.id), ("state", "=", "waiting")]
+                    service.avg_waiting_time = total_wait_time / len(
+                        served_tickets_with_wait
                     )
-
-                    # Calculs de base
-                    service.total_tickets_today = len(today_tickets)
-                    service.waiting_count = len(waiting_tickets)
-
-                    # CORRECTION CRITIQUE: Calcul du temps d'attente moyen
-                    served_tickets_with_wait = today_tickets.filtered(
-                        lambda t: t.state == "served"
-                        and t.waiting_time
-                        and t.waiting_time > 0
-                    )
-
-                    if served_tickets_with_wait:
-                        total_wait_time = sum(
-                            t.waiting_time for t in served_tickets_with_wait
-                        )
-                        service.avg_waiting_time = total_wait_time / len(
-                            served_tickets_with_wait
-                        )
-                    else:
-                        service.avg_waiting_time = 0.0
-
-                except Exception as query_error:
-                    _logger.error(
-                        f"Erreur requête stats service {service.id}: {query_error}"
-                    )
-                    service.total_tickets_today = 0
-                    service.waiting_count = 0
+                else:
                     service.avg_waiting_time = 0.0
 
+                # Statistiques d'annulation
+                cancelled_today = today_tickets.filtered(
+                    lambda t: t.state == "cancelled"
+                )
+                service.total_cancelled_today = len(cancelled_today)
+
+                if today_tickets:
+                    service.cancellation_rate = (
+                        len(cancelled_today) / len(today_tickets)
+                    ) * 100
+                else:
+                    service.cancellation_rate = 0.0
+
             except Exception as e:
-                _logger.error(f"Erreur globale stats service {service.id}: {e}")
+                _logger.error(f"Erreur calcul stats service {service.id}: {e}")
                 service.total_tickets_today = 0
                 service.waiting_count = 0
                 service.avg_waiting_time = 0.0
+                service.total_cancelled_today = 0
+                service.cancellation_rate = 0.0
 
     def _get_tickets_safely(self, domain):
         """Récupère les tickets avec gestion d'erreurs"""
@@ -707,24 +764,24 @@ class QueueService(models.Model):
             "hourly_distribution": hourly_distribution,
         }
 
-    def generate_ticket(self):
-        """Générer un nouveau ticket pour ce service (ancienne méthode conservée)"""
-        if not self.is_open:
-            raise UserError(_("Le service est actuellement fermé"))
+    # def generate_ticket(self):
+    #     """Générer un nouveau ticket pour ce service (ancienne méthode conservée)"""
+    #     if not self.is_open:
+    #         raise UserError(_("Le service est actuellement fermé"))
 
-        if self.total_tickets_today >= self.max_tickets_per_day:
-            raise UserError(_("Nombre maximum de tickets atteint pour aujourd'hui"))
+    #     if self.total_tickets_today >= self.max_tickets_per_day:
+    #         raise UserError(_("Nombre maximum de tickets atteint pour aujourd'hui"))
 
-        self.current_ticket_number += 1
-        ticket = self.env["queue.ticket"].create(
-            {
-                "service_id": self.id,
-                "ticket_number": self.current_ticket_number,
-                "customer_phone": self.env.context.get("customer_phone", ""),
-                "customer_email": self.env.context.get("customer_email", ""),
-            }
-        )
-        return ticket
+    #     self.current_ticket_number += 1
+    #     ticket = self.env["queue.ticket"].create(
+    #         {
+    #             "service_id": self.id,
+    #             "ticket_number": self.current_ticket_number,
+    #             "customer_phone": self.env.context.get("customer_phone", ""),
+    #             "customer_email": self.env.context.get("customer_email", ""),
+    #         }
+    #     )
+    #     return ticket
 
     def is_service_available(self, check_time=None):
         """Vérifier si le service est disponible à une heure donnée"""

@@ -1,0 +1,388 @@
+/* Corrections CSS pour l'affichage des graphiques du dashboard */
+
+/* Fix pour les conteneurs de graphiques */
+.dashboard-content .card-body {
+    overflow: hidden;
+    position: relative;
+}
+
+/* Canvas des graphiques - corrections importantes */
+.dashboard-content canvas {
+    max-width: 100% !important;
+    max-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto;
+}
+
+/* Conteneurs de graphiques avec dimensions fixes */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+/* Fix pour Chart.js responsive */
+.chart-container canvas {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    pointer-events: auto;
+}
+
+/* Corrections pour les cartes de graphiques */
+.dashboard-content .row .card {
+    min-height: 350px;
+}
+
+.dashboard-content .card-body.p-2 {
+    padding: 0.5rem !important;
+}
+
+/* Amélioration des légendes des graphiques */
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.chart-legend-item {
+    display: flex;
+    align-items: center;
+    margin: 0 10px 5px 0;
+    font-size: 0.875rem;
+}
+
+.chart-legend-color {
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    border-radius: 2px;
+}
+
+/* Fix pour les graphiques en mode responsive */
+@media (max-width: 768px) {
+    .dashboard-content .col-lg-6 {
+        margin-bottom: 1rem;
+    }
+    
+    .chart-container {
+        height: 250px;
+    }
+    
+    .dashboard-content canvas {
+        max-height: 250px !important;
+    }
+    
+    /* Tables compactes sur mobile */
+    .table-responsive table {
+        font-size: 0.875rem;
+    }
+    
+    .table-responsive .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* Fix pour l'affichage des graphiques en plein écran */
+.dashboard-content.fullscreen .chart-container {
+    height: 400px;
+}
+
+.dashboard-content.fullscreen canvas {
+    max-height: 400px !important;
+}
+
+/* Améliorations pour les cartes de statistiques */
+.dashboard-content .card.bg-primary,
+.dashboard-content .card.bg-success,
+.dashboard-content .card.bg-warning,
+.dashboard-content .card.bg-info,
+.dashboard-content .card.bg-secondary,
+.dashboard-content .card.bg-dark {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease-in-out;
+}
+
+.dashboard-content .card.bg-primary:hover,
+.dashboard-content .card.bg-success:hover,
+.dashboard-content .card.bg-warning:hover,
+.dashboard-content .card.bg-info:hover,
+.dashboard-content .card.bg-secondary:hover,
+.dashboard-content .card.bg-dark:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Fix pour les tooltips des graphiques */
+.chartjs-tooltip {
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 4px;
+    color: white;
+    padding: 8px 12px;
+    pointer-events: none;
+    position: absolute;
+    z-index: 1000;
+}
+
+/* Animations pour les graphiques */
+.chart-container.loading {
+    position: relative;
+}
+
+.chart-container.loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 10;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Fix pour les barres de progression */
+.progress {
+    background-color: rgba(0,0,0,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+    border-radius: 4px;
+}
+
+/* Améliorations pour les badges */
+.badge {
+    font-size: 0.75em;
+    font-weight: 500;
+    padding: 0.375em 0.5em;
+    border-radius: 0.25rem;
+}
+
+.badge.badge-pill {
+    border-radius: 10rem;
+}
+
+/* Fix pour les alertes dans le dashboard */
+.alert-sm {
+    padding: 0.375rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.2rem;
+}
+
+.alert-sm small {
+    font-size: 0.8rem;
+}
+
+/* Corrections pour les boutons du dashboard */
+.btn-group .btn {
+    border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: 0.25rem;
+    border-bottom-left-radius: 0.25rem;
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: 0.25rem;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+
+/* Fix pour les tables responsive */
+.table-responsive {
+    border-radius: 0.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.table-responsive table {
+    margin-bottom: 0;
+}
+
+.table-responsive .table thead th {
+    border-bottom: 2px solid #dee2e6;
+    vertical-align: bottom;
+    font-weight: 600;
+}
+
+.table-responsive .table tbody tr:hover {
+    background-color: rgba(0,0,0,0.03);
+}
+
+/* Fix pour l'en-tête sticky */
+.dashboard-header.sticky-top {
+    top: 0;
+    border-bottom: 1px solid #dee2e6;
+    backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Améliorations pour les icônes FontAwesome */
+.fa {
+    display: inline-block;
+    font: normal normal normal 14px/1 FontAwesome;
+    font-size: inherit;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+}
+
+.fa-spin {
+    animation: fa-spin 2s infinite linear;
+}
+
+@keyframes fa-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(359deg); }
+}
+
+/* Fix pour l'accordéon des services */
+.accordion .card {
+    border: 1px solid rgba(0,0,0,0.125);
+    margin-bottom: 0;
+}
+
+.accordion .card:not(:first-child) {
+    border-top: 0;
+}
+
+.accordion .card:first-child {
+    border-top-left-radius: 0.25rem;
+    border-top-right-radius: 0.25rem;
+}
+
+.accordion .card:last-child {
+    border-bottom-left-radius: 0.25rem;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.accordion .btn-link {
+    text-decoration: none;
+    color: #495057;
+}
+
+.accordion .btn-link:hover {
+    color: #007bff;
+    text-decoration: none;
+}
+
+/* Corrections pour l'état de chargement */
+.dashboard-content.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.loading-spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Styles pour les graphiques désactivés */
+.charts-disabled .chart-container {
+    display: none;
+}
+
+.charts-enabled .chart-container {
+    display: block;
+}
+
+/* Fix pour les colonnes flexibles */
+.d-flex.flex-column.justify-content-center {
+    min-height: 120px;
+}
+
+/* Améliorations pour la section analytique */
+.dashboard-content h3 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.dashboard-content h5.mb-0 {
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.dashboard-content h6 {
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+/* Fix pour la responsivité générale */
+@media (max-width: 576px) {
+    .dashboard-header {
+        padding: 10px 0 !important;
+    }
+    
+    .dashboard-header .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .dashboard-header .btn-group .btn {
+        margin-bottom: 5px;
+        border-radius: 0.25rem !important;
+    }
+    
+    .col-md-2.col-sm-4.col-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+    
+    .card-body.text-center h2 {
+        font-size: 1.5rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+}
+
+/* Corrections finales pour la compatibilité */
+.o_queue_dashboard {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.o_queue_dashboard * {
+    box-sizing: border-box;
+}
+
+/* Fix pour les graphiques Chart.js spécifiquement */
+.o_queue_dashboard .chartjs-render-monitor {
+    animation: chartjs-render-animation 0.001s;
+}
+
+@keyframes chartjs-render-animation {
+    from { opacity: 0.99; }
+    to { opacity: 1; }
+}

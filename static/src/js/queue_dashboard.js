@@ -1,41 +1,65 @@
 /** @odoo-module **/
 
-import { Component, useState, onWillStart, onMounted, onWillUnmount } from "@odoo/owl";
+import { Component, useState, onWillStart, onMounted, onWillUnmount, useRef } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { DashboardChartsFixes } from "./dashboard_charts_mixin";
 
-export class QueueDashboard extends Component {
+class QueueDashboard extends Component {
     static template = "queue_management.QueueDashboardMain";
 
     setup() {
         this.orm = useService("orm");
         this.notification = useService("notification");
         
+        // References pour les graphiques
+        this.servicesChartRef = useRef("servicesChart");
+        this.statsChartRef = useRef("statsChart");
+        this.waitingTimeChartRef = useRef("waitingTimeChart");
+        this.performanceChartRef = useRef("performanceChart");
+        
+        // Chart.js instance reference
+        this.Chart = null;
+        
+        // Instances Chart.js
+        this.charts = {
+            services: null,
+            stats: null,
+            waitingTime: null,
+            performance: null
+        };
+        
         this.state = useState({
             dashboardData: {
                 services: [],
                 waiting_tickets: [],
                 serving_tickets: [],
-                stats: {}
+                stats: {},
+                historical_data: []
             },
             isLoading: true,
             lastUpdate: null,
             autoRefresh: true,
             connectionError: false,
             retryAttempts: 0,
-            operationInProgress: new Set() // Track ongoing operations
+            operationInProgress: new Set(),
+            chartsEnabled: true,
+            chartsInitialized: false,
+            chartLibraryLoaded: false,
+            chartsCreationInProgress: false  // Nouveau flag pour éviter les créations multiples
         });
 
         this.refreshInterval = null;
         this.retryTimeout = null;
         this.MAX_RETRY_ATTEMPTS = 3;
-        this.RETRY_DELAY_BASE = 2000; // Base delay for exponential backoff
+        this.RETRY_DELAY_BASE = 2000;
         this.REFRESH_INTERVAL = 15000;
-        this.REQUEST_TIMEOUT = 30000; // 30 seconds timeout
+        this.REQUEST_TIMEOUT = 30000;
 
         // Bind methods to preserve context
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
         this.handleOnlineStatus = this.handleOnlineStatus.bind(this);
+        this.handleWindowResize = this.handleWindowResize.bind(this);
 
         onWillStart(async () => {
             await this.initializeDashboard();
@@ -44,10 +68,100 @@ export class QueueDashboard extends Component {
         onMounted(() => {
             this.setupEventListeners();
             this.setupAutoRefresh();
+            // Charger Chart.js et initialiser les graphiques
+            this.loadChartLibraryAndInit();
+            window.addEventListener('resize', this.handleWindowResize);
         });
 
         onWillUnmount(() => {
             this.cleanup();
+            this.destroyAllCharts();
+            window.removeEventListener('resize', this.handleWindowResize);
+        });
+    }
+
+    /**
+     * Charge Chart.js de manière asynchrone et initialise les graphiques
+     */
+    async loadChartLibraryAndInit() {
+        if (!this.state.chartsEnabled || this.state.chartsCreationInProgress) return;
+
+        try {
+            console.log("Loading Chart.js library...");
+            this.state.chartsCreationInProgress = true;
+            
+            // Vérifier si Chart.js est déjà chargé globalement
+            if (window.Chart) {
+                this.Chart = window.Chart;
+                this.state.chartLibraryLoaded = true;
+                console.log("Chart.js already available globally");
+            } else {
+                // Charger Chart.js dynamiquement
+                await this.loadChartJSLibrary();
+            }
+
+            if (this.Chart && !this.state.chartsInitialized) {
+                // Attendre un court délai pour s'assurer que le DOM est prêt
+                setTimeout(() => {
+                    this.initAllCharts();
+                    this.state.chartsInitialized = true;
+                    console.log("Charts initialized successfully");
+                }, 200);
+            }
+        } catch (error) {
+            console.error("Failed to load Chart.js:", error);
+            this.state.chartsEnabled = false;
+            this.state.chartLibraryLoaded = false;
+            this.notification.add("Impossible de charger les graphiques", {
+                type: "warning"
+            });
+        } finally {
+            this.state.chartsCreationInProgress = false;
+        }
+    }
+
+    /**
+     * Charge Chart.js depuis le CDN
+     */
+    async loadChartJSLibrary() {
+        return new Promise((resolve, reject) => {
+            // Vérifier si le script est déjà chargé
+            if (document.querySelector('script[src*="chart.min.js"]')) {
+                if (window.Chart) {
+                    this.Chart = window.Chart;
+                    this.state.chartLibraryLoaded = true;
+                    resolve();
+                    return;
+                }
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+            script.async = true;
+            
+            script.onload = () => {
+                if (window.Chart) {
+                    this.Chart = window.Chart;
+                    this.state.chartLibraryLoaded = true;
+                    console.log("Chart.js loaded successfully from CDN");
+                    resolve();
+                } else {
+                    reject(new Error("Chart.js loaded but Chart constructor not available"));
+                }
+            };
+            
+            script.onerror = () => {
+                reject(new Error("Failed to load Chart.js from CDN"));
+            };
+            
+            document.head.appendChild(script);
+            
+            // Timeout de sécurité
+            setTimeout(() => {
+                if (!this.state.chartLibraryLoaded) {
+                    reject(new Error("Chart.js loading timeout"));
+                }
+            }, 10000);
         });
     }
 
@@ -61,10 +175,7 @@ export class QueueDashboard extends Component {
     }
 
     setupEventListeners() {
-        // Listen for page visibility changes to pause/resume refresh
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
-        
-        // Listen for online/offline events
         window.addEventListener('online', this.handleOnlineStatus);
         window.addEventListener('offline', this.handleOnlineStatus);
     }
@@ -74,7 +185,6 @@ export class QueueDashboard extends Component {
             this.clearAutoRefresh();
         } else if (this.state.autoRefresh) {
             this.setupAutoRefresh();
-            // Refresh data when page becomes visible again
             this.reloadDashboard();
         }
     }
@@ -90,12 +200,27 @@ export class QueueDashboard extends Component {
         }
     }
 
+    handleWindowResize() {
+        if (this.state.chartsEnabled && this.state.chartsInitialized) {
+            // Debounce le redimensionnement
+            clearTimeout(this._resizeTimeout);
+            this._resizeTimeout = setTimeout(() => {
+                this.resizeAllCharts();
+            }, 250);
+        }
+    }
+
     cleanup() {
         this.clearAutoRefresh();
         this.clearRetryTimeout();
         document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         window.removeEventListener('online', this.handleOnlineStatus);
         window.removeEventListener('offline', this.handleOnlineStatus);
+        
+        // Nettoyer le timeout de redimensionnement
+        if (this._resizeTimeout) {
+            clearTimeout(this._resizeTimeout);
+        }
     }
 
     clearRetryTimeout() {
@@ -104,6 +229,452 @@ export class QueueDashboard extends Component {
             this.retryTimeout = null;
         }
     }
+
+    // ========== MÉTHODES POUR LES GRAPHIQUES ==========
+
+    /**
+     * Initialise tous les graphiques avec gestion d'erreur améliorée
+     * MODIFIÉ : Ne plus détruire les graphiques existants systématiquement
+     */
+    initAllCharts() {
+        if (!this.state.chartsEnabled || !this.Chart || this.state.chartsCreationInProgress) {
+            console.warn("Charts disabled, Chart.js not loaded, or creation in progress");
+            return;
+        }
+
+        try {
+            console.log("Initializing all charts...");
+            
+            // Vérifier que les refs sont disponibles
+            const refs = [this.servicesChartRef, this.statsChartRef, this.waitingTimeChartRef, this.performanceChartRef];
+            const availableRefs = refs.filter(ref => ref && ref.el);
+            
+            if (availableRefs.length === 0) {
+                console.warn("No chart canvas elements found, retrying in 500ms");
+                setTimeout(() => this.initAllCharts(), 500);
+                return;
+            }
+
+            // Créer seulement les graphiques qui n'existent pas encore
+            if (!this.charts.services) this.createServicesChart();
+            if (!this.charts.stats) this.createStatsChart();
+            if (!this.charts.waitingTime) this.createWaitingTimeChart();
+            if (!this.charts.performance) this.createPerformanceChart();
+
+            this.state.chartsInitialized = true;
+            console.log("All charts initialized successfully");
+            
+        } catch (error) {
+            console.error("Error initializing charts:", error);
+            // Ne pas désactiver complètement les graphiques, juste marquer comme non initialisés
+            this.state.chartsInitialized = false;
+        }
+    }
+
+    /**
+     * Met à jour tous les graphiques
+     * MODIFIÉ : Meilleure gestion des erreurs sans réinitialisation complète
+     */
+    updateAllCharts() {
+        if (!this.state.chartsEnabled || !this.Chart) {
+            return;
+        }
+
+        // Si les graphiques ne sont pas initialisés, les initialiser d'abord
+        if (!this.state.chartsInitialized) {
+            console.log("Charts not initialized, initializing now...");
+            this.initAllCharts();
+            return;
+        }
+
+        try {
+            this.updateServicesChart();
+            this.updateStatsChart();
+            this.updateWaitingTimeChart();
+            this.updatePerformanceChart();
+        } catch (error) {
+            console.error("Error updating charts:", error);
+            // Essayer de récréer seulement le graphique en erreur
+            this.handleChartUpdateError(error);
+        }
+    }
+
+    /**
+     * NOUVEAU : Gère les erreurs de mise à jour des graphiques
+     */
+    handleChartUpdateError(error) {
+        console.warn("Chart update failed, attempting to recreate charts...");
+        
+        // Vérifier quels graphiques sont encore valides
+        Object.keys(this.charts).forEach(key => {
+            if (this.charts[key] && this.charts[key].canvas && !this.charts[key].canvas.parentNode) {
+                // Le canvas a été supprimé du DOM, détruire la référence
+                console.warn(`Chart ${key} canvas removed from DOM, destroying reference`);
+                this.charts[key] = null;
+            }
+        });
+
+        // Réinitialiser seulement si nécessaire
+        setTimeout(() => {
+            if (this.state.chartsEnabled) {
+                this.initAllCharts();
+            }
+        }, 1000);
+    }
+
+    /**
+     * Détruit tous les graphiques
+     */
+    destroyAllCharts() {
+        Object.keys(this.charts).forEach(key => {
+            if (this.charts[key]) {
+                try {
+                    this.charts[key].destroy();
+                } catch (error) {
+                    console.warn(`Error destroying ${key} chart:`, error);
+                }
+                this.charts[key] = null;
+            }
+        });
+        this.state.chartsInitialized = false;
+    }
+
+    /**
+     * Redimensionne tous les graphiques
+     */
+    resizeAllCharts() {
+        Object.values(this.charts).forEach(chart => {
+            if (chart && typeof chart.resize === 'function') {
+                try {
+                    chart.resize();
+                } catch (error) {
+                    console.warn("Error resizing chart:", error);
+                }
+            }
+        });
+    }
+
+    // ========== CRÉATION DES GRAPHIQUES INDIVIDUELS ==========
+
+    createServicesChart() {
+        if (!this.servicesChartRef || !this.servicesChartRef.el || !this.Chart || this.charts.services) return;
+
+        try {
+            const ctx = this.servicesChartRef.el.getContext('2d');
+            const config = this.getServicesChartConfig();
+            this.charts.services = new this.Chart(ctx, config);
+            console.log("Services chart created successfully");
+        } catch (error) {
+            console.error("Error creating services chart:", error);
+        }
+    }
+
+    createStatsChart() {
+        if (!this.statsChartRef || !this.statsChartRef.el || !this.Chart || this.charts.stats) return;
+
+        try {
+            const ctx = this.statsChartRef.el.getContext('2d');
+            const config = this.getStatsChartConfig();
+            this.charts.stats = new this.Chart(ctx, config);
+            console.log("Stats chart created successfully");
+        } catch (error) {
+            console.error("Error creating stats chart:", error);
+        }
+    }
+
+    createWaitingTimeChart() {
+        if (!this.waitingTimeChartRef || !this.waitingTimeChartRef.el || !this.Chart || this.charts.waitingTime) return;
+
+        try {
+            const ctx = this.waitingTimeChartRef.el.getContext('2d');
+            const config = this.getWaitingTimeChartConfig();
+            this.charts.waitingTime = new this.Chart(ctx, config);
+            console.log("Waiting time chart created successfully");
+        } catch (error) {
+            console.error("Error creating waiting time chart:", error);
+        }
+    }
+
+    createPerformanceChart() {
+        if (!this.performanceChartRef || !this.performanceChartRef.el || !this.Chart || this.charts.performance) return;
+
+        try {
+            const ctx = this.performanceChartRef.el.getContext('2d');
+            const config = this.getPerformanceChartConfig();
+            this.charts.performance = new this.Chart(ctx, config);
+            console.log("Performance chart created successfully");
+        } catch (error) {
+            console.error("Error creating performance chart:", error);
+        }
+    }
+
+    // ========== MISE À JOUR DES GRAPHIQUES INDIVIDUELS ==========
+    // MODIFIÉ : Vérifications supplémentaires avant mise à jour
+
+    updateServicesChart() {
+        if (!this.charts.services || !this.isChartValid(this.charts.services)) {
+            console.log("Services chart not valid, recreating...");
+            this.charts.services = null;
+            this.createServicesChart();
+            return;
+        }
+        try {
+            const config = this.getServicesChartConfig();
+            this.charts.services.data = config.data;
+            this.charts.services.update('none');
+        } catch (error) {
+            console.error("Error updating services chart:", error);
+            this.charts.services = null;
+        }
+    }
+
+    updateStatsChart() {
+        if (!this.charts.stats || !this.isChartValid(this.charts.stats)) {
+            console.log("Stats chart not valid, recreating...");
+            this.charts.stats = null;
+            this.createStatsChart();
+            return;
+        }
+        try {
+            const config = this.getStatsChartConfig();
+            this.charts.stats.data = config.data;
+            this.charts.stats.update('none');
+        } catch (error) {
+            console.error("Error updating stats chart:", error);
+            this.charts.stats = null;
+        }
+    }
+
+    updateWaitingTimeChart() {
+        if (!this.charts.waitingTime || !this.isChartValid(this.charts.waitingTime)) {
+            console.log("Waiting time chart not valid, recreating...");
+            this.charts.waitingTime = null;
+            this.createWaitingTimeChart();
+            return;
+        }
+        try {
+            const config = this.getWaitingTimeChartConfig();
+            this.charts.waitingTime.data = config.data;
+            this.charts.waitingTime.update('none');
+        } catch (error) {
+            console.error("Error updating waiting time chart:", error);
+            this.charts.waitingTime = null;
+        }
+    }
+
+    updatePerformanceChart() {
+        if (!this.charts.performance || !this.isChartValid(this.charts.performance)) {
+            console.log("Performance chart not valid, recreating...");
+            this.charts.performance = null;
+            this.createPerformanceChart();
+            return;
+        }
+        try {
+            const config = this.getPerformanceChartConfig();
+            this.charts.performance.data = config.data;
+            this.charts.performance.update('none');
+        } catch (error) {
+            console.error("Error updating performance chart:", error);
+            this.charts.performance = null;
+        }
+    }
+
+    /**
+     * NOUVEAU : Vérifie si un graphique est encore valide
+     */
+    isChartValid(chart) {
+        return chart && 
+            chart.canvas &&
+            document.body.contains(chart.canvas) &&
+            typeof chart.update === 'function' &&
+            !chart.destroyed;
+    }
+
+
+    // ========== CONFIGURATIONS DES GRAPHIQUES ==========
+    // [Les méthodes de configuration restent identiques]
+
+    getServicesChartConfig() {
+        const services = this.state.dashboardData.services;
+        return {
+            type: 'bar',
+            data: {
+                labels: services.map(s => s.name),
+                datasets: [{
+                    label: 'En attente',
+                    data: services.map(s => s.waiting_count),
+                    backgroundColor: 'rgba(255, 193, 7, 0.8)',
+                    borderColor: 'rgba(255, 193, 7, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'En service',
+                    data: services.map(s => s.serving_count),
+                    backgroundColor: 'rgba(0, 123, 255, 0.8)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Terminés',
+                    data: services.map(s => s.served_count),
+                    backgroundColor: 'rgba(40, 167, 69, 0.8)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'État des Files par Service'
+                    },
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    getStatsChartConfig() {
+        const stats = this.state.dashboardData.stats;
+        return {
+            type: 'doughnut',
+            data: {
+                labels: ['Terminés', 'En Attente', 'En Service', 'Annulés/Absents'],
+                datasets: [{
+                    data: [
+                        stats.completed_tickets || 0,
+                        stats.waiting_tickets || 0,
+                        stats.serving_tickets || 0,
+                        (stats.cancelled_tickets || 0) + (stats.no_show_tickets || 0)
+                    ],
+                    backgroundColor: [
+                        'rgba(40, 167, 69, 0.8)',
+                        'rgba(255, 193, 7, 0.8)',
+                        'rgba(0, 123, 255, 0.8)',
+                        'rgba(108, 117, 125, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(40, 167, 69, 1)',
+                        'rgba(255, 193, 7, 1)',
+                        'rgba(0, 123, 255, 1)',
+                        'rgba(108, 117, 125, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Répartition des Tickets'
+                    },
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        };
+    }
+
+    getWaitingTimeChartConfig() {
+        const services = this.state.dashboardData.services;
+        return {
+            type: 'line',
+            data: {
+                labels: services.map(s => s.name),
+                datasets: [{
+                    label: 'Temps d\'attente moyen (min)',
+                    data: services.map(s => s.avg_waiting_time || 0),
+                    backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Temps d\'Attente par Service'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Minutes'
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    getPerformanceChartConfig() {
+        const services = this.state.dashboardData.services;
+        return {
+            type: 'bar',
+            data: {
+                labels: services.map(s => s.name),
+                datasets: [{
+                    label: 'Utilisation de capacité (%)',
+                    data: services.map(s => s.capacity_percentage || 0),
+                    backgroundColor: services.map(s => {
+                        const pct = s.capacity_percentage || 0;
+                        if (pct > 80) return 'rgba(220, 53, 69, 0.8)';
+                        if (pct > 60) return 'rgba(255, 193, 7, 0.8)';
+                        return 'rgba(40, 167, 69, 0.8)';
+                    }),
+                    borderColor: services.map(s => {
+                        const pct = s.capacity_percentage || 0;
+                        if (pct > 80) return 'rgba(220, 53, 69, 1)';
+                        if (pct > 60) return 'rgba(255, 193, 7, 1)';
+                        return 'rgba(40, 167, 69, 1)';
+                    }),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Performance des Services'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Pourcentage'
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    // ========== GESTION DES DONNÉES ==========
+    // MODIFIÉ : Amélioration de la mise à jour des graphiques
 
     async fetchDataWithRetry() {
         for (let attempt = 0; attempt <= this.MAX_RETRY_ATTEMPTS; attempt++) {
@@ -120,7 +691,6 @@ export class QueueDashboard extends Component {
                     throw error;
                 }
 
-                // Exponential backoff
                 const delay = this.RETRY_DELAY_BASE * Math.pow(2, attempt);
                 console.warn(`Fetch attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error);
                 
@@ -139,7 +709,6 @@ export class QueueDashboard extends Component {
         try {
             this.state.isLoading = true;
             
-            // Add timeout to the request
             const timeoutPromise = new Promise((_, reject) => 
                 setTimeout(() => reject(new Error("Request timeout")), this.REQUEST_TIMEOUT)
             );
@@ -147,8 +716,19 @@ export class QueueDashboard extends Component {
             const dataPromise = this.orm.call("queue.service", "get_dashboard_data", []);
             const result = await Promise.race([dataPromise, timeoutPromise]);
             
-            // Enhanced data validation
             this.validateAndSetData(result);
+            
+            // Mettre à jour les graphiques après avoir reçu les données
+            // MODIFIÉ : Délai réduit et vérification supplémentaire
+            if (this.state.chartsEnabled) {
+                setTimeout(() => {
+                    if (this.state.chartsInitialized) {
+                        this.updateAllCharts();
+                    } else {
+                        this.initAllCharts();
+                    }
+                }, 50);
+            }
             
         } catch (error) {
             console.error("Dashboard fetch error:", error);
@@ -159,18 +739,19 @@ export class QueueDashboard extends Component {
         }
     }
 
+    // [Toutes les méthodes de validation et autres restent identiques...]
     validateAndSetData(result) {
         if (!result || typeof result !== 'object') {
             throw new Error("Invalid response format");
         }
 
         try {
-            // Validation et formatage des données avec vérifications strictes
             this.state.dashboardData = {
                 services: this.validateServices(result.services),
                 waiting_tickets: this.validateTickets(result.waiting_tickets),
                 serving_tickets: this.validateTickets(result.serving_tickets),
-                stats: this.validateStats(result.stats)
+                stats: this.validateStats(result.stats),
+                historical_data: this.validateHistoricalData(result.historical_data)
             };
             
             this.state.lastUpdate = this.validateTimestamp(result.last_update) || new Date().toLocaleTimeString();
@@ -181,6 +762,7 @@ export class QueueDashboard extends Component {
         }
     }
 
+    // [Toutes les autres méthodes de validation restent identiques...]
     validateServices(services) {
         if (!Array.isArray(services)) {
             console.warn("Services data is not an array, using empty array");
@@ -207,10 +789,9 @@ export class QueueDashboard extends Component {
                 };
             } catch (error) {
                 console.error(`Service validation error:`, error);
-                // Return a safe default service object
                 return this.getDefaultService(service?.id || index);
             }
-        }).filter(Boolean); // Remove any null/undefined services
+        }).filter(Boolean);
     }
 
     validateTickets(tickets) {
@@ -241,10 +822,9 @@ export class QueueDashboard extends Component {
                 };
             } catch (error) {
                 console.error(`Ticket validation error:`, error);
-                // Return a safe default ticket object
                 return this.getDefaultTicket(ticket?.id || index);
             }
-        }).filter(Boolean); // Remove any null/undefined tickets
+        }).filter(Boolean);
     }
 
     validateStats(stats) {
@@ -272,7 +852,21 @@ export class QueueDashboard extends Component {
         }
     }
 
-    // Utility validation methods
+    validateHistoricalData(historical_data) {
+        if (!Array.isArray(historical_data)) {
+            return [];
+        }
+        return historical_data.map(point => ({
+            time: point.time || new Date().toISOString(),
+            total_tickets: parseInt(point.total_tickets) || 0,
+            waiting_tickets: parseInt(point.waiting_tickets) || 0,
+            serving_tickets: parseInt(point.serving_tickets) || 0,
+            completed_tickets: parseInt(point.completed_tickets) || 0,
+            avg_wait_time: parseFloat(point.avg_wait_time) || 0
+        }));
+    }
+
+    // Méthodes utilitaires de validation
     validatePositiveInteger(value, fieldName, defaultValue = 0) {
         const num = parseInt(value);
         if (isNaN(num) || num <= 0) {
@@ -332,7 +926,7 @@ export class QueueDashboard extends Component {
         }
     }
 
-    // Default object creators
+    // Objets par défaut
     getDefaultService(id = 0) {
         return {
             id: id,
@@ -380,6 +974,8 @@ export class QueueDashboard extends Component {
         };
     }
 
+    // ========== GESTION DES ERREURS ==========
+
     handleFetchError(error) {
         const errorMessage = this.getErrorMessage(error);
         
@@ -388,7 +984,6 @@ export class QueueDashboard extends Component {
             sticky: this.state.retryAttempts >= this.MAX_RETRY_ATTEMPTS
         });
 
-        // Reset to safe default data if we can't fetch
         if (this.state.retryAttempts >= this.MAX_RETRY_ATTEMPTS) {
             this.resetToDefaultData();
         }
@@ -425,15 +1020,16 @@ export class QueueDashboard extends Component {
             services: [],
             waiting_tickets: [],
             serving_tickets: [],
-            stats: this.getDefaultStats()
+            stats: this.getDefaultStats(),
+            historical_data: []
         };
     }
 
-    // Enhanced operation methods with better error handling
+    // ========== OPÉRATIONS DASHBOARD ==========
+
     async executeOperation(operation, operationName, ticketId = null, serviceId = null) {
         const operationKey = `${operationName}_${ticketId || serviceId || Date.now()}`;
         
-        // Prevent duplicate operations
         if (this.state.operationInProgress.has(operationKey)) {
             console.warn(`Operation ${operationName} already in progress`);
             return;
@@ -441,14 +1037,9 @@ export class QueueDashboard extends Component {
 
         try {
             this.state.operationInProgress.add(operationKey);
-            
             const result = await operation();
-            
-            // Always reload dashboard after successful operations
             await this.reloadDashboard();
-            
             return result;
-            
         } catch (error) {
             console.error(`${operationName} error:`, error);
             throw error;
@@ -519,20 +1110,27 @@ export class QueueDashboard extends Component {
         }
     }
 
+    // ========== AUTO-REFRESH ==========
+    // MODIFIÉ : Amélioration de l'auto-refresh pour maintenir les graphiques
+
     setupAutoRefresh() {
         if (!this.state.autoRefresh || document.hidden || !navigator.onLine) {
             return;
         }
         
-        this.clearAutoRefresh(); // Clear any existing interval
+        this.clearAutoRefresh();
         
         this.refreshInterval = setInterval(async () => {
             if (this.state.autoRefresh && !this.state.isLoading && !document.hidden && navigator.onLine) {
                 try {
+                    // S'assurer que les graphiques sont toujours présents avant le rafraîchissement
+                    if (this.state.chartsEnabled && !this.state.chartsInitialized) {
+                        console.log("Charts not initialized during auto-refresh, reinitializing...");
+                        this.initAllCharts();
+                    }
                     await this.reloadDashboard();
                 } catch (error) {
                     console.error("Auto-refresh failed:", error);
-                    // Don't show notification for auto-refresh failures to avoid spam
                 }
             }
         }, this.REFRESH_INTERVAL);
@@ -555,18 +1153,17 @@ export class QueueDashboard extends Component {
     }
 
     async reloadDashboard() {
-        // Éviter les rechargements multiples simultanés
         if (this.state.isLoading) return;
         
         try {
             await this.fetchDataWithRetry();
         } catch (error) {
             console.error("Dashboard reload error:", error);
-            // Error is already handled in fetchDataWithRetry
         }
     }
 
-    // Enhanced event handlers with better validation
+    // ========== GESTIONNAIRES D'ÉVÉNEMENTS ==========
+
     async onCallNext(ev) {
         ev.preventDefault();
         const ticketId = this.parseIntegerFromDataset(ev.currentTarget.dataset.ticketId);
@@ -647,13 +1244,28 @@ export class QueueDashboard extends Component {
         this.toggleAutoRefresh();
     }
 
-    // Utility methods
+    onToggleCharts(ev) {
+        ev.preventDefault();
+        //this.state.chartsEnabled = !this.state.chartsEnabled;
+        
+        if (this.state.chartsEnabled) {
+            this.state.chartsInitialized = false;
+            this.loadChartLibraryAndInit();
+        } else {
+            this.destroyAllCharts();
+            this.state.chartsInitialized = false;
+        }
+    }
+
+    // ========== MÉTHODES UTILITAIRES ==========
+
     parseIntegerFromDataset(value) {
         const parsed = parseInt(value);
         return isNaN(parsed) ? 0 : parsed;
     }
 
-    // Enhanced getters for the template
+    // ========== GETTERS POUR LE TEMPLATE ==========
+
     get isDataLoaded() {
         return !this.state.isLoading && (
             this.state.dashboardData.services.length > 0 ||
@@ -679,12 +1291,27 @@ export class QueueDashboard extends Component {
         return this.state.autoRefresh;
     }
 
+    get areChartsEnabled() {
+        return this.state.chartsEnabled;
+    }
+
+    get areChartsInitialized() {
+        return this.state.chartsInitialized;
+    }
+
+    get isChartLibraryLoaded() {
+        return this.state.chartLibraryLoaded;
+    }
+
     get connectionStatus() {
         if (!navigator.onLine) {
             return { status: 'offline', message: 'Hors ligne' };
         }
         if (this.state.connectionError) {
-            return { status: 'error', message: `Erreur de connexion (${this.state.retryAttempts}/${this.MAX_RETRY_ATTEMPTS} tentatives)` };
+            return { 
+                status: 'error', 
+                message: `Erreur de connexion (${this.state.retryAttempts}/${this.MAX_RETRY_ATTEMPTS} tentatives)` 
+            };
         }
         return { status: 'online', message: 'En ligne' };
     }
@@ -693,12 +1320,12 @@ export class QueueDashboard extends Component {
         return this.state.operationInProgress.size > 0;
     }
 
-    // Enhanced utility methods for the template
+    // ========== MÉTHODES DE FORMATAGE POUR LE TEMPLATE ==========
+
     formatTime(timeStr) {
         if (!timeStr || typeof timeStr !== 'string') return '--:--';
         
         try {
-            // Handle various time formats
             const time = new Date(timeStr);
             if (!isNaN(time.getTime())) {
                 return time.toLocaleTimeString();
@@ -753,19 +1380,30 @@ export class QueueDashboard extends Component {
         return colors[status] || 'secondary';
     }
 
-    // Debug helper (can be removed in production)
+    // ========== HELPER POUR DÉBOGAGE ==========
+
     logState() {
         console.log("Dashboard State:", {
             isLoading: this.state.isLoading,
             connectionError: this.state.connectionError,
             retryAttempts: this.state.retryAttempts,
             autoRefresh: this.state.autoRefresh,
+            chartsEnabled: this.state.chartsEnabled,
+            chartsInitialized: this.state.chartsInitialized,
+            chartLibraryLoaded: this.state.chartLibraryLoaded,
+            chartsCreationInProgress: this.state.chartsCreationInProgress,
             operationsInProgress: Array.from(this.state.operationInProgress),
             dataLoaded: this.isDataLoaded,
-            online: navigator.onLine
+            online: navigator.onLine,
+            chartInstances: Object.keys(this.charts).reduce((acc, key) => {
+                acc[key] = !!this.charts[key];
+                return acc;
+            }, {})
         });
     }
 }
 
 // Enregistrer le composant dans le registre des actions
 registry.category("actions").add("queue_dashboard_action", QueueDashboard);
+
+export { QueueDashboard };
