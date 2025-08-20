@@ -115,6 +115,8 @@ Ce module est prêt pour la production et peut être étendu selon vos besoins s
         "web.assets_frontend": [
             "queue_management/static/src/css/queue_website.css",
             "queue_management/static/src/js/queue_website.js",
+            "queue_management/static/src/css/queue_scroll_fix.css",
+            "queue_management/static/src/js/queue_scroll_manager.js",
         ],
     },
     "demo": [

@@ -139,6 +139,233 @@ class QueueTicket(models.Model):
         help="Hash MD5 pour validation sécurisée",
     )
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Date du feedback
+    feedback_time = fields.Datetime(
+        string='Date du Feedback',
+        help='Date et heure de soumission du feedback'
+    )
+    
+    # Statut du feedback
+    feedback_status = fields.Selection([
+        ('pending', 'En attente'),
+        ('submitted', 'Soumis'),
+        ('reviewed', 'Examiné')
+    ], string='Statut Feedback', default='pending')
+    
+    # Champs calculés pour les statistiques
+    rating_numeric = fields.Float(
+        string='Note Numérique',
+        compute='_compute_rating_numeric',
+        store=True,
+        help='Conversion de la note en valeur numérique pour les calculs'
+    )
+    
+    is_feedback_eligible = fields.Boolean(
+        string='Éligible pour Feedback',
+        compute='_compute_feedback_eligible',
+        help='Détermine si le ticket peut recevoir un feedback'
+    )
+    
+    has_feedback = fields.Boolean(
+        string='A un Feedback',
+        compute='_compute_has_feedback',
+        store=True,
+        help='Indique si le ticket a reçu un feedback'
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # ========================================
+    # MÉTHODES DE CALCUL
+    # ========================================
+    
+    @api.depends('rating')
+    def _compute_rating_numeric(self):
+        """Convertir la note en valeur numérique"""
+        for ticket in self:
+            if ticket.rating:
+                try:
+                    ticket.rating_numeric = float(ticket.rating)
+                except (ValueError, TypeError):
+                    ticket.rating_numeric = 0.0
+            else:
+                ticket.rating_numeric = 0.0
+    
+    @api.depends('state')
+    def _compute_feedback_eligible(self):
+        """Détermine si le ticket est éligible pour un feedback"""
+        for ticket in self:
+            # Seuls les tickets servis peuvent recevoir un feedback
+            ticket.is_feedback_eligible = ticket.state == 'served'
+    
+    @api.depends('rating', 'feedback')
+    def _compute_has_feedback(self):
+        """Détermine si le ticket a un feedback"""
+        for ticket in self:
+            ticket.has_feedback = bool(ticket.rating and int(ticket.rating) > 0)
+    
+    # ========================================
+    # MÉTHODES MÉTIER POUR LE FEEDBACK
+    # ========================================
+    
+    def submit_feedback(self, rating, feedback_text=''):
+        """Soumettre un feedback pour le ticket"""
+        self.ensure_one()
+        
+        # Vérifications
+        if not self.is_feedback_eligible:
+            raise ValueError("Ce ticket n'est pas éligible pour un feedback")
+        
+        if self.has_feedback:
+            raise ValueError("Un feedback a déjà été soumis pour ce ticket")
+        
+        if not rating or int(rating) < 1 or int(rating) > 5:
+            raise ValueError("La note doit être comprise entre 1 et 5")
+        
+        # Enregistrement
+        vals = {
+            'rating': str(rating),
+            'feedback': feedback_text[:1000] if feedback_text else '',
+            'feedback_time': fields.Datetime.now(),
+            'feedback_status': 'submitted'
+        }
+        
+        self.write(vals)
+        
+        # Log
+        _logger.info(f"Feedback soumis pour ticket {self.ticket_reference or f'#{self.ticket_number}'}: {rating}/5")
+        
+        return True
+    
+    def can_submit_feedback(self):
+        """Vérifier si un feedback peut être soumis"""
+        self.ensure_one()
+        return self.is_feedback_eligible and not self.has_feedback
+    
+    def get_feedback_url(self):
+        """Obtenir l'URL de feedback pour le ticket"""
+        self.ensure_one()
+        
+        if hasattr(self, 'ticket_reference') and self.ticket_reference:
+            return f"/queue/feedback/{self.ticket_reference}"
+        else:
+            return f"/queue/feedback/ticket/{self.id}"
+    
+    # ========================================
+    # MÉTHODES DE RECHERCHE ET FILTRAGE
+    # ========================================
+    
+    @api.model
+    def get_feedback_statistics(self, domain=None):
+        """Obtenir les statistiques de feedback"""
+        if domain is None:
+            domain = []
+        
+        # Ajouter le filtre pour les tickets avec feedback
+        feedback_domain = domain + [('rating', '>', 0)]
+        
+        tickets_with_feedback = self.search(feedback_domain)
+        
+        if not tickets_with_feedback:
+            return {
+                'total_count': 0,
+                'avg_rating': 0,
+                'rating_distribution': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+                'satisfaction_rate': 0,
+                'feedback_rate': 0
+            }
+        
+        # Calculer les statistiques
+        ratings = [int(t.rating) for t in tickets_with_feedback if t.rating]
+
+        rating_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        for rating in ratings:
+            if rating in rating_distribution:
+                rating_distribution[rating] += 1
+
+        # Calculer les moyennes
+        total_count = len(ratings)
+        avg_rating = sum(ratings) / total_count if total_count > 0 else 0
+
+        # Taux de satisfaction (tickets avec feedback positif)
+        satisfied_tickets = [t for t in tickets_with_feedback if int(t.rating) > 3]
+        satisfaction_rate = len(satisfied_tickets) / total_count * 100 if total_count > 0 else 0
+
+        # Taux de feedback (tickets ayant reçu un feedback)
+        feedback_rate = total_count / self.search_count(domain) * 100 if self.search_count(domain) > 0 else 0
+
+        return {
+            'total_count': total_count,
+            'avg_rating': avg_rating,
+            'rating_distribution': rating_distribution,
+            'satisfaction_rate': satisfaction_rate,
+            'feedback_rate': feedback_rate
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     @api.model
     def create(self, vals):
         """Override create pour générer les références uniques"""
@@ -437,45 +664,65 @@ class QueueTicket(models.Model):
             _logger.error(f"Erreur get_ticket_by_reference_web: {e}")
             return {"success": False, "error": "Erreur lors de la recherche"}
 
-    @api.model
-    def cancel_ticket_by_reference_web(
-        self, reference, reason=None, security_hash=None
-    ):
-        """
-        Annuler un ticket par référence avec validation sécurisée
-
-        Args:
-            reference (str): Référence du ticket
-            reason (str): Raison d'annulation
-            security_hash (str): Hash de sécurité pour validation
-
-        Returns:
-            dict: Résultat de l'opération
-        """
+    def cancel_ticket_by_reference_web(self, reference, reason='', security_hash=''):
+        """Annuler un ticket par référence unique depuis l'interface web"""
         try:
-            # Trouver le ticket
+            # Recherche du ticket
             ticket = self.find_ticket_by_reference(reference)
-
             if not ticket:
-                return {"success": False, "error": "Ticket non trouvé"}
-
-            # Validation de sécurité optionnelle
-            if security_hash and not self.validate_ticket_security(
-                ticket.id, security_hash
-            ):
-                return {"success": False, "error": "Validation de sécurité échouée"}
-
-            # Utiliser la méthode d'annulation améliorée
-            cancel_result = ticket.action_cancel_ticket_v2(
-                reason=reason or f"Annulation via référence {reference}",
-                cancellation_type="client",
-            )
-
-            return cancel_result
-
+                ticket = self.find_ticket_by_reference(reference, 'short')
+            
+            if not ticket:
+                return {
+                    'success': False,
+                    'error': f'Ticket avec référence {reference} non trouvé'
+                }
+            
+            # Vérifications de sécurité
+            if ticket.state not in ['waiting', 'called']:
+                state_labels = {
+                    'served': 'déjà servi',
+                    'cancelled': 'déjà annulé',
+                    'no_show': 'marqué comme absent'
+                }
+                return {
+                    'success': False,
+                    'error': f'Ce ticket est {state_labels.get(ticket.state, "non annulable")}'
+                }
+            
+            # Vérifier le hash de sécurité si présent
+            if hasattr(ticket, 'security_hash') and ticket.security_hash:
+                if security_hash != ticket.security_hash:
+                    return {
+                        'success': False,
+                        'error': 'Code de sécurité invalide'
+                    }
+            
+            # Effectuer l'annulation
+            old_state = ticket.state
+            ticket.write({
+                'state': 'cancelled',
+                'cancelled_time': fields.Datetime.now(),
+                'cancellation_reason': reason[:500] if reason else ''
+            })
+            
+            # Log de l'action
+            _logger.info(f"Ticket {ticket.id} (ref: {reference}) annulé via web - état précédent: {old_state}")
+            
+            return {
+                'success': True,
+                'message': f'Ticket #{ticket.ticket_number} annulé avec succès',
+                'ticket_id': ticket.id,
+                'ticket_number': ticket.ticket_number,
+                'service_name': ticket.service_id.name
+            }
+            
         except Exception as e:
-            _logger.error(f"Erreur cancel_ticket_by_reference_web: {e}")
-            return {"success": False, "error": "Erreur lors de l'annulation"}
+            _logger.error(f"Erreur cancel_ticket_by_reference_web {reference}: {e}")
+            return {
+                'success': False,
+                'error': 'Erreur technique lors de l\'annulation'
+            }
 
     # ========================================
     # INTÉGRATION QR CODE AMÉLIORÉE
@@ -918,56 +1165,124 @@ class QueueTicket(models.Model):
         except Exception as e:
             _logger.error(f"Erreur notification annulation: {e}")
 
-    @api.model
     def cancel_ticket_web_v2(self, data):
-        """
-        Version améliorée de cancel_ticket_web avec validation renforcée
-
-        Args:
-            data (dict): {
-                'ticket_number': int,
-                'service_id': int,
-                'reason': str (optionnel),
-                'client_token': str (optionnel, pour sécurité)
-            }
-
-        Returns:
-            dict: Résultat de l'opération
-        """
+        """Version améliorée de l'annulation web avec validations renforcées"""
         try:
-            # 1. Validation des données d'entrée
-            validation_result = self._validate_web_cancellation_data(data)
-            if not validation_result["success"]:
-                return validation_result
-
-            ticket_number = data["ticket_number"]
-            service_id = data["service_id"]
-            reason = data.get("reason", "").strip()
-
-            # 2. Rechercher le ticket avec vérifications de sécurité
-            ticket = self._find_ticket_for_cancellation(ticket_number, service_id)
+            ticket_number = data.get('ticket_number')
+            service_id = data.get('service_id')
+            reason = data.get('reason', '')
+            security_hash = data.get('security_hash', '')
+            
+            if not ticket_number or not service_id:
+                return {'success': False, 'error': 'Paramètres manquants'}
+            
+            # Recherche du ticket
+            ticket = self.search([
+                ('ticket_number', '=', ticket_number),
+                ('service_id', '=', service_id)
+            ], limit=1)
+            
             if not ticket:
+                return {'success': False, 'error': 'Ticket non trouvé'}
+            
+            # Vérifications
+            if ticket.state not in ['waiting', 'called']:
                 return {
-                    "success": False,
-                    "error": "Ticket non trouvé ou non éligible à l'annulation",
+                    'success': False, 
+                    'error': f'Ce ticket ne peut plus être annulé (état: {ticket.state})'
                 }
-
-            # 3. Vérifications de sécurité supplémentaires
-            security_check = self._check_web_cancellation_security(ticket, data)
-            if not security_check["success"]:
-                return security_check
-
-            # 4. Effectuer l'annulation
-            cancel_result = ticket.action_cancel_ticket_v2(
-                reason=reason or "Annulation via interface web",
-                cancellation_type="client",
-            )
-
-            return cancel_result
-
+            
+            # Vérification du hash si présent
+            if hasattr(ticket, 'security_hash') and ticket.security_hash and security_hash:
+                if security_hash != ticket.security_hash:
+                    return {'success': False, 'error': 'Code de sécurité invalide'}
+            
+            # Annulation
+            ticket.write({
+                'state': 'cancelled',
+                'cancelled_time': fields.Datetime.now(),
+                'cancellation_reason': reason[:500] if reason else ''
+            })
+            
+            return {
+                'success': True,
+                'message': f'Ticket #{ticket_number} annulé avec succès',
+                'ticket_id': ticket.id
+            }
+            
         except Exception as e:
-            _logger.error(f"Erreur dans cancel_ticket_web_v2: {e}")
-            return {"success": False, "error": "Erreur système lors de l'annulation"}
+            _logger.error(f"Erreur cancel_ticket_web_v2: {e}")
+            return {'success': False, 'error': 'Erreur lors de l\'annulation'}
+
+    
+    def can_be_cancelled(self):
+        """Vérifier si le ticket peut être annulé"""
+        self.ensure_one()
+        return self.state in ['waiting', 'called']
+
+    
+    @api.model
+    def bulk_cancel_tickets(self, ticket_ids, reason='Annulation en masse'):
+        """Annuler plusieurs tickets en une fois"""
+        try:
+            tickets = self.browse(ticket_ids)
+            cancellable_tickets = tickets.filtered('can_be_cancelled')
+            
+            if not cancellable_tickets:
+                return {'success': False, 'error': 'Aucun ticket annulable sélectionné'}
+            
+            cancellable_tickets.write({
+                'state': 'cancelled',
+                'cancelled_time': fields.Datetime.now(),
+                'cancellation_reason': reason
+            })
+            
+            return {
+                'success': True,
+                'cancelled_count': len(cancellable_tickets),
+                'message': f'{len(cancellable_tickets)} tickets annulés'
+            }
+            
+        except Exception as e:
+            _logger.error(f"Erreur bulk_cancel_tickets: {e}")
+            return {'success': False, 'error': 'Erreur lors de l\'annulation en masse'}
+
+    def get_cancellation_stats(self, date_from=None, date_to=None):
+        """Obtenir les statistiques d'annulation"""
+        domain = [('state', '=', 'cancelled')]
+        
+        if date_from:
+            domain.append(('cancelled_time', '>=', date_from))
+        if date_to:
+            domain.append(('cancelled_time', '<=', date_to))
+        
+        cancelled_tickets = self.search(domain)
+        
+        # Grouper par service
+        services_stats = {}
+        for ticket in cancelled_tickets:
+            service_name = ticket.service_id.name
+            if service_name not in services_stats:
+                services_stats[service_name] = {
+                    'count': 0,
+                    'reasons': {}
+                }
+            
+            services_stats[service_name]['count'] += 1
+            
+            reason = ticket.cancellation_reason or 'Aucune raison'
+            if reason not in services_stats[service_name]['reasons']:
+                services_stats[service_name]['reasons'][reason] = 0
+            services_stats[service_name]['reasons'][reason] += 1
+        
+        return {
+            'total_cancelled': len(cancelled_tickets),
+            'by_service': services_stats,
+            'period': {
+                'from': date_from,
+                'to': date_to
+            }
+        }
 
     @api.model
     def _validate_web_cancellation_data(self, data):

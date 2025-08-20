@@ -687,6 +687,7 @@
          ======================================== -->
     
     <!-- Template de formulaire d'annulation -->
+    <!-- Template de formulaire d'annulation CORRIGÉ -->
     <template id="cancel_ticket_template" name="Annuler un Ticket">
         <t t-call="website.layout">
             <!-- Appel des assets -->
@@ -720,9 +721,18 @@
                                                 <strong>Référence :</strong> <t t-esc="reference"/>
                                             </div>
                                         </t>
+                                        <t t-if="ticket.ticket_reference">
+                                            <div class="mt-2">
+                                                <strong>Code de suivi :</strong> <t t-esc="ticket.ticket_reference"/>
+                                            </div>
+                                        </t>
                                     </div>
                                     
-                                    <form method="post">
+                                    <!-- FORMULAIRE CORRIGÉ avec action et token CSRF -->
+                                    <form method="post" t-attf-action="/queue/cancel/#{reference or ticket.ticket_reference or (str(ticket.ticket_number) + '/' + str(ticket.service_id.id))}">
+                                        <!-- Token CSRF pour la sécurité -->
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        
                                         <div class="mb-3">
                                             <label for="reason" class="form-label">
                                                 Raison de l'annulation (optionnel)
@@ -734,19 +744,42 @@
                                                     placeholder="Pourquoi annulez-vous votre ticket ?"></textarea>
                                         </div>
                                         
-                                        <!-- CORRECTION ICI : Utiliser security_hash passé dans le contexte -->
-                                        <input type="hidden" name="security_hash" t-att-value="security_hash"/>
+                                        <!-- Hash de sécurité avec vérification de son existence -->
+                                        <t t-if="security_hash">
+                                            <input type="hidden" name="security_hash" t-att-value="security_hash"/>
+                                        </t>
+                                        <t t-elif="ticket.security_hash">
+                                            <input type="hidden" name="security_hash" t-att-value="ticket.security_hash"/>
+                                        </t>
                                         
-                                        <div class="row">
+                                        <!-- Champ caché pour identifier le ticket -->
+                                        <input type="hidden" name="ticket_id" t-att-value="ticket.id"/>
+                                        
+                                        <div class="row mt-4">
                                             <div class="col-6">
-                                                <a t-att-href="'/queue/track/' + reference if reference else '/queue/my_ticket/' + str(ticket.ticket_number) + '/' + str(ticket.service_id.id)"
-                                                class="btn btn-secondary w-100">
-                                                    <i class="fa fa-arrow-left me-2"></i>
-                                                    Retour
-                                                </a>
+                                                <!-- BOUTON RETOUR CORRIGÉ -->
+                                                <t t-if="reference">
+                                                    <a t-attf-href="/queue/track/#{reference}" class="btn btn-secondary w-100">
+                                                        <i class="fa fa-arrow-left me-2"></i>
+                                                        Retour
+                                                    </a>
+                                                </t>
+                                                <t t-elif="ticket.ticket_reference">
+                                                    <a t-attf-href="/queue/track/#{ticket.ticket_reference}" class="btn btn-secondary w-100">
+                                                        <i class="fa fa-arrow-left me-2"></i>
+                                                        Retour
+                                                    </a>
+                                                </t>
+                                                <t t-else="">
+                                                    <a t-attf-href="/queue/my_ticket/#{ticket.ticket_number}/#{ticket.service_id.id}" class="btn btn-secondary w-100">
+                                                        <i class="fa fa-arrow-left me-2"></i>
+                                                        Retour
+                                                    </a>
+                                                </t>
                                             </div>
                                             <div class="col-6">
-                                                <button type="submit" class="btn btn-danger w-100">
+                                                <button type="submit" class="btn btn-danger w-100"
+                                                        onclick="return confirm('Êtes-vous vraiment sûr de vouloir annuler ce ticket ?');">
                                                     <i class="fa fa-times me-2"></i>
                                                     Confirmer l'annulation
                                                 </button>
@@ -761,12 +794,10 @@
             </div>
         </t>
     </template>
-    
-    <!-- Template de confirmation d'annulation -->
-    <template id="cancellation_success_template" name="Annulation Confirmée">
+
+    <!-- Template de succès d'annulation -->
+    <template id="cancellation_success_template" name="Annulation Réussie">
         <t t-call="website.layout">
-            <!-- Appel des assets -->
-            <t t-call="queue_management.queue_assets_common"/>
             <div id="wrap" class="oe_structure oe_empty">
                 <div class="container mt-4">
                     <div class="row justify-content-center">
@@ -775,29 +806,29 @@
                                 <div class="card-header bg-success text-white text-center">
                                     <h4 class="mb-0">
                                         <i class="fa fa-check-circle me-2"></i>
-                                        Ticket Annulé
+                                        Annulation Confirmée
                                     </h4>
                                 </div>
                                 
                                 <div class="card-body text-center">
-                                    <div class="mb-4">
-                                        <i class="fa fa-check-circle text-success" style="font-size: 4rem;"></i>
+                                    <div class="alert alert-success">
+                                        <h5>✅ Votre ticket a été annulé avec succès</h5>
+                                        <t t-if="message">
+                                            <p class="mt-3"><t t-esc="message"/></p>
+                                        </t>
+                                        <t t-if="reference">
+                                            <p><strong>Référence annulée :</strong> <t t-esc="reference"/></p>
+                                        </t>
                                     </div>
                                     
-                                    <p class="lead">
-                                        <t t-esc="message"/>
-                                    </p>
-                                    
-                                    <t t-if="reference">
-                                        <div class="alert alert-info">
-                                            Référence annulée : <strong><t t-esc="reference"/></strong>
-                                        </div>
-                                    </t>
-                                    
-                                    <div class="d-grid">
-                                        <a href="/queue" class="btn btn-primary">
+                                    <div class="mt-4">
+                                        <a href="/queue" class="btn btn-primary me-2">
                                             <i class="fa fa-home me-2"></i>
                                             Retour à l'accueil
+                                        </a>
+                                        <a href="/queue/search" class="btn btn-secondary">
+                                            <i class="fa fa-search me-2"></i>
+                                            Rechercher un ticket
                                         </a>
                                     </div>
                                 </div>
@@ -1423,15 +1454,22 @@
          TEMPLATES FEEDBACK
          ======================================== -->
     
-    <!-- Template de formulaire de feedback -->
-    <template id="feedback_form_template" name="Feedback Ticket">
+    <!-- Template de formulaire de feedback corrigé -->
+    <template id="feedback_form_template" name="Formulaire de Feedback">
         <t t-call="website.layout">
-            <!-- Appel des assets -->
             <t t-call="queue_management.queue_assets_common"/>
             <div id="wrap" class="oe_structure oe_empty">
                 <div class="container mt-4">
                     <div class="row justify-content-center">
                         <div class="col-md-6">
+                            <!-- Message d'erreur si présent -->
+                            <t t-if="error_message">
+                                <div class="alert alert-danger" role="alert">
+                                    <i class="fa fa-exclamation-triangle me-2"></i>
+                                    <t t-esc="error_message"/>
+                                </div>
+                            </t>
+
                             <div class="card">
                                 <div class="card-header bg-success text-white text-center">
                                     <h4 class="mb-0">
@@ -1444,23 +1482,32 @@
                                     <div class="text-center mb-4">
                                         <h5>Comment s'est passé votre passage ?</h5>
                                         <div class="text-muted">
-                                            Ticket <strong>#<t t-esc="ticket.ticket_number"/></strong> - 
-                                            <t t-esc="service.name"/>
+                                            Ticket <strong>#<t t-esc="ticket.ticket_number"/></strong>
+                                            <t t-if="ticket.ticket_reference">
+                                                - Réf: <strong><t t-esc="ticket.ticket_reference"/></strong>
+                                            </t>
+                                            <br/>
+                                            Service: <strong><t t-esc="ticket.service_id.name"/></strong>
                                         </div>
                                     </div>
                                     
-                                    <form method="post" action="'/queue/feedback/' + reference if reference else '/queue/feedback/' + ticket.ticket_number if ticket.ticket_number else '/queue'">
+                                    <form method="post" id="feedbackForm">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        
                                         <!-- Évaluation par étoiles -->
                                         <div class="mb-4 text-center">
-                                            <label class="form-label">Note globale</label>
-                                            <div class="rating-stars" style="font-size: 2rem;">
-                                                <span class="star" data-rating="1">&#9734;</span>
-                                                <span class="star" data-rating="2">&#9734;</span>
-                                                <span class="star" data-rating="3">&#9734;</span>
-                                                <span class="star" data-rating="4">&#9734;</span>
-                                                <span class="star" data-rating="5">&#9734;</span>
+                                            <label class="form-label fw-bold">Note globale *</label>
+                                            <div class="rating-stars" style="font-size: 2rem; cursor: pointer;">
+                                                <span class="star" data-rating="1" style="color: #dee2e6;">&#9734;</span>
+                                                <span class="star" data-rating="2" style="color: #dee2e6;">&#9734;</span>
+                                                <span class="star" data-rating="3" style="color: #dee2e6;">&#9734;</span>
+                                                <span class="star" data-rating="4" style="color: #dee2e6;">&#9734;</span>
+                                                <span class="star" data-rating="5" style="color: #dee2e6;">&#9734;</span>
                                             </div>
                                             <input type="hidden" name="rating" id="rating" required="required"/>
+                                            <div class="invalid-feedback" id="ratingError" style="display: none;">
+                                                Veuillez sélectionner une note
+                                            </div>
                                         </div>
                                         
                                         <!-- Commentaire -->
@@ -1469,16 +1516,23 @@
                                                 Commentaire (optionnel)
                                             </label>
                                             <textarea class="form-control" 
-                                                      id="feedback" 
-                                                      name="feedback" 
-                                                      rows="4"
-                                                      placeholder="Partagez votre expérience avec nous..."></textarea>
+                                                    id="feedback" 
+                                                    name="feedback" 
+                                                    rows="4"
+                                                    maxlength="1000"
+                                                    placeholder="Partagez votre expérience avec nous..."></textarea>
+                                            <small class="form-text text-muted">
+                                                Maximum 1000 caractères. <span id="charCount">0</span>/1000
+                                            </small>
                                         </div>
                                         
                                         <div class="d-grid">
-                                            <button type="submit" class="btn btn-success btn-lg">
+                                            <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
                                                 <i class="fa fa-paper-plane me-2"></i>
-                                                Envoyer mon avis
+                                                <span id="submitText">Envoyer mon avis</span>
+                                                <div class="spinner-border spinner-border-sm ms-2" id="submitSpinner" style="display: none;" role="status">
+                                                    <span class="visually-hidden">Envoi...</span>
+                                                </div>
                                             </button>
                                         </div>
                                     </form>
@@ -1486,8 +1540,8 @@
                             </div>
                             
                             <div class="text-center mt-3">
-                                <a t-att-href="'/queue/track/' + reference if reference else '/queue'"
-                                   class="btn btn-link">
+                                <a t-att-href="'/queue/track/' + reference if reference and '/' not in reference else '/queue'"
+                                class="btn btn-link">
                                     <i class="fa fa-arrow-left me-1"></i>
                                     Retour
                                 </a>
@@ -1497,60 +1551,139 @@
                 </div>
             </div>
             
-            <!-- Script pour les étoiles -->
+            <!-- Script pour les étoiles et validation -->
             <script>
                 document.addEventListener('DOMContentLoaded', function() {
                     const stars = document.querySelectorAll('.star');
                     const ratingInput = document.getElementById('rating');
+                    const feedbackTextarea = document.getElementById('feedback');
+                    const charCount = document.getElementById('charCount');
+                    const form = document.getElementById('feedbackForm');
+                    const submitBtn = document.getElementById('submitBtn');
+                    const submitText = document.getElementById('submitText');
+                    const submitSpinner = document.getElementById('submitSpinner');
+                    const ratingError = document.getElementById('ratingError');
                     
+                    // Gestion des étoiles
                     stars.forEach((star, index) => {
                         star.addEventListener('click', function() {
                             const rating = parseInt(this.getAttribute('data-rating'));
                             ratingInput.value = rating;
                             
                             // Mise à jour visuelle
-                            stars.forEach((s, i) => {
-                                if (i &lt; rating) {
-                                    s.innerHTML = '&#9733;'; // Étoile pleine
-                                    s.style.color = '#ffc107';
-                                } else {
-                                    s.innerHTML = '&#9734;'; // Étoile vide
-                                    s.style.color = '#dee2e6';
-                                }
-                            });
+                            updateStarsDisplay(rating);
+                            
+                            // Cacher l'erreur si présente
+                            ratingError.style.display = 'none';
+                            ratingInput.classList.remove('is-invalid');
                         });
                         
                         star.addEventListener('mouseover', function() {
                             const rating = parseInt(this.getAttribute('data-rating'));
-                            stars.forEach((s, i) => {
-                                if (i &lt; rating) {
-                                    s.style.color = '#ffc107';
-                                } else {
-                                    s.style.color = '#dee2e6';
-                                }
-                            });
+                            updateStarsDisplay(rating);
                         });
                     });
                     
+                    // Restaurer l'affichage au survol
                     document.querySelector('.rating-stars').addEventListener('mouseleave', function() {
                         const currentRating = parseInt(ratingInput.value) || 0;
+                        updateStarsDisplay(currentRating);
+                    });
+                    
+                    // Fonction pour mettre à jour l'affichage des étoiles
+                    function updateStarsDisplay(rating) {
                         stars.forEach((s, i) => {
-                            if (i &lt; currentRating) {
+                            if (i &lt; rating) {
+                                s.innerHTML = '&#9733;'; // Étoile pleine
                                 s.style.color = '#ffc107';
                             } else {
+                                s.innerHTML = '&#9734;'; // Étoile vide
                                 s.style.color = '#dee2e6';
                             }
                         });
+                    }
+                    
+                    // Compteur de caractères
+                    if (feedbackTextarea &amp;&amp; charCount) {
+                        feedbackTextarea.addEventListener('input', function() {
+                            const count = this.value.length;
+                            charCount.textContent = count;
+                            
+                            if (count > 1000) {
+                                charCount.style.color = '#dc3545';
+                                this.value = this.value.substring(0, 1000);
+                                charCount.textContent = '1000';
+                            } else {
+                                charCount.style.color = '#6c757d';
+                            }
+                        });
+                    }
+                    
+                    // Validation du formulaire
+                    form.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        
+                        // Validation de la note
+                        if (!ratingInput.value || parseInt(ratingInput.value) &lt; 1 || parseInt(ratingInput.value) > 5) {
+                            ratingError.style.display = 'block';
+                            ratingInput.classList.add('is-invalid');
+                            document.querySelector('.rating-stars').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            return;
+                        }
+                        
+                        // Désactiver le bouton et afficher le spinner
+                        submitBtn.disabled = true;
+                        submitText.textContent = 'Envoi en cours...';
+                        submitSpinner.style.display = 'inline-block';
+                        
+                        // Soumettre le formulaire
+                        setTimeout(() => {
+                            form.submit();
+                        }, 500);
+                    });
+                    
+                    // Animation d'entrée des étoiles
+                    stars.forEach((star, index) => {
+                        setTimeout(() => {
+                            star.style.transform = 'scale(1.2)';
+                            setTimeout(() => {
+                                star.style.transform = 'scale(1)';
+                            }, 150);
+                        }, index * 100);
                     });
                 });
             </script>
+            
+            <style>
+                .rating-stars .star {
+                    transition: all 0.2s ease;
+                    margin: 0 2px;
+                }
+                
+                .rating-stars .star:hover {
+                    transform: scale(1.1);
+                }
+                
+                .card {
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    border: none;
+                }
+                
+                .btn-success:disabled {
+                    opacity: 0.7;
+                }
+                
+                .invalid-feedback {
+                    font-size: 0.9rem;
+                    margin-top: 0.5rem;
+                }
+            </style>
         </t>
     </template>
     
-    <!-- Template de remerciement feedback -->
+    <!-- Template de remerciement corrigé -->
     <template id="feedback_thanks_template" name="Merci pour votre Feedback">
         <t t-call="website.layout">
-            <!-- Appel des assets -->
             <t t-call="queue_management.queue_assets_common"/>
             <div id="wrap" class="oe_structure oe_empty">
                 <div class="container mt-4">
@@ -1569,6 +1702,19 @@
                                         <i class="fa fa-thumbs-up text-success" style="font-size: 4rem;"></i>
                                     </div>
                                     
+                                    <div class="mb-3">
+                                        <h5>Votre évaluation</h5>
+                                        <div style="font-size: 1.5rem; color: #ffc107;">
+                                            <t t-foreach="range(1, 6)" t-as="star">
+                                                <span t-if="star &lt;= int(ticket.rating or 0)">&#9733;</span>
+                                                <span t-if="star &gt; int(ticket.rating or 0)">&#9734;</span>
+                                            </t>
+                                        </div>
+                                        <small class="text-muted">
+                                            <t t-esc="ticket.rating or 0"/>/5 étoiles
+                                        </small>
+                                    </div>
+                                    
                                     <p class="lead">
                                         Votre feedback a été enregistré avec succès.
                                     </p>
@@ -1578,10 +1724,493 @@
                                         la qualité de nos services.
                                     </p>
                                     
+                                    <div class="alert alert-light border" t-if="ticket.feedback">
+                                        <small class="text-muted">Votre commentaire :</small>
+                                        <div class="mt-1">
+                                            <em>"<t t-esc="ticket.feedback"/>"</em>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <a href="/queue" class="btn btn-primary">
+                                            <i class="fa fa-home me-2"></i>
+                                            Retour à l'accueil
+                                        </a>
+                                        <a t-att-href="'/queue/track/' + reference if reference and '/' not in reference else '/queue/my_ticket/' + str(ticket.ticket_number) + '/' + str(ticket.service_id.id)" 
+                                        class="btn btn-outline-secondary">
+                                            <i class="fa fa-ticket me-2"></i>
+                                            Voir mon ticket
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Encouragement pour futurs services -->
+                            <div class="text-center mt-3">
+                                <small class="text-muted">
+                                    <i class="fa fa-info-circle me-1"></i>
+                                    Merci de nous faire confiance pour vos démarches
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template pour feedback déjà existant -->
+    <template id="feedback_already_exists_template" name="Feedback Déjà Soumis">
+        <t t-call="website.layout">
+            <t t-call="queue_management.queue_assets_common"/>
+            <div id="wrap" class="oe_structure oe_empty">
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-md-6">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark text-center">
+                                    <h4 class="mb-0">
+                                        <i class="fa fa-info-circle me-2"></i>
+                                        Feedback Déjà Soumis
+                                    </h4>
+                                </div>
+                                
+                                <div class="card-body text-center">
+                                    <div class="mb-4">
+                                        <i class="fa fa-check-circle text-success" style="font-size: 3rem;"></i>
+                                    </div>
+                                    
+                                    <p class="lead">
+                                        Vous avez déjà donné votre avis pour ce ticket.
+                                    </p>
+                                    
+                                    <div class="alert alert-light">
+                                        <div class="mb-2">
+                                            <strong>Votre évaluation précédente :</strong>
+                                        </div>
+                                        <div style="font-size: 1.2rem; color: #ffc107;" class="mb-2">
+                                            <t t-foreach="range(1, 6)" t-as="star">
+                                                <span t-if="star &lt;= (existing_rating or 0)">&#9733;</span>
+                                                <span t-if="star &gt; (existing_rating or 0)">&#9734;</span>
+                                            </t>
+                                        </div>
+                                        <small class="text-muted">
+                                            <t t-esc="existing_rating or 0"/>/5 étoiles
+                                        </small>
+                                        
+                                        <div t-if="existing_feedback" class="mt-3">
+                                            <small class="text-muted">Votre commentaire :</small>
+                                            <div class="mt-1">
+                                                <em>"<t t-esc="existing_feedback"/>"</em>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="text-muted">
+                                        Merci pour votre retour, il nous aide à améliorer nos services.
+                                    </p>
+                                    
                                     <div class="d-grid">
                                         <a href="/queue" class="btn btn-primary">
                                             <i class="fa fa-home me-2"></i>
                                             Retour à l'accueil
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Template d'administration des feedbacks -->
+    <template id="admin_feedbacks_template" name="Administration des Feedbacks">
+        <t t-call="website.layout">
+            <t t-call="queue_management.queue_assets_common"/>
+            <div id="wrap" class="oe_structure oe_empty">
+                <div class="container-fluid mt-4">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2>
+                                    <i class="fa fa-star text-warning me-2"></i>
+                                    Gestion des Feedbacks
+                                </h2>
+                                <div>
+                                    <a href="/queue/export/feedbacks" class="btn btn-success">
+                                        <i class="fa fa-download me-2"></i>
+                                        Exporter CSV
+                                    </a>
+                                    <a href="/queue/admin" class="btn btn-secondary">
+                                        <i class="fa fa-arrow-left me-2"></i>
+                                        Retour Admin
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <!-- Statistiques globales -->
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body text-center">
+                                            <h3><t t-esc="stats.get('total_count', 0)"/></h3>
+                                            <p class="mb-0">Total Feedbacks</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body text-center">
+                                            <h3><t t-esc="stats.get('avg_rating', 0)"/>/5</h3>
+                                            <p class="mb-0">Note Moyenne</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-info text-white">
+                                        <div class="card-body text-center">
+                                            <h3><t t-esc="stats.get('satisfaction_rate', 0)"/>%</h3>
+                                            <p class="mb-0">Satisfaction (4-5★)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-warning text-white">
+                                        <div class="card-body text-center">
+                                            <h3><t t-esc="stats.get('rating_distribution', {}).get(5, 0)"/></h3>
+                                            <p class="mb-0">Excellents (5★)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Distribution des notes -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5>Distribution des Notes</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <t t-foreach="range(1, 6)" t-as="rating">
+                                            <div class="col text-center">
+                                                <div class="mb-2">
+                                                    <span style="color: #ffc107; font-size: 1.2rem;">
+                                                        <t t-foreach="range(rating)" t-as="star">&#9733;</t>
+                                                    </span>
+                                                </div>
+                                                <h4><t t-esc="stats.get('rating_distribution', {}).get(rating, 0)"/></h4>
+                                                <small class="text-muted"><t t-esc="rating"/> étoile<t t-if="rating > 1">s</t></small>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Filtres -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5>Filtres</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="get" class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Service</label>
+                                            <select name="service_id" class="form-select">
+                                                <option value="">Tous les services</option>
+                                                <t t-foreach="services" t-as="service">
+                                                    <option t-att-value="service.id" 
+                                                            t-att-selected="'selected' if service.id == current_service_id else None">
+                                                        <t t-esc="service.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Note</label>
+                                            <select name="rating" class="form-select">
+                                                <option value="">Toutes les notes</option>
+                                                <t t-foreach="range(1, 6)" t-as="r">
+                                                    <option t-att-value="r" 
+                                                            t-att-selected="'selected' if r == current_rating else None">
+                                                        <t t-esc="r"/> étoile<t t-if="r > 1">s</t>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">&#160;</label>
+                                            <div>
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fa fa-filter me-2"></i>Filtrer
+                                                </button>
+                                                <a href="/queue/admin/feedbacks" class="btn btn-outline-secondary">
+                                                    <i class="fa fa-times me-2"></i>Reset
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <!-- Liste des feedbacks -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Feedbacks Récents (<t t-esc="len(feedbacks)"/> résultats)</h5>
+                                </div>
+                                <div class="card-body">
+                                    <t t-if="not feedbacks">
+                                        <div class="text-center text-muted py-4">
+                                            <i class="fa fa-inbox fa-3x mb-3"></i>
+                                            <p>Aucun feedback trouvé avec ces critères.</p>
+                                        </div>
+                                    </t>
+                                    
+                                    <t t-if="feedbacks">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Ticket</th>
+                                                        <th>Service</th>
+                                                        <th>Client</th>
+                                                        <th>Note</th>
+                                                        <th>Commentaire</th>
+                                                        <th>Date</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="feedbacks" t-as="feedback">
+                                                        <tr>
+                                                            <td>
+                                                                <strong>#<t t-esc="feedback.ticket_number"/></strong>
+                                                                <br/>
+                                                                <small class="text-muted">
+                                                                    <t t-if="feedback.ticket_reference">
+                                                                        <t t-esc="feedback.ticket_reference"/>
+                                                                    </t>
+                                                                </small>
+                                                            </td>
+                                                            <td>
+                                                                <span class="badge bg-info">
+                                                                    <t t-esc="feedback.service_id.name"/>
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <t t-if="feedback.customer_name">
+                                                                    <t t-esc="feedback.customer_name"/>
+                                                                </t>
+                                                                <t t-if="not feedback.customer_name">
+                                                                    <em class="text-muted">Anonyme</em>
+                                                                </t>
+                                                            </td>
+                                                            <td>
+                                                                <div style="color: #ffc107;">
+                                                                    <t t-foreach="range(1, 6)" t-as="star">
+                                                                        <span t-if="star &lt;= (feedback.rating or 0)">&#9733;</span>
+                                                                        <span t-if="star &gt; (feedback.rating or 0)">&#9734;</span>
+                                                                    </t>
+                                                                </div>
+                                                                <small class="text-muted">
+                                                                    <t t-esc="feedback.rating or 0"/>/5
+                                                                </small>
+                                                            </td>
+                                                            <td>
+                                                                <t t-if="feedback.feedback">
+                                                                    <div class="feedback-text" style="max-width: 200px;">
+                                                                        <t t-if="len(feedback.feedback) > 100">
+                                                                            <span t-esc="feedback.feedback[:100]"/>...
+                                                                            <a href="#" class="text-primary" onclick="showFullFeedback(this)">Voir plus</a>
+                                                                            <div class="full-feedback" style="display: none;">
+                                                                                <t t-esc="feedback.feedback"/>
+                                                                                <a href="#" class="text-primary" onclick="hideFullFeedback(this)">Voir moins</a>
+                                                                            </div>
+                                                                        </t>
+                                                                        <t t-if="len(feedback.feedback) &lt;= 100">
+                                                                            <t t-esc="feedback.feedback"/>
+                                                                        </t>
+                                                                    </div>
+                                                                </t>
+                                                                <t t-if="not feedback.feedback">
+                                                                    <em class="text-muted">Pas de commentaire</em>
+                                                                </t>
+                                                            </td>
+                                                            <td>
+                                                                <t t-if="feedback.feedback_time">
+                                                                    <t t-esc="feedback.feedback_time.strftime('%d/%m/%Y %H:%M')"/>
+                                                                </t>
+                                                            </td>
+                                                            <td>
+                                                                <div class="btn-group btn-group-sm">
+                                                                    <a t-att-href="'/queue/track/' + (feedback.ticket_reference or str(feedback.ticket_number) + '/' + str(feedback.service_id.id))" 
+                                                                    class="btn btn-outline-primary" title="Voir le ticket">
+                                                                        <i class="fa fa-eye"></i>
+                                                                    </a>
+                                                                    <button class="btn btn-outline-info" 
+                                                                            onclick="copyFeedback(this)" 
+                                                                            t-att-data-feedback="feedback.feedback or ''"
+                                                                            title="Copier le commentaire">
+                                                                        <i class="fa fa-copy"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                function showFullFeedback(element) {
+                    const parent = element.closest('.feedback-text');
+                    const shortText = element.parentElement;
+                    const fullText = parent.querySelector('.full-feedback');
+                    
+                    shortText.style.display = 'none';
+                    fullText.style.display = 'block';
+                }
+                
+                function hideFullFeedback(element) {
+                    const parent = element.closest('.feedback-text');
+                    const shortText = parent.querySelector('span').parentElement;
+                    const fullText = element.parentElement;
+                    
+                    fullText.style.display = 'none';
+                    shortText.style.display = 'block';
+                }
+                
+                function copyFeedback(element) {
+                    const feedback = element.getAttribute('data-feedback');
+                    if (feedback) {
+                        navigator.clipboard.writeText(feedback).then(() => {
+                            // Feedback visuel
+                            const icon = element.querySelector('i');
+                            const originalClass = icon.className;
+                            icon.className = 'fa fa-check text-success';
+                            setTimeout(() => {
+                                icon.className = originalClass;
+                            }, 1000);
+                        });
+                    }
+                }
+            </script>
+        </t>
+    </template>
+
+    <!-- Template de test du système de feedback -->
+    <template id="test_feedback_template" name="Test du Système de Feedback">
+        <t t-call="website.layout">
+            <t t-call="queue_management.queue_assets_common"/>
+            <div id="wrap" class="oe_structure oe_empty">
+                <div class="container mt-4">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h3 class="mb-0">
+                                        <i class="fa fa-flask me-2"></i>
+                                        Test du Système de Feedback
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <t t-if="test_ticket">
+                                        <div class="alert alert-success">
+                                            <h4>✅ Ticket de test disponible</h4>
+                                            <p><strong>Ticket #<t t-esc="test_ticket.ticket_number"/></strong> - <t t-esc="test_ticket.service_id.name"/></p>
+                                            <p>État: <span class="badge bg-success">Servi</span></p>
+                                            
+                                            <t t-if="feedback_url">
+                                                <a t-att-href="feedback_url" class="btn btn-primary" target="_blank">
+                                                    <i class="fa fa-star me-2"></i>
+                                                    Tester le Feedback
+                                                </a>
+                                            </t>
+                                        </div>
+                                        
+                                        <t t-if="feedback_stats">
+                                            <div class="card mt-3">
+                                                <div class="card-header">
+                                                    <h5>Statistiques Actuelles</h5>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row text-center">
+                                                        <div class="col-md-3">
+                                                            <h4><t t-esc="feedback_stats.get('total_count', 0)"/></h4>
+                                                            <small>Total Feedbacks</small>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <h4><t t-esc="feedback_stats.get('avg_rating', 0)"/>/5</h4>
+                                                            <small>Note Moyenne</small>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <h4><t t-esc="feedback_stats.get('satisfaction_rate', 0)"/>%</h4>
+                                                            <small>Satisfaction</small>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <h4><t t-esc="feedback_stats.get('rating_distribution', {}).get(5, 0)"/></h4>
+                                                            <small>Notes 5★</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </t>
+                                    
+                                    <t t-if="not test_ticket">
+                                        <div class="alert alert-warning">
+                                            <h4>⚠️ Aucun ticket de test disponible</h4>
+                                            <p>Aucun ticket servi trouvé pour tester le système de feedback.</p>
+                                            <p>Créez d'abord des tickets et marquez-les comme servis.</p>
+                                        </div>
+                                    </t>
+                                    
+                                    <div class="mt-4">
+                                        <h5>Fonctionnalités Testées</h5>
+                                        <ul class="list-group">
+                                            <li class="list-group-item">
+                                                <i class="fa fa-check text-success me-2"></i>
+                                                Formulaire de feedback avec étoiles interactives
+                                            </li>
+                                            <li class="list-group-item">
+                                                <i class="fa fa-check text-success me-2"></i>
+                                                Validation côté client et serveur
+                                            </li>
+                                            <li class="list-group-item">
+                                                <i class="fa fa-check text-success me-2"></i>
+                                                Prévention des feedbacks multiples
+                                            </li>
+                                            <li class="list-group-item">
+                                                <i class="fa fa-check text-success me-2"></i>
+                                                Page de remerciement personnalisée
+                                            </li>
+                                            <li class="list-group-item">
+                                                <i class="fa fa-check text-success me-2"></i>
+                                                Interface d'administration
+                                            </li>
+                                            <li class="list-group-item">
+                                                <i class="fa fa-check text-success me-2"></i>
+                                                Statistiques et export CSV
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <a href="/queue/admin/feedbacks" class="btn btn-info">
+                                            <i class="fa fa-chart-bar me-2"></i>
+                                            Voir l'Administration
+                                        </a>
+                                        <a href="/queue" class="btn btn-secondary">
+                                            <i class="fa fa-home me-2"></i>
+                                            Retour Accueil
                                         </a>
                                     </div>
                                 </div>

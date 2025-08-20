@@ -291,78 +291,207 @@ class QueueController(http.Controller):
                 'error_message': 'Erreur lors du chargement des informations du ticket'
             })
 
+    # Méthode d'annulation corrigée dans le contrôleur
     @http.route('/queue/cancel/<reference>', type='http', auth='public', website=True, methods=['GET', 'POST'], csrf=False)
     def cancel_ticket_by_reference(self, reference, **kwargs):
-        """Annulation de ticket par référence unique"""
+        """Annulation de ticket par référence unique - VERSION CORRIGÉE"""
         try:
             if request.httprequest.method == 'GET':
                 # Afficher le formulaire d'annulation
                 ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
                 
                 if not ticket:
-                    return request.render('queue_management.error_template', {
-                        'error_message': 'Ticket non trouvé'
+                    # Essayer avec référence courte
+                    ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference, 'short')
+                
+                if not ticket:
+                    return request.render('queue_management.ticket_not_found_template', {
+                        'reference': reference,
+                        'error_message': f'Ticket avec référence {reference} non trouvé'
                     })
                 
-                if not ticket.state in ['waiting', 'called']:
+                # Vérifier l'état du ticket
+                if ticket.state not in ['waiting', 'called']:
+                    state_labels = {
+                        'served': 'déjà servi',
+                        'cancelled': 'déjà annulé',
+                        'no_show': 'marqué comme absent'
+                    }
                     return request.render('queue_management.error_template', {
-                        'error_message': 'Ce ticket ne peut plus être annulé'
+                        'error_message': f'Ce ticket est {state_labels.get(ticket.state, "dans un état non annulable")}'
                     })
                 
-                # Vérifier que le ticket a bien un security_hash
-                security_hash = getattr(ticket, 'security_hash', '') if ticket else ''
+                # Récupérer le hash de sécurité
+                security_hash = getattr(ticket, 'security_hash', '') if hasattr(ticket, 'security_hash') else ''
                 
                 return request.render('queue_management.cancel_ticket_template', {
                     'ticket': ticket,
                     'reference': reference,
-                    'security_hash': security_hash  # Passer explicitement le hash
+                    'security_hash': security_hash
                 })
             
             elif request.httprequest.method == 'POST':
                 # Traiter l'annulation
-                reason = kwargs.get('reason', '')
+                reason = kwargs.get('reason', '').strip()[:500]  # Limiter la longueur
                 security_hash = kwargs.get('security_hash', '')
+                ticket_id = kwargs.get('ticket_id')
                 
-                # Vérifier à nouveau que le ticket existe
+                _logger.info(f"Tentative d'annulation pour référence {reference}")
+                
+                # Retrouver le ticket
                 ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference)
                 if not ticket:
+                    ticket = request.env['queue.ticket'].sudo().find_ticket_by_reference(reference, 'short')
+                
+                # Vérification par ID si la référence échoue
+                if not ticket and ticket_id:
+                    try:
+                        ticket = request.env['queue.ticket'].sudo().browse(int(ticket_id))
+                        if not ticket.exists():
+                            ticket = None
+                    except (ValueError, TypeError):
+                        ticket = None
+                
+                if not ticket:
                     return request.render('queue_management.error_template', {
-                        'error_message': 'Ticket non trouvé'
+                        'error_message': f'Ticket avec référence {reference} non trouvé'
+                    })
+                
+                # Vérification de l'état avant annulation
+                if ticket.state not in ['waiting', 'called']:
+                    return request.render('queue_management.error_template', {
+                        'error_message': f'Ce ticket ne peut plus être annulé (état: {ticket.state})'
                     })
                 
                 # Vérifier le hash de sécurité si présent
                 if hasattr(ticket, 'security_hash') and ticket.security_hash:
                     if security_hash != ticket.security_hash:
+                        _logger.warning(f"Hash de sécurité invalide pour ticket {ticket.id}")
                         return request.render('queue_management.error_template', {
                             'error_message': 'Code de sécurité invalide'
                         })
                 
-                result = request.env['queue.ticket'].sudo().cancel_ticket_by_reference_web(
-                    reference, reason, security_hash
-                )
-                # Traiter l'annulation
-                reason = kwargs.get('reason', '')
-                security_hash = kwargs.get('security_hash', '')
-                
-                result = request.env['queue.ticket'].sudo().cancel_ticket_by_reference_web(
-                    reference, reason, security_hash
-                )
-                
-                if result['success']:
-                    return request.render('queue_management.cancellation_success_template', {
-                        'message': result['message'],
-                        'reference': reference
+                try:
+                    # Effectuer l'annulation
+                    old_state = ticket.state
+                    ticket.write({
+                        'state': 'cancelled',
+                        'cancelled_time': fields.Datetime.now(),
+                        'cancellation_reason': reason
                     })
-                else:
+                    
+                    _logger.info(f"Ticket {ticket.id} (ref: {reference}) annulé avec succès - état précédent: {old_state}")
+                    
+                    # Message de succès
+                    success_message = f"Votre ticket #{ticket.ticket_number} pour le service '{ticket.service_id.name}' a été annulé."
+                    if reason:
+                        success_message += f" Raison : {reason}"
+                    
+                    return request.render('queue_management.cancellation_success_template', {
+                        'message': success_message,
+                        'reference': reference,
+                        'ticket': ticket
+                    })
+                    
+                except Exception as cancel_error:
+                    _logger.error(f"Erreur lors de l'annulation du ticket {ticket.id}: {cancel_error}")
                     return request.render('queue_management.error_template', {
-                        'error_message': result['error']
+                        'error_message': 'Une erreur est survenue lors de l\'annulation. Veuillez réessayer.'
                     })
                     
         except Exception as e:
             _logger.error(f"Erreur annulation par référence {reference}: {e}")
             return request.render('queue_management.error_template', {
-                'error_message': 'Erreur lors de l\'annulation'
+                'error_message': 'Erreur technique lors de l\'annulation'
             })
+
+
+
+
+
+    # Route alternative pour annulation par numéro/service (legacy)
+    @http.route('/queue/cancel_legacy/<int:ticket_number>/<int:service_id>', 
+                type='http', auth='public', website=True, methods=['GET', 'POST'], csrf=False)
+    def cancel_ticket_legacy(self, ticket_number, service_id, **kwargs):
+        """Annulation de ticket par numéro/service (compatibilité)"""
+        try:
+            ticket = request.env['queue.ticket'].sudo().search([
+                ('ticket_number', '=', ticket_number),
+                ('service_id', '=', service_id)
+            ], limit=1)
+            
+            if not ticket:
+                return request.render('queue_management.error_template', {
+                    'error_message': f'Ticket #{ticket_number} non trouvé pour ce service'
+                })
+            
+            # Si le ticket a une référence, rediriger vers la nouvelle route
+            if hasattr(ticket, 'ticket_reference') and ticket.ticket_reference:
+                return request.redirect(f'/queue/cancel/{ticket.ticket_reference}')
+            
+            # Sinon, traiter ici (même logique que ci-dessus)
+            if request.httprequest.method == 'GET':
+                if ticket.state not in ['waiting', 'called']:
+                    return request.render('queue_management.error_template', {
+                        'error_message': 'Ce ticket ne peut plus être annulé'
+                    })
+                
+                return request.render('queue_management.cancel_ticket_template', {
+                    'ticket': ticket,
+                    'reference': f"{ticket_number}/{service_id}",
+                    'security_hash': getattr(ticket, 'security_hash', '')
+                })
+            
+            elif request.httprequest.method == 'POST':
+                reason = kwargs.get('reason', '').strip()[:500]
+                
+                if ticket.state not in ['waiting', 'called']:
+                    return request.render('queue_management.error_template', {
+                        'error_message': 'Ce ticket ne peut plus être annulé'
+                    })
+                
+                try:
+                    ticket.write({
+                        'state': 'cancelled',
+                        'cancelled_time': fields.Datetime.now(),
+                        'cancellation_reason': reason
+                    })
+                    
+                    success_message = f"Ticket #{ticket_number} annulé avec succès."
+                    
+                    return request.render('queue_management.cancellation_success_template', {
+                        'message': success_message,
+                        'reference': f"{ticket_number}/{service_id}",
+                        'ticket': ticket
+                    })
+                    
+                except Exception as e:
+                    _logger.error(f"Erreur annulation legacy {ticket_number}/{service_id}: {e}")
+                    return request.render('queue_management.error_template', {
+                        'error_message': 'Erreur lors de l\'annulation'
+                    })
+                    
+        except Exception as e:
+            _logger.error(f"Erreur cancel_ticket_legacy: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur technique'
+            })
+
+    # Méthode utilitaire pour valider l'annulation
+    def _can_cancel_ticket(self, ticket):
+        """Vérifier si un ticket peut être annulé"""
+        if not ticket or not ticket.exists():
+            return False, "Ticket non trouvé"
+        
+        if ticket.state not in ['waiting', 'called']:
+            state_messages = {
+                'served': 'Le ticket a déjà été servi',
+                'cancelled': 'Le ticket a déjà été annulé',
+                'no_show': 'Le ticket a été marqué comme absent'
+            }
+            return False, state_messages.get(ticket.state, f'État non annulable: {ticket.state}')
+        
+        return True, ""
 
     # ========================================
     # ROUTES PRINCIPALES MISES À JOUR
