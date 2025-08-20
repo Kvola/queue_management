@@ -59,13 +59,16 @@
                                         
                                         <div class="d-grid">
                                             <t t-if="service.is_open">
-                                                <form method="post" action="/queue/take_ticket_http" class="d-grid">
-                                                    <input type="hidden" name="service_id" t-att-value="service.id"/>
-                                                    <button type="submit" class="btn btn-success btn-lg">
-                                                        <i class="fa fa-ticket me-2"></i>
-                                                        Prendre un ticket
-                                                    </button>
-                                                </form>
+                                                <!-- Bouton pour ouvrir le modal -->
+                                                <button type="button" 
+                                                        class="btn btn-success btn-lg" 
+                                                        data-bs-toggle="modal" 
+                                                        t-att-data-bs-target="'#ticketModal' + str(service.id)"
+                                                        t-att-data-service-id="service.id"
+                                                        t-att-data-service-name="service.name">
+                                                    <i class="fa fa-ticket me-2"></i>
+                                                    Prendre un ticket
+                                                </button>
                                             </t>
                                             <t t-else="">
                                                 <button class="btn btn-secondary btn-lg disabled">
@@ -75,7 +78,6 @@
                                             </t>
                                         </div>
                                     </div>
-
 
                                     <!-- Horaires formatés améliorés -->
                                     <div class="mt-2 text-center">
@@ -120,6 +122,138 @@
                             </div>
                         </t>
                     </div>
+
+                    <!-- Modaux pour chaque service -->
+                    <t t-foreach="services" t-as="service">
+                        <t t-if="service.is_open">
+                            <div class="modal fade" t-att-id="'ticketModal' + str(service.id)" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-primary text-white">
+                                            <h5 class="modal-title">
+                                                <i class="fa fa-ticket me-2"></i>
+                                                Prendre un ticket - <t t-esc="service.name"/>
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        
+                                        <form method="post" action="/queue/take_ticket_http" t-att-id="'ticketForm' + str(service.id)">
+                                            <input type="hidden" name="service_id" t-att-value="service.id"/>
+                                            
+                                            <div class="modal-body">
+                                                <!-- Information sur le service -->
+                                                <div class="alert alert-info mb-3">
+                                                    <div class="row text-center">
+                                                        <div class="col-6">
+                                                            <strong class="text-warning"><t t-esc="service.waiting_count or 0"/></strong>
+                                                            <br/><small>En attente</small>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <strong class="text-info">~<t t-esc="round(service.avg_waiting_time, 0) or 5"/>min</strong>
+                                                            <br/><small>Temps estimé</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Case à cocher pour les informations personnelles -->
+                                                <div class="form-check mb-3">
+                                                    <input class="form-check-input" 
+                                                        type="checkbox" 
+                                                        t-att-id="'personalInfoCheck' + str(service.id)"
+                                                        onchange="togglePersonalInfo(this)"/>
+                                                    <label class="form-check-label" t-att-for="'personalInfoCheck' + str(service.id)">
+                                                        <i class="fa fa-user me-1"></i>
+                                                        Je souhaite renseigner mes informations personnelles <small class="text-muted">(optionnel)</small>
+                                                    </label>
+                                                </div>
+
+                                                <!-- Formulaire d'informations personnelles (masqué par défaut) -->
+                                                <div t-att-id="'personalInfoSection' + str(service.id)" class="personal-info-section" style="display: none;">
+                                                    <div class="card bg-light">
+                                                        <div class="card-body">
+                                                            <h6 class="card-title">
+                                                                <i class="fa fa-id-card me-2"></i>
+                                                                Informations personnelles
+                                                            </h6>
+                                                            <p class="small text-muted mb-3">
+                                                                Ces informations nous aideront à mieux vous servir et à vous contacter si nécessaire.
+                                                            </p>
+                                                            
+                                                            <!-- Champ Nom -->
+                                                            <div class="mb-3">
+                                                                <label t-att-for="'customer_name' + str(service.id)" class="form-label">
+                                                                    <i class="fa fa-user me-1"></i>Nom complet
+                                                                </label>
+                                                                <input type="text" 
+                                                                    class="form-control" 
+                                                                    t-att-id="'customer_name' + str(service.id)"
+                                                                    name="customer_name" 
+                                                                    placeholder="Votre nom et prénom"
+                                                                    maxlength="50"/>
+                                                            </div>
+
+                                                            <!-- Champ Email -->
+                                                            <div class="mb-3">
+                                                                <label t-att-for="'customer_email' + str(service.id)" class="form-label">
+                                                                    <i class="fa fa-envelope me-1"></i>Adresse email
+                                                                </label>
+                                                                <input type="email" 
+                                                                    class="form-control" 
+                                                                    t-att-id="'customer_email' + str(service.id)"
+                                                                    name="customer_email" 
+                                                                    placeholder="votre.email@exemple.com"
+                                                                    maxlength="100"/>
+                                                                <div class="form-text">
+                                                                    <i class="fa fa-info-circle me-1"></i>
+                                                                    Pour vous contacter en cas de besoin
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- Champ Téléphone -->
+                                                            <div class="mb-3">
+                                                                <label t-att-for="'customer_phone' + str(service.id)" class="form-label">
+                                                                    <i class="fa fa-phone me-1"></i>Numéro de téléphone
+                                                                </label>
+                                                                <input type="tel" 
+                                                                    class="form-control" 
+                                                                    t-att-id="'customer_phone' + str(service.id)"
+                                                                    name="customer_phone" 
+                                                                    placeholder="+225 07 12 34 56 78 ou 0712345678"
+                                                                    maxlength="25"/>
+                                                                <div class="form-text">
+                                                                    <i class="fa fa-info-circle me-1"></i>
+                                                                    Format : +225 XX XX XX XX XX ou 0XXXXXXXXX (Côte d'Ivoire)
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- Note de confidentialité -->
+                                                            <div class="alert alert-light border mb-0">
+                                                                <small class="text-muted">
+                                                                    <i class="fa fa-shield me-1"></i>
+                                                                    <strong>Confidentialité :</strong> Vos informations sont utilisées uniquement pour améliorer votre expérience 
+                                                                    et ne seront pas partagées avec des tiers.
+                                                                </small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                    <i class="fa fa-times me-1"></i>Annuler
+                                                </button>
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fa fa-ticket me-2"></i>
+                                                    Confirmer et prendre le ticket
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </t>
                     
                     <!-- Section navigation -->
                     <div class="row mt-4">
@@ -133,7 +267,7 @@
                                             Rechercher mon ticket
                                         </a>
                                         <a href="/queue/admin" class="btn btn-outline-info" 
-                                           t-if="request.env.user.has_group('base.group_user')">
+                                        t-if="request.env.user.has_group('base.group_user')">
                                             <i class="fa fa-cog me-2"></i>
                                             Administration
                                         </a>
@@ -177,6 +311,205 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Script JavaScript pour gérer l'affichage du formulaire -->
+            <script>
+                function togglePersonalInfo(checkbox) {
+                    const serviceId = checkbox.id.replace('personalInfoCheck', '');
+                    const section = document.getElementById('personalInfoSection' + serviceId);
+                    
+                    if (checkbox.checked) {
+                        section.style.display = 'block';
+                        // Animation d'apparition
+                        section.style.opacity = '0';
+                        section.style.transform = 'translateY(-10px)';
+                        setTimeout(() => {
+                            section.style.transition = 'all 0.3s ease';
+                            section.style.opacity = '1';
+                            section.style.transform = 'translateY(0)';
+                        }, 10);
+                    } else {
+                        section.style.display = 'none';
+                        // Vider les champs si on décoche
+                        const inputs = section.querySelectorAll('input');
+                        inputs.forEach(input => input.value = '');
+                    }
+                }
+
+                // Validation côté client
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Ajouter la validation pour tous les formulaires de ticket
+                    const forms = document.querySelectorAll('[id^="ticketForm"]');
+                    
+                    forms.forEach(form => {
+                        form.addEventListener('submit', function(e) {
+                            const serviceId = this.querySelector('input[name="service_id"]').value;
+                            const checkbox = document.getElementById('personalInfoCheck' + serviceId);
+                            
+                            if (checkbox &amp;&amp; checkbox.checked) {
+                                const emailInput = this.querySelector('input[name="customer_email"]');
+                                const phoneInput = this.querySelector('input[name="customer_phone"]');
+                                
+                                // Validation email
+                                if (emailInput &amp;&amp; emailInput.value) {
+                                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                    if (!emailRegex.test(emailInput.value)) {
+                                        e.preventDefault();
+                                        alert('Veuillez saisir une adresse email valide.');
+                                        emailInput.focus();
+                                        return;
+                                    }
+                                }
+                                
+                                // Validation téléphone (format ivoirien)
+                                if (phoneInput &amp;&amp; phoneInput.value) {
+                                    const phoneValue = phoneInput.value.replace(/\s+/g, '');
+                                    
+                                    // Formats acceptés pour la Côte d'Ivoire :
+                                    // +225 XX XX XX XX XX (international)
+                                    // 0X XX XX XX XX (national avec 0)
+                                    // XX XX XX XX XX (national sans 0, 10 chiffres)
+                                    const ivoirianPhoneRegex = /^(\+225\s?)?([0-9]{2}\s?[0-9]{2}\s?[0-9]{2}\s?[0-9]{2}\s?[0-9]{2}|0[1-9][0-9]{8})$/;
+                                    
+                                    if (!ivoirianPhoneRegex.test(phoneValue)) {
+                                        e.preventDefault();
+                                        alert('Veuillez saisir un numéro de téléphone ivoirien valide.\nFormats acceptés :\n• +225 XX XX XX XX XX\n• 0X XX XX XX XX\n• XXXXXXXXXX (10 chiffres)');
+                                        phoneInput.focus();
+                                        return;
+                                    }
+                                }
+                            }
+                        });
+                    });
+                });
+
+                // Amélioration UX : formatage automatique du téléphone ivoirien
+                document.addEventListener('input', function(e) {
+                    if (e.target.name === 'customer_phone') {
+                        let value = e.target.value.replace(/\D/g, ''); // Supprimer tout sauf les chiffres
+                        
+                        // Gestion du format ivoirien
+                        if (value.startsWith('225')) {
+                            // Format international +225 XX XX XX XX XX
+                            value = '+225 ' + value.substring(3);
+                            if (value.length > 5) {
+                                value = value.replace(/(\+225\s)(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1$2 $3 $4 $5 $6');
+                            }
+                        } else if (value.startsWith('0') &amp;&amp; value.length &lt;= 10) {
+                            // Format national 0X XX XX XX XX
+                            if (value.length >= 3) {
+                                value = value.replace(/(\d{2})(\d{2})?(\d{2})?(\d{2})?(\d{2})?/, function(match, p1, p2, p3, p4, p5) {
+                                    let formatted = p1;
+                                    if (p2) formatted += ' ' + p2;
+                                    if (p3) formatted += ' ' + p3;
+                                    if (p4) formatted += ' ' + p4;
+                                    if (p5) formatted += ' ' + p5;
+                                    return formatted;
+                                });
+                            }
+                        } else if (value.length === 10 &amp;&amp; !value.startsWith('0')) {
+                            // Format 10 chiffres sans 0 initial
+                            value = value.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+                        } else if (value.length > 10 &amp;&amp; !value.startsWith('225')) {
+                            // Limiter à 10 chiffres pour les numéros nationaux
+                            value = value.substring(0, 10);
+                            if (value.startsWith('0')) {
+                                value = value.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+                            } else {
+                                value = value.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+                            }
+                        }
+                        
+                        // Mise à jour de la valeur si elle a changé
+                        if (e.target.value !== value &amp;&amp; value.length &lt;= 25) {
+                            const cursorPos = e.target.selectionStart;
+                            e.target.value = value;
+                            // Repositionner le curseur intelligemment
+                            const newCursorPos = Math.min(cursorPos + (value.length - e.target.value.length), value.length);
+                            e.target.setSelectionRange(newCursorPos, newCursorPos);
+                        }
+                    }
+                });
+
+                // Amélioration UX : capitalisation automatique du nom
+                document.addEventListener('input', function(e) {
+                    if (e.target.name === 'customer_name') {
+                        const words = e.target.value.toLowerCase().split(' ');
+                        const capitalizedWords = words.map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)
+                        );
+                        const capitalizedValue = capitalizedWords.join(' ');
+                        
+                        if (e.target.value !== capitalizedValue) {
+                            const cursorPos = e.target.selectionStart;
+                            e.target.value = capitalizedValue;
+                            e.target.setSelectionRange(cursorPos, cursorPos);
+                        }
+                    }
+                });
+            </script>
+
+            <!-- Styles CSS additionnels -->
+            <style>
+                .personal-info-section {
+                    margin-top: 1rem;
+                }
+                
+                .form-check-input:checked {
+                    background-color: #0d6efd;
+                    border-color: #0d6efd;
+                }
+                
+                .modal-dialog {
+                    max-width: 600px;
+                }
+                
+                .alert-light {
+                    background-color: #f8f9fa;
+                    border-color: #dee2e6;
+                }
+                
+                .card.bg-light {
+                    background-color: #f8f9fa !important;
+                }
+                
+                /* Animation pour l'apparition du formulaire */
+                .personal-info-section {
+                    transition: all 0.3s ease;
+                }
+                
+                /* Amélioration des icônes */
+                .fa {
+                    color: inherit;
+                }
+                
+                .form-label .fa {
+                    color: #6c757d;
+                }
+                
+                /* Style pour les champs requis visuellement */
+                .form-control:focus {
+                    border-color: #86b7fe;
+                    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+                }
+                
+                /* Responsive pour mobile */
+                @media (max-width: 768px) {
+                    .modal-dialog {
+                        margin: 1rem;
+                        max-width: calc(100% - 2rem);
+                    }
+                    
+                    .btn-group {
+                        flex-direction: column;
+                    }
+                    
+                    .btn-group .btn {
+                        border-radius: 0.375rem !important;
+                        margin-bottom: 0.5rem;
+                    }
+                }
+            </style>
         </t>
     </template>
 
