@@ -6,11 +6,22 @@
         web_icon="queue_management,static/description/icon.png" />
 
     <!-- Sous-menus -->
+    <menuitem id="menu_queue_dashboard_root"
+        name="Dashboard &amp; Rapports"
+        parent="menu_queue_management_root"
+        sequence="10" />
+
     <menuitem id="menu_queue_dashboard"
         name="Tableau de Bord"
-        parent="menu_queue_management_root"
+        parent="menu_queue_dashboard_root"
         sequence="10"
         action="action_queue_dashboard" />
+
+    <menuitem id="menu_queue_report_dashboard"
+        name="Rapport"
+        parent="menu_queue_dashboard_root"
+        sequence="20"
+        action="report_queue_dashboard" />
 
     <menuitem id="menu_queue_services"
         name="Services"

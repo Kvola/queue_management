@@ -1,4 +1,4 @@
-<odoo noupdate="1">
+<odoo noupdate="0">
     <!-- Template email pour notification -->
     <record id="email_ticket_called" model="mail.template">
         <field name="name">Notification Ticket Appelé</field>
@@ -168,7 +168,7 @@ _logger.info("Rapport de performance hebdomadaire généré")
         <field name="interval_number">1</field>
         <field name="interval_type">weeks</field>
         <field name="numbercall">-1</field>
-        <!-- <field name="nextcall" eval="(DateTime.now() + timedelta(weeks=1)).replace(hour=8, minute=0, second=0)"/> -->
+        <field name="nextcall" eval="(DateTime.now() + timedelta(weeks=1)).replace(hour=8, minute=0, second=0)"/>
         <field name="active" eval="True"/>
         <field name="doall" eval="False"/>
     </record>
@@ -206,5 +206,17 @@ _logger.info("Rapport de performance hebdomadaire généré")
         <field name="numbercall">-1</field>
         <field name="doall" eval="False"/>
         <field name="active" eval="True"/>
+    </record>
+
+    <record id="cron_ticket_number_maintenance" model="ir.cron">
+        <field name="name">Maintenance numérotation tickets</field>
+        <field name="model_id" ref="model_queue_service"/>
+        <field name="state">code</field>
+        <field name="code">model.scheduled_ticket_number_maintenance()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="doall">False</field>
+        <field name="active">True</field>
     </record>
 </odoo>

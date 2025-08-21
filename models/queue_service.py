@@ -251,31 +251,6 @@ class QueueService(models.Model):
             _logger.error(f"Erreur lors de la génération du ticket: {e}")
             raise UserError(_("Erreur lors de la génération du ticket: %s") % str(e))
 
-    # Mettre à jour la méthode generate_ticket()
-    def generate_ticket(self):
-        """Générer un nouveau ticket avec le nouveau système de référence"""
-        if not self.is_open:
-            raise UserError(_("Le service est actuellement fermé"))
-
-        if self.total_tickets_today >= self.max_tickets_per_day:
-            raise UserError(_("Nombre maximum de tickets atteint pour aujourd'hui"))
-
-        self.current_ticket_number += 1
-        ticket = self.env["queue.ticket"].create(
-            {
-                "service_id": self.id,
-                "ticket_number": self.current_ticket_number,
-                "customer_phone": self.env.context.get("customer_phone", ""),
-                "customer_email": self.env.context.get("customer_email", ""),
-            }
-        )
-        return {
-            "ticket_id": ticket.id,
-            "ticket_reference": ticket.ticket_reference,
-            "ticket_number": ticket.ticket_number,
-            "short_reference": ticket.short_reference,
-        }
-
     # Ajouter une méthode pour trouver un ticket par référence
     def find_ticket_by_reference(self, reference):
         """Trouver un ticket par sa référence"""
@@ -437,11 +412,6 @@ class QueueService(models.Model):
                 service.average_rating = sum(int(r) for r in ratings) / len(ratings)
             else:
                 service.average_rating = 0.0
-
-    @api.depends("current_ticket_number")
-    def _compute_next_ticket(self):
-        for service in self:
-            service.next_ticket_number = service.current_ticket_number + 1
 
     # Ajouter une méthode pour annuler un ticket par référence
     def cancel_ticket_by_reference(self, reference, reason=None):
@@ -764,25 +734,6 @@ class QueueService(models.Model):
             "hourly_distribution": hourly_distribution,
         }
 
-    # def generate_ticket(self):
-    #     """Générer un nouveau ticket pour ce service (ancienne méthode conservée)"""
-    #     if not self.is_open:
-    #         raise UserError(_("Le service est actuellement fermé"))
-
-    #     if self.total_tickets_today >= self.max_tickets_per_day:
-    #         raise UserError(_("Nombre maximum de tickets atteint pour aujourd'hui"))
-
-    #     self.current_ticket_number += 1
-    #     ticket = self.env["queue.ticket"].create(
-    #         {
-    #             "service_id": self.id,
-    #             "ticket_number": self.current_ticket_number,
-    #             "customer_phone": self.env.context.get("customer_phone", ""),
-    #             "customer_email": self.env.context.get("customer_email", ""),
-    #         }
-    #     )
-    #     return ticket
-
     def is_service_available(self, check_time=None):
         """Vérifier si le service est disponible à une heure donnée"""
         if not check_time:
@@ -826,20 +777,20 @@ class QueueService(models.Model):
     # 4. CORRECTION de get_dashboard_data - Version simplifiée et robuste
     @api.model
     def get_dashboard_data(self):
-        """Version SIMPLIFIÉE et ROBUSTE pour corriger les problèmes d'affichage"""
+        """Version corrigée avec calcul de performance"""
         try:
             # 1. Récupération des services
             services = self.search([("active", "=", True)])
             if not services:
                 return self._get_empty_dashboard_data()
 
-            # 2. Date d'aujourd'hui simple
+            # 2. Date d'aujourd'hui
             today = fields.Date.today()
             tomorrow = today + timedelta(days=1)
             today_start = fields.Datetime.to_string(datetime.combine(today, time.min))
             today_end = fields.Datetime.to_string(datetime.combine(tomorrow, time.min))
 
-            # 3. Récupération des tickets avec requêtes simples
+            # 3. Récupération des tickets
             all_tickets_today = self.env["queue.ticket"].search(
                 [
                     ("created_time", ">=", today_start),
@@ -883,7 +834,7 @@ class QueueService(models.Model):
                 serving_count = len(service_serving)
                 served_count = len(service_served)
 
-                # CALCUL CORRIGÉ du temps d'attente moyen
+                # Temps d'attente moyen
                 served_with_wait = service_served.filtered(
                     lambda t: t.waiting_time and t.waiting_time > 0
                 )
@@ -892,6 +843,15 @@ class QueueService(models.Model):
                     total_wait = sum(t.waiting_time for t in served_with_wait)
                     avg_wait = total_wait / len(served_with_wait)
                     all_wait_times.append(avg_wait)
+
+                # CALCUL DE LA CAPACITÉ (NOUVEAU)
+                capacity_percentage = 0
+                if service.max_tickets_per_day > 0:
+                    capacity_percentage = min(
+                        (len(service_tickets_today) / service.max_tickets_per_day)
+                        * 100,
+                        100,
+                    )
 
                 # Mise à jour des totaux
                 total_waiting += waiting_count
@@ -908,8 +868,9 @@ class QueueService(models.Model):
                     "served_count": served_count,
                     "total_tickets_today": len(service_tickets_today),
                     "current_ticket": service.current_ticket_number or 0,
-                    "avg_waiting_time": round(avg_wait, 1),  # VALEUR CORRIGÉE
+                    "avg_waiting_time": round(avg_wait, 1),
                     "estimated_service_time": service.estimated_service_time or 15,
+                    "capacity_percentage": round(capacity_percentage, 1),  # NOUVEAU
                 }
                 services_data.append(service_data)
 
@@ -924,16 +885,23 @@ class QueueService(models.Model):
                 "completed_tickets": total_served,
                 "waiting_tickets": total_waiting,
                 "serving_tickets": total_serving,
-                "average_wait_time": round(global_avg_wait, 1),  # STATISTIQUE CORRIGÉE
+                "cancelled_tickets": len(
+                    all_tickets_today.filtered(lambda t: t.state == "cancelled")
+                ),
+                "no_show_tickets": len(
+                    all_tickets_today.filtered(lambda t: t.state == "no_show")
+                ),
+                "average_wait_time": round(global_avg_wait, 1),
                 "completion_rate": (
                     round((total_served / total_tickets * 100), 1)
                     if total_tickets > 0
                     else 0
                 ),
                 "active_services": len(services.filtered("is_open")),
+                "total_services": len(services),
             }
 
-            # 6. Construction des données des tickets
+            # 6. Construction des données des tickets (simplifiée)
             waiting_tickets_data = []
             for ticket in waiting_tickets.sorted(
                 lambda t: (t.service_id.id, t.ticket_number)
@@ -949,17 +917,32 @@ class QueueService(models.Model):
                             if ticket.created_time
                             else ""
                         ),
-                        "estimated_wait": round(ticket.estimated_wait_time, 1),
-                        "waiting_duration": round(
-                            ticket.waiting_time, 1
-                        ),  # DURÉE D'ATTENTE ACTUELLE
+                        "estimated_wait": round(
+                            getattr(ticket, "estimated_wait_time", 0), 1
+                        ),
+                        "priority": getattr(ticket, "priority", "normal"),
+                    }
+                )
+
+            serving_tickets_data = []
+            for ticket in serving_tickets:
+                serving_tickets_data.append(
+                    {
+                        "id": ticket.id,
+                        "number": ticket.ticket_number,
+                        "service_name": ticket.service_id.name,
+                        "customer_name": ticket.customer_name or "Client Anonyme",
+                        "agent_name": getattr(ticket, "agent_name", "Agent"),
+                        "service_duration": round(
+                            getattr(ticket, "service_duration", 0), 1
+                        ),
                     }
                 )
 
             return {
                 "services": services_data,
                 "waiting_tickets": waiting_tickets_data,
-                "serving_tickets": [],  # À implémenter si nécessaire
+                "serving_tickets": serving_tickets_data,
                 "stats": stats,
                 "last_update": fields.Datetime.now().strftime("%H:%M:%S"),
             }
@@ -1541,13 +1524,6 @@ class QueueService(models.Model):
 
         return stats_data
 
-    # @api.model
-    # def clear_stats_cache(self):
-    #     """Vider le cache des statistiques"""
-    #     cache_key = "queue_dashboard_stats"
-    #     self.env["ir.config_parameter"].sudo().set_param(f"{cache_key}_data", "")
-    #     self.env["ir.config_parameter"].sudo().set_param(f"{cache_key}_time", "")
-
     def compute_service_efficiency(self):
         """Calculer l'efficacité d'un service"""
         self.ensure_one()
@@ -2033,3 +2009,1128 @@ class QueueService(models.Model):
                 )
 
         return {"alerts": alerts, "recommendations": recommendations}
+
+    # Ajouter ces champs et méthodes dans la classe QueueService
+
+    # Nouveaux champs pour une meilleure gestion des séquences
+    sequence_padding = fields.Integer(
+        "Longueur numéro séquence",
+        default=4,
+        help="Nombre de chiffres pour le numéro de ticket",
+    )
+    sequence_prefix = fields.Char(
+        "Préfixe séquence", compute="_compute_sequence_prefix", store=True
+    )
+    last_ticket_number = fields.Integer("Dernier numéro attribué", readonly=True)
+
+    # Remplacer la méthode existante _compute_next_ticket
+    @api.depends("current_ticket_number", "last_ticket_number")
+    def _compute_next_ticket(self):
+        for service in self:
+            # Le prochain numéro est soit current_ticket_number + 1, soit last_ticket_number + 1
+            service.next_ticket_number = (
+                max(service.current_ticket_number, service.last_ticket_number or 0) + 1
+            )
+
+    @api.depends("ticket_prefix")
+    def _compute_sequence_prefix(self):
+        for service in self:
+            service.sequence_prefix = (service.ticket_prefix or "QUE").upper()
+
+    # Nouvelle méthode pour générer le prochain numéro de séquence
+    def _get_next_ticket_number(self):
+        """Génère le prochain numéro de ticket de manière sécurisée"""
+        self.ensure_one()
+
+        # Utiliser une transaction pour éviter les conflits
+        with self.env.cr.savepoint():
+            # Verrouiller l'enregistrement du service pour éviter les doublons
+            self.env.cr.execute(
+                "SELECT next_ticket_number FROM queue_service WHERE id = %s FOR UPDATE",
+                (self.id,),
+            )
+
+            # Récupérer la valeur actuelle
+            result = self.env.cr.fetchone()
+            current_next = result[0] if result else 1
+
+            # Mettre à jour la valeur
+            self.env.cr.execute(
+                "UPDATE queue_service SET next_ticket_number = %s, last_ticket_number = %s WHERE id = %s",
+                (current_next + 1, current_next, self.id),
+            )
+
+            return current_next
+
+    # Remplacer la méthode generate_ticket
+    def generate_ticket(self):
+        """Générer un nouveau ticket avec gestion robuste des numéros"""
+        self.ensure_one()
+
+        if not self.is_open:
+            raise UserError(_("Le service est actuellement fermé"))
+
+        if self.total_tickets_today >= self.max_tickets_per_day:
+            raise UserError(_("Nombre maximum de tickets atteint pour aujourd'hui"))
+
+        try:
+            # Obtenir le prochain numéro de manière sécurisée
+            ticket_number = self._get_next_ticket_number()
+
+            # Créer le ticket
+            ticket = self.env["queue.ticket"].create(
+                {
+                    "service_id": self.id,
+                    "ticket_number": ticket_number,
+                    "customer_phone": self.env.context.get("customer_phone", ""),
+                    "customer_email": self.env.context.get("customer_email", ""),
+                }
+            )
+
+            # Mettre à jour le ticket actuel
+            self.current_ticket_number = ticket_number
+
+            return {
+                "ticket_id": ticket.id,
+                "ticket_number": ticket_number,
+                "ticket_reference": ticket.ticket_reference,
+                "short_reference": ticket.short_reference,
+            }
+
+        except Exception as e:
+            _logger.error(f"Erreur génération ticket service {self.id}: {e}")
+            raise UserError(_("Erreur lors de la génération du ticket: %s") % str(e))
+
+    # Nouvelle méthode pour synchroniser les numéros
+    def sync_ticket_numbers(self):
+        """Synchroniser les numéros de tickets avec la base de données"""
+        self.ensure_one()
+
+        # Trouver le numéro maximum dans les tickets existants
+        max_ticket = self.env["queue.ticket"].search(
+            [("service_id", "=", self.id)], order="ticket_number desc", limit=1
+        )
+
+        if max_ticket:
+            max_number = max_ticket.ticket_number
+            # Mettre à jour les compteurs
+            self.write(
+                {
+                    "current_ticket_number": max_number,
+                    "last_ticket_number": max_number,
+                    "next_ticket_number": max_number + 1,
+                }
+            )
+            _logger.info(f"Synchronisé service {self.name}: numéro max = {max_number}")
+            return max_number
+        else:
+            # Aucun ticket, réinitialiser
+            self.write(
+                {
+                    "current_ticket_number": 0,
+                    "last_ticket_number": 0,
+                    "next_ticket_number": 1,
+                }
+            )
+            _logger.info(
+                f"Synchronisé service {self.name}: aucun ticket, réinitialisation"
+            )
+            return 0
+
+    # Méthode pour réinitialiser la séquence
+    def reset_sequence(self, start_number=1):
+        """Réinitialiser la séquence de numérotation"""
+        self.ensure_one()
+
+        self.write(
+            {
+                "current_ticket_number": start_number - 1,
+                "last_ticket_number": start_number - 1,
+                "next_ticket_number": start_number,
+            }
+        )
+
+        _logger.info(
+            f"Séquence réinitialisée pour service {self.name} à {start_number}"
+        )
+        return True
+
+    # Ajouter une contrainte pour éviter les numéros négatifs
+    @api.constrains("current_ticket_number", "last_ticket_number", "next_ticket_number")
+    def _check_ticket_numbers(self):
+        for service in self:
+            if service.current_ticket_number < 0:
+                raise ValidationError(
+                    _("Le numéro de ticket actuel ne peut pas être négatif")
+                )
+            if service.last_ticket_number < 0:
+                raise ValidationError(
+                    _("Le dernier numéro de ticket ne peut pas être négatif")
+                )
+            if service.next_ticket_number < 1:
+                raise ValidationError(
+                    _("Le prochain numéro de ticket doit être au moins 1")
+                )
+
+    # Dans queue_service.py
+    def get_numbering_status(self):
+        """Obtenir le statut de la numérotation"""
+        self.ensure_one()
+
+        tickets = self.env["queue.ticket"].search([("service_id", "=", self.id)])
+        max_ticket = max(tickets.mapped("ticket_number")) if tickets else 0
+
+        return {
+            "service_name": self.name,
+            "current_ticket_number": self.current_ticket_number,
+            "last_ticket_number": self.last_ticket_number,
+            "next_ticket_number": self.next_ticket_number,
+            "max_ticket_in_db": max_ticket,
+            "ticket_count": len(tickets),
+            "is_synchronized": self.current_ticket_number == max_ticket,
+            "last_sync": fields.Datetime.now(),
+        }
+
+    @api.model
+    def get_dashboard_report_data(self):
+        """
+        Génère les données complètes pour les rapports du dashboard
+        """
+        try:
+            # Récupérer les données de base du dashboard
+            base_data = self.get_dashboard_data()
+
+            # Ajouter les métriques d'efficacité
+            efficiency_metrics = self._calculate_efficiency_metrics()
+
+            # Analyser les tendances
+            trend_analysis = self._analyze_trends()
+
+            # Générer les recommandations
+            recommendations = self._generate_recommendations(
+                base_data, efficiency_metrics
+            )
+
+            return {
+                **base_data,
+                "efficiency_metrics": efficiency_metrics,
+                "trend_analysis": trend_analysis,
+                "recommendations": recommendations,
+                "report_generated_at": fields.Datetime.now().isoformat(),
+            }
+
+        except Exception as e:
+            _logger.error(f"Error generating report data: {str(e)}")
+            raise UserError(f"Erreur lors de la génération du rapport: {str(e)}")
+
+    def _calculate_efficiency_metrics(self):
+        """
+        Calcule les métriques d'efficacité
+        """
+        # Calculer le temps de service moyen
+        serving_tickets = self.env["queue.ticket"].search(
+            [("state", "=", "serving"), ("served_time", "!=", False)]
+        )
+
+        avg_service_time = 0
+        if serving_tickets:
+            total_duration = sum(
+                ticket.service_duration or 0 for ticket in serving_tickets
+            )
+            avg_service_time = total_duration / len(serving_tickets)
+
+        # Identifier les heures de pointe (simulation basée sur les données actuelles)
+        peak_hours = self._identify_peak_hours()
+
+        # Identifier les goulots d'étranglement
+        bottleneck_services = self._identify_bottlenecks()
+
+        # Calculer le score de satisfaction
+        customer_satisfaction_score = self._calculate_satisfaction_score()
+
+        return {
+            "avg_service_time": avg_service_time,
+            "peak_hours": peak_hours,
+            "bottleneck_services": bottleneck_services,
+            "customer_satisfaction_score": customer_satisfaction_score,
+        }
+
+    def _identify_peak_hours(self):
+        """
+        Identifie les heures de pointe basées sur l'historique des tickets
+        """
+        # Analyser les tickets d'aujourd'hui
+        today = fields.Date.today()
+        tickets_today = self.env["queue.ticket"].search(
+            [
+                ("create_date", ">=", today),
+                ("create_date", "<", today + timedelta(days=1)),
+            ]
+        )
+
+        # Grouper par heure
+        hourly_counts = {}
+        for ticket in tickets_today:
+            hour = ticket.create_date.hour
+            hourly_counts[hour] = hourly_counts.get(hour, 0) + 1
+
+        # Trouver les pics
+        if hourly_counts:
+            max_hour = max(hourly_counts, key=hourly_counts.get)
+            highest_load_hour = f"{max_hour:02d}:00"
+        else:
+            highest_load_hour = "10:00"
+
+        return {
+            "morning_peak": "09:00-11:00",
+            "afternoon_peak": "14:00-16:00",
+            "highest_load_hour": highest_load_hour,
+        }
+
+    def _identify_bottlenecks(self):
+        """
+        Identifie les services en goulot d'étranglement
+        """
+        services = self.search([("is_active", "=", True)])
+        bottlenecks = []
+
+        for service in services:
+            capacity_percentage = service._calculate_capacity_percentage()
+            if capacity_percentage > 80:
+                waiting_count = len(service.waiting_ticket_ids)
+                severity = "critical" if capacity_percentage > 95 else "high"
+
+                bottlenecks.append(
+                    {
+                        "name": service.name,
+                        "capacity_percentage": capacity_percentage,
+                        "waiting_count": waiting_count,
+                        "severity": severity,
+                    }
+                )
+
+        return bottlenecks
+
+    def _calculate_satisfaction_score(self):
+        """
+        Calcule un score de satisfaction approximatif
+        """
+        # Récupérer les statistiques globales
+        stats = self._get_global_stats()
+
+        avg_wait_time = stats.get("average_wait_time", 0)
+        completion_rate = stats.get("completion_rate", 0)
+
+        # Score basé sur le temps d'attente et le taux de completion
+        score = 100
+        score -= min(avg_wait_time * 2, 40)  # Pénalité pour temps d'attente élevé
+        score = score * completion_rate / 100  # Ajusté par le taux de completion
+
+        return max(0, min(100, score))
+
+    def _analyze_trends(self):
+        """
+        Analyse les tendances des données
+        """
+        # Analyser la tendance quotidienne
+        daily_trend = self._analyze_daily_trend()
+
+        # Analyser les patterns d'usage des services
+        service_usage_patterns = self._analyze_service_usage_patterns()
+
+        # Analyser les tendances des temps d'attente
+        waiting_time_trends = self._analyze_waiting_time_trends()
+
+        return {
+            "daily_trend": daily_trend,
+            "service_usage_patterns": service_usage_patterns,
+            "waiting_time_trends": waiting_time_trends,
+        }
+
+    def _analyze_daily_trend(self):
+        """
+        Analyse la tendance quotidienne des tickets
+        """
+        # Comparer avec les 7 derniers jours
+        today = fields.Date.today()
+        week_ago = today - timedelta(days=7)
+
+        tickets_today = self.env["queue.ticket"].search_count(
+            [
+                ("create_date", ">=", today),
+                ("create_date", "<", today + timedelta(days=1)),
+            ]
+        )
+
+        tickets_week_avg = (
+            self.env["queue.ticket"].search_count(
+                [("create_date", ">=", week_ago), ("create_date", "<", today)]
+            )
+            / 7
+        )
+
+        if tickets_week_avg > 0:
+            change_percentage = (
+                (tickets_today - tickets_week_avg) / tickets_week_avg
+            ) * 100
+        else:
+            change_percentage = 0
+
+        if change_percentage > 5:
+            trend = "increasing"
+        elif change_percentage < -5:
+            trend = "decreasing"
+        else:
+            trend = "stable"
+
+        return {"trend": trend, "change_percentage": round(change_percentage, 2)}
+
+    def _analyze_service_usage_patterns(self):
+        """
+        Analyse les patterns d'usage des services
+        """
+        services = self.search([("is_active", "=", True)])
+        patterns = []
+
+        for service in services:
+            total_tickets_today = len(
+                service.ticket_ids.filtered(
+                    lambda t: t.create_date.date() == fields.Date.today()
+                )
+            )
+
+            usage_level = (
+                "high"
+                if total_tickets_today > 50
+                else "medium" if total_tickets_today > 20 else "low"
+            )
+            efficiency = self._calculate_service_efficiency(service)
+
+            patterns.append(
+                {
+                    "name": service.name,
+                    "usage_level": usage_level,
+                    "efficiency": efficiency,
+                }
+            )
+
+        return patterns
+
+    def _calculate_service_efficiency(self, service):
+        """
+        Calcule l'efficacité d'un service
+        """
+        today = fields.Date.today()
+        tickets_today = service.ticket_ids.filtered(
+            lambda t: t.create_date.date() == today
+        )
+
+        if not tickets_today:
+            return 0
+
+        completed = len(tickets_today.filtered(lambda t: t.state == "served"))
+        total = len(tickets_today)
+
+        return round((completed / total) * 100) if total > 0 else 0
+
+    def _analyze_waiting_time_trends(self):
+        """
+        Analyse les tendances des temps d'attente
+        """
+        stats = self._get_global_stats()
+        avg_wait_time = stats.get("average_wait_time", 0)
+
+        status = (
+            "excellent"
+            if avg_wait_time < 5
+            else "good" if avg_wait_time < 10 else "needs_improvement"
+        )
+        target_improvement = max(0, avg_wait_time - 5)
+
+        return {
+            "current_avg": avg_wait_time,
+            "status": status,
+            "target_improvement": target_improvement,
+        }
+
+    def _generate_recommendations(self, dashboard_data, efficiency_metrics):
+        """
+        Génère des recommandations basées sur l'analyse des données
+        """
+        recommendations = []
+
+        # Recommandations basées sur les goulots d'étranglement
+        bottlenecks = efficiency_metrics.get("bottleneck_services", [])
+        if bottlenecks:
+            affected_services = [b["name"] for b in bottlenecks]
+            recommendations.append(
+                {
+                    "type": "capacity",
+                    "priority": "high",
+                    "message": f"{len(bottlenecks)} service(s) en surcharge détecté(s). Considérez augmenter la capacité.",
+                    "affected_services": affected_services,
+                }
+            )
+
+        # Recommandations basées sur le temps d'attente
+        avg_wait_time = dashboard_data.get("stats", {}).get("average_wait_time", 0)
+        if avg_wait_time > 10:
+            recommendations.append(
+                {
+                    "type": "efficiency",
+                    "priority": "medium",
+                    "message": "Le temps d'attente moyen est élevé. Optimisez les processus de service.",
+                    "current_avg": avg_wait_time,
+                    "target_avg": 5,
+                }
+            )
+
+        # Recommandations basées sur les tickets annulés
+        stats = dashboard_data.get("stats", {})
+        total_tickets = stats.get("total_tickets", 1)
+        cancelled_tickets = stats.get("cancelled_tickets", 0) + stats.get(
+            "no_show_tickets", 0
+        )
+        cancelled_rate = (cancelled_tickets / max(total_tickets, 1)) * 100
+
+        if cancelled_rate > 10:
+            recommendations.append(
+                {
+                    "type": "retention",
+                    "priority": "medium",
+                    "message": "Taux d'abandon élevé. Améliorez la communication et réduisez les temps d'attente.",
+                    "cancelled_rate": round(cancelled_rate, 2),
+                }
+            )
+
+        return recommendations
+
+    @api.model
+    def generate_excel_export(self, data):
+        """
+        Génère un export Excel des données du dashboard
+        """
+        try:
+            # Importer xlsxwriter si disponible, sinon utiliser une alternative
+            try:
+                import xlsxwriter
+            except ImportError:
+                raise UserError("Module xlsxwriter requis pour l'export Excel")
+
+            # Créer un buffer en mémoire
+            output = io.BytesIO()
+            workbook = xlsxwriter.Workbook(output)
+
+            # Formats
+            header_format = workbook.add_format(
+                {
+                    "bold": True,
+                    "bg_color": "#366092",
+                    "font_color": "white",
+                    "border": 1,
+                }
+            )
+
+            cell_format = workbook.add_format({"border": 1})
+            number_format = workbook.add_format({"border": 1, "num_format": "0.00"})
+
+            # Feuille Résumé
+            summary_sheet = workbook.add_worksheet("Résumé")
+            self._write_summary_sheet(summary_sheet, data, header_format, cell_format)
+
+            # Feuille Services
+            services_sheet = workbook.add_worksheet("Services")
+            self._write_services_sheet(
+                services_sheet, data, header_format, cell_format, number_format
+            )
+
+            # Feuille Tickets en Attente
+            waiting_sheet = workbook.add_worksheet("Tickets en Attente")
+            self._write_waiting_tickets_sheet(
+                waiting_sheet, data, header_format, cell_format
+            )
+
+            # Feuille Tickets en Service
+            serving_sheet = workbook.add_worksheet("Tickets en Service")
+            self._write_serving_tickets_sheet(
+                serving_sheet, data, header_format, cell_format
+            )
+
+            workbook.close()
+            output.seek(0)
+
+            # Encoder en base64
+            file_content = base64.b64encode(output.read()).decode()
+            output.close()
+
+            return {
+                "file_content": file_content,
+                "filename": f'dashboard_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx',
+                "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+
+        except Exception as e:
+            _logger.error(f"Excel export error: {str(e)}")
+            raise UserError(f"Erreur lors de l'export Excel: {str(e)}")
+
+    def _write_summary_sheet(self, sheet, data, header_format, cell_format):
+        """
+        Écrit la feuille de résumé
+        """
+        sheet.write(0, 0, "Métrique", header_format)
+        sheet.write(0, 1, "Valeur", header_format)
+
+        summary_data = [
+            ("Total Tickets", data["summary"]["total_tickets"]),
+            ("Tickets Terminés", data["summary"]["completed_tickets"]),
+            ("Tickets en Attente", data["summary"]["waiting_tickets"]),
+            ("Tickets en Service", data["summary"]["serving_tickets"]),
+            ("Tickets Annulés", data["summary"]["cancelled_tickets"]),
+            ("Tickets Non-Présentés", data["summary"]["no_show_tickets"]),
+            ("Temps d'Attente Moyen (min)", data["summary"]["average_wait_time"]),
+            ("Taux de Completion (%)", data["summary"]["completion_rate"]),
+            ("Services Actifs", data["summary"]["active_services"]),
+            ("Total Services", data["summary"]["total_services"]),
+        ]
+
+        for row, (metric, value) in enumerate(summary_data, 1):
+            sheet.write(row, 0, metric, cell_format)
+            sheet.write(row, 1, value, cell_format)
+
+        # Ajuster la largeur des colonnes
+        sheet.set_column(0, 0, 25)
+        sheet.set_column(1, 1, 15)
+
+    def _write_services_sheet(
+        self, sheet, data, header_format, cell_format, number_format
+    ):
+        """
+        Écrit la feuille des services
+        """
+        headers = [
+            "ID",
+            "Nom du Service",
+            "Ouvert",
+            "En Attente",
+            "En Service",
+            "Terminés",
+            "Total Aujourd'hui",
+            "Temps Attente Moyen",
+            "Capacité %",
+        ]
+
+        for col, header in enumerate(headers):
+            sheet.write(0, col, header, header_format)
+
+        for row, service in enumerate(data["services"], 1):
+            sheet.write(row, 0, service["id"], cell_format)
+            sheet.write(row, 1, service["name"], cell_format)
+            sheet.write(row, 2, "Oui" if service["is_open"] else "Non", cell_format)
+            sheet.write(row, 3, service["waiting_count"], cell_format)
+            sheet.write(row, 4, service["serving_count"], cell_format)
+            sheet.write(row, 5, service["served_count"], cell_format)
+            sheet.write(row, 6, service["total_tickets_today"], cell_format)
+            sheet.write(row, 7, service["avg_waiting_time"], number_format)
+            sheet.write(row, 8, service["capacity_percentage"], number_format)
+
+        # Ajuster la largeur des colonnes
+        sheet.set_column(0, 0, 8)
+        sheet.set_column(1, 1, 20)
+        sheet.set_column(2, 8, 12)
+
+    def _write_waiting_tickets_sheet(self, sheet, data, header_format, cell_format):
+        """
+        Écrit la feuille des tickets en attente
+        """
+        headers = [
+            "ID",
+            "Numéro",
+            "Service",
+            "Client",
+            "Créé le",
+            "Priorité",
+            "Position",
+            "Attente Estimée (min)",
+        ]
+
+        for col, header in enumerate(headers):
+            sheet.write(0, col, header, header_format)
+
+        for row, ticket in enumerate(data["waiting_tickets"], 1):
+            sheet.write(row, 0, ticket["id"], cell_format)
+            sheet.write(row, 1, ticket["number"], cell_format)
+            sheet.write(row, 2, ticket["service_name"], cell_format)
+            sheet.write(row, 3, ticket["customer_name"], cell_format)
+            sheet.write(row, 4, ticket["created_time"], cell_format)
+            sheet.write(row, 5, ticket["priority"], cell_format)
+            sheet.write(row, 6, ticket["position_in_queue"], cell_format)
+            sheet.write(row, 7, ticket["estimated_wait"], cell_format)
+
+        # Ajuster la largeur des colonnes
+        sheet.set_column(0, 1, 10)
+        sheet.set_column(2, 4, 15)
+        sheet.set_column(5, 7, 12)
+
+    def _write_serving_tickets_sheet(self, sheet, data, header_format, cell_format):
+        """
+        Écrit la feuille des tickets en service
+        """
+        headers = [
+            "ID",
+            "Numéro",
+            "Service",
+            "Client",
+            "Créé le",
+            "Appelé le",
+            "Agent",
+            "Durée Service (min)",
+        ]
+
+        for col, header in enumerate(headers):
+            sheet.write(0, col, header, header_format)
+
+        for row, ticket in enumerate(data["serving_tickets"], 1):
+            sheet.write(row, 0, ticket["id"], cell_format)
+            sheet.write(row, 1, ticket["number"], cell_format)
+            sheet.write(row, 2, ticket["service_name"], cell_format)
+            sheet.write(row, 3, ticket["customer_name"], cell_format)
+            sheet.write(row, 4, ticket["created_time"], cell_format)
+            sheet.write(row, 5, ticket["served_time"], cell_format)
+            sheet.write(row, 6, ticket["agent_name"], cell_format)
+            sheet.write(row, 7, ticket["service_duration"], cell_format)
+
+        # Ajuster la largeur des colonnes
+        sheet.set_column(0, 1, 10)
+        sheet.set_column(2, 6, 15)
+        sheet.set_column(7, 7, 12)
+
+    # @api.model
+    # def generate_pdf_report(self, data):
+    #     """
+    #     Génère un rapport PDF des données du dashboard
+    #     """
+    #     try:
+    #         # Utiliser le système de rapports d'Odoo
+    #         report_name = "queue_management.dashboard_report_template"
+
+    #         # Créer un contexte avec les données
+    #         context = {
+    #             "report_data": data,
+    #             "generated_at": datetime.now(),
+    #             "company": self.env.company,
+    #         }
+
+    #         # Générer le PDF via le moteur de rapports d'Odoo
+    #         pdf_content, _ = self.env["ir.actions.report"]._render_qweb_pdf(
+    #             report_name, res_ids=[], data={"context": context}
+    #         )
+
+    #         return {
+    #             "file_content": base64.b64encode(pdf_content).decode(),
+    #             "filename": f'dashboard_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
+    #             "mime_type": "application/pdf",
+    #         }
+
+    #     except Exception as e:
+    #         _logger.error(f"PDF export error: {str(e)}")
+    #         # Fallback: générer un PDF simple avec reportlab si disponible
+    #         return self._generate_simple_pdf_report(data)
+
+    def _generate_simple_pdf_report(self, data):
+        """
+        Génère un PDF simple avec reportlab
+        """
+        try:
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.lib import colors
+            from reportlab.platypus import (
+                SimpleDocTemplate,
+                Table,
+                TableStyle,
+                Paragraph,
+                Spacer,
+            )
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4)
+            styles = getSampleStyleSheet()
+            story = []
+
+            # Titre
+            title_style = ParagraphStyle(
+                "CustomTitle",
+                parent=styles["Heading1"],
+                fontSize=24,
+                spaceAfter=30,
+                alignment=1,  # Centré
+            )
+            story.append(Paragraph("Rapport Queue Management", title_style))
+            story.append(
+                Paragraph(
+                    f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+                    styles["Normal"],
+                )
+            )
+            story.append(Spacer(1, 20))
+
+            # Résumé des statistiques
+            story.append(Paragraph("Résumé Exécutif", styles["Heading2"]))
+
+            summary_data = [
+                ["Métrique", "Valeur"],
+                ["Total Tickets", str(data["summary"]["total_tickets"])],
+                ["Tickets Terminés", str(data["summary"]["completed_tickets"])],
+                ["Tickets en Attente", str(data["summary"]["waiting_tickets"])],
+                ["Tickets en Service", str(data["summary"]["serving_tickets"])],
+                [
+                    "Temps d'Attente Moyen",
+                    f"{data['summary']['average_wait_time']:.1f} min",
+                ],
+                ["Taux de Completion", f"{data['summary']['completion_rate']:.1f}%"],
+            ]
+
+            summary_table = Table(summary_data)
+            summary_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 14),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
+
+            story.append(summary_table)
+            story.append(Spacer(1, 20))
+
+            # Services
+            if data["services"]:
+                story.append(Paragraph("Détail des Services", styles["Heading2"]))
+
+                services_data = [
+                    ["Service", "En Attente", "En Service", "Terminés", "Temps Moyen"]
+                ]
+                for service in data["services"]:
+                    services_data.append(
+                        [
+                            service["name"],
+                            str(service["waiting_count"]),
+                            str(service["serving_count"]),
+                            str(service["served_count"]),
+                            f"{service['avg_waiting_time']:.1f} min",
+                        ]
+                    )
+
+                services_table = Table(services_data)
+                services_table.setStyle(
+                    TableStyle(
+                        [
+                            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                            ("FONTSIZE", (0, 0), (-1, 0), 12),
+                            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                            ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                        ]
+                    )
+                )
+
+                story.append(services_table)
+                story.append(Spacer(1, 20))
+
+            # Recommandations
+            if data.get("recommendations"):
+                story.append(Paragraph("Recommandations", styles["Heading2"]))
+                for rec in data["recommendations"]:
+                    priority_text = f"[{rec['priority'].upper()}]"
+                    story.append(
+                        Paragraph(f"{priority_text} {rec['message']}", styles["Normal"])
+                    )
+                    story.append(Spacer(1, 6))
+
+            # Construire le PDF
+            doc.build(story)
+            buffer.seek(0)
+
+            pdf_content = buffer.read()
+            buffer.close()
+
+            return {
+                "file_content": base64.b64encode(pdf_content).decode(),
+                "filename": f'dashboard_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
+                "mime_type": "application/pdf",
+            }
+
+        except ImportError:
+            raise UserError("Modules reportlab requis pour la génération de PDF")
+        except Exception as e:
+            _logger.error(f"PDF generation error: {str(e)}")
+            raise UserError(f"Erreur lors de la génération du PDF: {str(e)}")
+
+    @api.model
+    def export_report(self, report_data, format_type):
+        """
+        Exporte un rapport dans le format spécifié
+        """
+        try:
+            if format_type == "excel":
+                return self.generate_excel_export(report_data)
+            elif format_type == "pdf":
+                return self.generate_pdf_report(report_data)
+            elif format_type == "json":
+                json_content = json.dumps(report_data, indent=2, ensure_ascii=False)
+                return {
+                    "file_content": base64.b64encode(
+                        json_content.encode("utf-8")
+                    ).decode(),
+                    "filename": f'dashboard_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
+                    "mime_type": "application/json",
+                }
+            elif format_type == "csv":
+                csv_content = self._generate_csv_content(report_data)
+                return {
+                    "file_content": base64.b64encode(
+                        csv_content.encode("utf-8")
+                    ).decode(),
+                    "filename": f'dashboard_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+                    "mime_type": "text/csv",
+                }
+            else:
+                raise UserError(f"Format d'export non supporté: {format_type}")
+
+        except Exception as e:
+            _logger.error(f"Export error: {str(e)}")
+            raise UserError(f"Erreur lors de l'export: {str(e)}")
+
+    def _generate_csv_content(self, data):
+        """
+        Génère le contenu CSV
+        """
+        import csv
+        from io import StringIO
+
+        output = StringIO()
+
+        # Section Statistiques
+        output.write("STATISTIQUES GENERALES\n")
+        output.write("Métrique,Valeur\n")
+        for key, value in data["summary"].items():
+            formatted_key = key.replace("_", " ").title()
+            output.write(f"{formatted_key},{value}\n")
+        output.write("\n")
+
+        # Section Services
+        output.write("SERVICES\n")
+        if data["services"]:
+            writer = csv.DictWriter(output, fieldnames=data["services"][0].keys())
+            writer.writeheader()
+            writer.writerows(data["services"])
+        output.write("\n")
+
+        # Section Tickets en Attente
+        output.write("TICKETS EN ATTENTE\n")
+        if data["waiting_tickets"]:
+            writer = csv.DictWriter(
+                output, fieldnames=data["waiting_tickets"][0].keys()
+            )
+            writer.writeheader()
+            writer.writerows(data["waiting_tickets"])
+        output.write("\n")
+
+        # Section Tickets en Service
+        output.write("TICKETS EN SERVICE\n")
+        if data["serving_tickets"]:
+            writer = csv.DictWriter(
+                output, fieldnames=data["serving_tickets"][0].keys()
+            )
+            writer.writeheader()
+            writer.writerows(data["serving_tickets"])
+
+        content = output.getvalue()
+        output.close()
+        return content
+
+    def _calculate_capacity_percentage(self):
+        """
+        Calcule le pourcentage de capacité d'un service
+        """
+        if not self.max_capacity:
+            return 0
+
+        current_load = len(self.waiting_ticket_ids) + len(self.serving_ticket_ids)
+        return min(100, (current_load / self.max_capacity) * 100)
+
+    def _get_global_stats(self):
+        """
+        Récupère les statistiques globales pour tous les services
+        """
+        # Cette méthode devrait être cohérente avec get_dashboard_data
+        all_tickets = self.env["queue.ticket"].search([])
+        today_tickets = all_tickets.filtered(
+            lambda t: t.create_date.date() == fields.Date.today()
+        )
+
+        waiting_tickets = today_tickets.filtered(lambda t: t.state == "waiting")
+        serving_tickets = today_tickets.filtered(lambda t: t.state == "serving")
+        completed_tickets = today_tickets.filtered(lambda t: t.state == "served")
+        cancelled_tickets = today_tickets.filtered(
+            lambda t: t.state in ["cancelled", "no_show"]
+        )
+
+        # Calculer le temps d'attente moyen
+        avg_wait_time = 0
+        if completed_tickets:
+            total_wait = sum(
+                ticket.waiting_duration or 0 for ticket in completed_tickets
+            )
+            avg_wait_time = total_wait / len(completed_tickets)
+
+        # Calculer le taux de completion
+        completion_rate = 0
+        if today_tickets:
+            completion_rate = (len(completed_tickets) / len(today_tickets)) * 100
+
+        return {
+            "waiting_tickets": len(waiting_tickets),
+            "serving_tickets": len(serving_tickets),
+            "completed_tickets": len(completed_tickets),
+            "cancelled_tickets": len(cancelled_tickets),
+            "average_wait_time": avg_wait_time,
+            "completion_rate": completion_rate,
+        }
+
+    # Dans queue_service.py - Ajouter cette méthode
+    @api.model
+    def scheduled_ticket_number_maintenance(self):
+        """Maintenance programmée de la numérotation des tickets"""
+        try:
+            # 1. Synchroniser tous les services
+            services = self.search([("active", "=", True)])
+            sync_count = 0
+
+            for service in services:
+                try:
+                    service.sync_ticket_numbers()
+                    sync_count += 1
+                except Exception as e:
+                    _logger.error(f"Erreur synchronisation service {service.id}: {e}")
+
+            # 2. Vérifier les doublons
+            duplicate_check = self.env["queue.ticket"].check_duplicate_ticket_numbers()
+
+            # 3. Log des résultats
+            _logger.info(
+                f"Maintenance numérotation: {sync_count} services synchronisés, "
+                f"{duplicate_check.get('duplicates', 0)} doublons détectés"
+            )
+
+            return {
+                "synchronized_services": sync_count,
+                "duplicates_found": duplicate_check.get("duplicates", 0),
+                "timestamp": fields.Datetime.now(),
+            }
+
+        except Exception as e:
+            _logger.error(f"Erreur maintenance numérotation: {e}")
+            return {"error": str(e)}
+
+    # Dans queue_ticket.py - Ajouter cette méthode
+    @api.model
+    def check_duplicate_ticket_numbers(self):
+        """Vérifier les numéros de ticket en double"""
+        try:
+            # Rechercher les doublons par service
+            duplicates = self.env.cr.execute(
+                """
+                SELECT service_id, ticket_number, COUNT(*)
+                FROM queue_ticket
+                WHERE ticket_number IS NOT NULL
+                GROUP BY service_id, ticket_number
+                HAVING COUNT(*) > 1
+            """
+            )
+
+            results = self.env.cr.fetchall()
+
+            if results:
+                _logger.warning(
+                    f"Doublons détectés: {len(results)} paires service/numéro"
+                )
+                # Log détaillé
+                for service_id, ticket_number, count in results:
+                    service = self.env["queue.service"].browse(service_id)
+                    _logger.warning(
+                        f"Service {service.name}: numéro {ticket_number} apparait {count} fois"
+                    )
+
+            return {"duplicates": len(results), "details": results}
+
+        except Exception as e:
+            _logger.error(f"Erreur vérification doublons: {e}")
+            return {"duplicates": 0, "error": str(e)}
+
+    def generate_pdf_report(self, dashboard_data):
+        """
+        Méthode serveur pour générer un PDF (fallback)
+        """
+        try:
+            # Convertir les données en JSON string
+            data_str = json.dumps(dashboard_data, ensure_ascii=False, indent=2)
+            
+            # Créer un PDF simple avec reportlab (si installé)
+            try:
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import letter
+                
+                buffer = BytesIO()
+                p = canvas.Canvas(buffer, pagesize=letter)
+                p.setFont("Helvetica", 10)
+                
+                # Titre
+                p.drawString(100, 750, "Rapport Dashboard Queue Management")
+                p.drawString(100, 735, f"Généré le: {fields.Datetime.now()}")
+                
+                # Données brutes (simplifiées)
+                y = 700
+                p.drawString(100, y, "Données du dashboard (format JSON):")
+                y -= 20
+                
+                # Ajouter les données JSON
+                lines = data_str.split('\n')
+                for line in lines[:30]:  # Limiter pour éviter les PDF trop longs
+                    if y < 50:
+                        p.showPage()
+                        y = 750
+                    p.drawString(110, y, line)
+                    y -= 15
+                
+                p.save()
+                pdf_content = buffer.getvalue()
+                buffer.close()
+                
+                return {
+                    'file_content': base64.b64encode(pdf_content).decode('utf-8'),
+                    'file_type': 'application/pdf'
+                }
+                
+            except ImportError:
+                # Fallback: retourner les données JSON si reportlab n'est pas installé
+                return {
+                    'file_content': base64.b64encode(data_str.encode('utf-8')).decode('utf-8'),
+                    'file_type': 'application/json',
+                    'warning': 'ReportLab non installé, données JSON fournies'
+                }
+                
+        except Exception as e:
+            return {
+                'error': f'Erreur lors de la génération du PDF: {str(e)}'
+            }

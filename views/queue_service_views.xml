@@ -322,7 +322,7 @@
                                 <group>
                                     <field name="max_tickets_per_day"/>
                                     <field name="estimated_service_time"/>
-                                    <!-- <label for="capacity_display" string="Utilisation Capacité"/> -->
+                                    <label for="total_tickets_today" string="Utilisation Capacité"/>
                                     <div class="o_row">
                                         <field name="total_tickets_today" readonly="1"/> 
                                         <span class="mx-2">/</span> 

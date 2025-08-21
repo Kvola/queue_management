@@ -109,6 +109,8 @@ Ce module est prêt pour la production et peut être étendu selon vos besoins s
             "queue_management/static/src/css/dashboard_chart.css",
             "queue_management/static/src/js/dashboard_charts_mixin.js",
             "queue_management/static/src/js/queue_dashboard.js",
+            "queue_management/static/src/js/queue_dashboard_report.js",
+            "queue_management/static/src/xml/queue_dashboard_report.xml",
             "queue_management/static/src/xml/queue_dashboard.xml",
             "queue_management/static/src/js/user_menu.js",
         ],

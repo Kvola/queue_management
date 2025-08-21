@@ -117,7 +117,6 @@ class QueueConfiguration(models.Model):
             },
         }
 
-
 # Modèle pour les métriques de performance
 class QueuePerformanceMetrics(models.Model):
     _name = "queue.performance.metrics"
@@ -443,34 +442,34 @@ class QueueQueryOptimizationMixin(models.AbstractModel):
         return result
 
 
-# Décorateur pour mesurer les performances
-def performance_monitor(func):
-    """Décorateur pour monitorer les performances des méthodes"""
+    # Décorateur pour mesurer les performances
+    def performance_monitor(func):
+        """Décorateur pour monitorer les performances des méthodes"""
 
-    def wrapper(self, *args, **kwargs):
-        import time
+        def wrapper(self, *args, **kwargs):
+            import time
 
-        start_time = time.time()
+            start_time = time.time()
 
-        try:
-            result = func(self, *args, **kwargs)
-            execution_time = (time.time() - start_time) * 1000
+            try:
+                result = func(self, *args, **kwargs)
+                execution_time = (time.time() - start_time) * 1000
 
-            if execution_time > 1000:  # Plus d'1 seconde
-                _logger.warning(
-                    f"Méthode lente détectée: {func.__name__} - {execution_time:.2f}ms"
+                if execution_time > 1000:  # Plus d'1 seconde
+                    _logger.warning(
+                        f"Méthode lente détectée: {func.__name__} - {execution_time:.2f}ms"
+                    )
+
+                return result
+
+            except Exception as e:
+                execution_time = (time.time() - start_time) * 1000
+                _logger.error(
+                    f"Erreur dans {func.__name__} après {execution_time:.2f}ms: {e}"
                 )
+                raise
 
-            return result
-
-        except Exception as e:
-            execution_time = (time.time() - start_time) * 1000
-            _logger.error(
-                f"Erreur dans {func.__name__} après {execution_time:.2f}ms: {e}"
-            )
-            raise
-
-    return wrapper
+        return wrapper
 
 
 # Classe pour les alertes système

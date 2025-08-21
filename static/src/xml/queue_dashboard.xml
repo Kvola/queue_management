@@ -8,7 +8,7 @@
                     <h2 class="mb-0 me-4">Queue Management Dashboard</h2>
                     
                     <!-- Menu déroulant -->
-                    <!-- <div class="dropdown">
+                    <div class="dropdown">
                         <button class="btn btn-outline-secondary dropdown-toggle" 
                                 type="button" 
                                 id="dashboardMenuDropdown" 
@@ -18,39 +18,18 @@
                         </button>
                         <ul class="dropdown-menu" aria-labelledby="dashboardMenuDropdown">
                             <li>
-                                <a class="dropdown-item" href="#" t-on-click="onShowServicesManagement">
-                                    <i class="fa fa-cogs"/> Gestion des Services
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="#" t-on-click="onShowAgentsManagement">
-                                    <i class="fa fa-users"/> Gestion des Agents
-                                </a>
-                            </li>
-                            <li>
                                 <a class="dropdown-item" href="#" t-on-click="onShowReports">
                                     <i class="fa fa-chart-line"/> Rapports
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"/></li>
                             <li>
-                                <a class="dropdown-item" href="#" t-on-click="onShowSettings">
-                                    <i class="fa fa-gear"/> Paramètres
-                                </a>
-                            </li>
-                            <li>
                                 <a class="dropdown-item" href="#" t-on-click="onExportData">
                                     <i class="fa fa-download"/> Exporter les données
                                 </a>
                             </li>
-                            <li><hr class="dropdown-divider"/></li>
-                            <li>
-                                <a class="dropdown-item" href="#" t-on-click="onShowHelp">
-                                    <i class="fa fa-question-circle"/> Aide
-                                </a>
-                            </li>
                         </ul>
-                    </div> -->
+                    </div>
                 </div>
                 
                 <div class="dashboard-controls">
