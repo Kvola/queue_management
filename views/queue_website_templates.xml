@@ -1178,610 +1178,1602 @@
          ======================================== -->
     
     <!-- Template de tableau de bord admin -->
+    <!-- ============================= -->
+    <!-- TEMPLATES ODOO 17 POUR ADMIN -->
+    <!-- ============================= -->
+
+    <!-- Template principal du dashboard admin -->
+    <!-- ============================= -->
+    <!-- TEMPLATES ODOO 17 ADMIN - VERSION SOBRE CORRIGÉE -->
+    <!-- ============================= -->
+
+    <!-- Template principal du dashboard admin -->
     <template id="admin_dashboard_template" name="Administration - Tableau de Bord">
         <t t-call="website.layout">
-            <!-- Appel des assets -->
-            <t t-call="queue_management.queue_assets_common"/>
-            <div id="wrap" class="oe_structure oe_empty">
-                <div class="container-fluid mt-4">
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h2>
-                                    <i class="fa fa-dashboard me-2"></i>
-                                    Tableau de Bord - Files d'Attente
-                                </h2>
-                                <div class="btn-group">
-                                    <a href="/queue/admin/references" class="btn btn-outline-info">
-                                        <i class="fa fa-link me-1"></i>Références
-                                    </a>
-                                    <a href="/queue" class="btn btn-outline-primary">
-                                        <i class="fa fa-eye me-1"></i>Vue Public
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Statistiques globales -->
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="card bg-primary text-white">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between">
-                                        <div>
-                                            <h4 class="mb-0"><t t-esc="len(services)"/></h4>
-                                            <p class="mb-0">Services Actifs</p>
-                                        </div>
-                                        <div>
-                                            <i class="fa fa-users fa-2x opacity-75"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between">
-                                        <div>
-                                            <h4 class="mb-0"><t t-esc="total_tickets_today"/></h4>
-                                            <p class="mb-0">Tickets Aujourd'hui</p>
-                                        </div>
-                                        <div>
-                                            <i class="fa fa-ticket fa-2x opacity-75"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card bg-info text-white">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between">
-                                        <div>
-                                            <h4 class="mb-0"><t t-esc="tickets_with_references"/></h4>
-                                            <p class="mb-0">Avec Références</p>
-                                        </div>
-                                        <div>
-                                            <i class="fa fa-link fa-2x opacity-75"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card bg-warning text-dark">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between">
-                                        <div>
-                                            <h4 class="mb-0"><t t-esc="int(reference_coverage)"/>%</h4>
-                                            <p class="mb-0">Couverture Réf.</p>
-                                        </div>
-                                        <div>
-                                            <i class="fa fa-percent fa-2x opacity-75"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Services détaillés -->
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">
-                                        <i class="fa fa-list me-2"></i>
-                                        Services - État en Temps Réel
-                                    </h5>
-                                </div>
-                                
-                                <div class="card-body">
-                                    <div class="table-responsive">
-                                        <table class="table table-hover">
-                                            <thead class="table-dark">
-                                                <tr>
-                                                    <th>Service</th>
-                                                    <th>État</th>
-                                                    <th>En Attente</th>
-                                                    <th>Ticket Actuel</th>
-                                                    <th>Temps Moyen</th>
-                                                    <th>Total Aujourd'hui</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <t t-foreach="services" t-as="service">
-                                                    <tr>
-                                                        <td>
-                                                            <strong><t t-esc="service.name"/></strong>
-                                                            <t t-if="service.description">
-                                                                <br/><small class="text-muted"><t t-esc="service.description"/></small>
-                                                            </t>
-                                                        </td>
-                                                        <td>
-                                                            <t t-if="service.is_open">
-                                                                <span class="badge bg-success">
-                                                                    <i class="fa fa-circle me-1"></i>Ouvert
-                                                                </span>
-                                                            </t>
-                                                            <t t-else="">
-                                                                <span class="badge bg-danger">
-                                                                    <i class="fa fa-circle me-1"></i>Fermé
-                                                                </span>
-                                                            </t>
-                                                        </td>
-                                                        <td>
-                                                            <span class="badge bg-warning fs-6">
-                                                                <t t-esc="service.waiting_count or 0"/>
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <t t-if="service.current_ticket_number">
-                                                                <strong>#<t t-esc="service.current_ticket_number"/></strong>
-                                                            </t>
-                                                            <t t-else="">
-                                                                <span class="text-muted">Aucun</span>
-                                                            </t>
-                                                        </td>
-                                                        <td>
-                                                            <t t-esc="round(service.avg_waiting_time, 0) or 0"/> min
-                                                        </td>
-                                                        <td>
-                                                            <t t-esc="service.total_tickets_today or 0"/>
-                                                        </td>
-                                                        <td>
-                                                            <div class="btn-group btn-group-sm">
-                                                                <button class="btn btn-outline-primary btn-sm" 
-                                                                        onclick="callNextTicket(this)" 
-                                                                        t-att-data-service-id="service.id">
-                                                                    <i class="fa fa-bell"></i>
-                                                                </button>
-                                                                <button class="btn btn-outline-secondary btn-sm"
-                                                                        onclick="viewServiceTickets(this)"
-                                                                        t-att-data-service-id="service.id">
-                                                                    <i class="fa fa-eye"></i>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                </t>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Actions rapides -->
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">
-                                        <i class="fa fa-cogs me-2"></i>
-                                        Actions Rapides
-                                    </h5>
-                                </div>
-                                
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-3 mb-2">
-                                            <button onclick="refreshStats()" class="btn btn-outline-primary w-100">
-                                                <i class="fa fa-refresh me-2"></i>
-                                                Actualiser Stats
-                                            </button>
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <button onclick="generateReferences()" class="btn btn-outline-info w-100">
-                                                <i class="fa fa-link me-2"></i>
-                                                Générer Références
-                                            </button>
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <button onclick="exportTickets()" class="btn btn-outline-success w-100">
-                                                <i class="fa fa-download me-2"></i>
-                                                Export CSV
-                                            </button>
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <button onclick="maintenanceMode()" class="btn btn-outline-warning w-100">
-                                                <i class="fa fa-wrench me-2"></i>
-                                                Maintenance
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Scripts Admin -->
-            <script>
-                function callNextTicket(button) {
-                    const serviceId = button.getAttribute('data-service-id');
-                    // Appel AJAX pour appeler le prochain ticket
-                    fetch('/queue/admin/call_next', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({service_id: serviceId})
-                    }).then(response => response.json())
-                      .then(data => {
-                          if (data.success) {
-                              location.reload();
-                          } else {
-                              alert('Erreur: ' + data.error);
-                          }
-                      });
-                }
-                
-                function refreshStats() {
-                    location.reload();
-                }
-                
-                function generateReferences() {
-                    if (confirm('Générer les références manquantes ?')) {
-                        fetch('/queue/admin/generate_references', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                        }).then(response => response.json())
-                          .then(data => {
-                              alert(data.success ? data.message : 'Erreur: ' + data.error);
-                              if (data.success) location.reload();
-                          });
+            <t t-set="title">Dashboard Admin - Files d'Attente</t>
+            <t t-set="head">
+                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+                <style>
+                    /* Styles sobres pour Odoo 17 */
+                    .admin-dashboard {
+                        background-color: #f8f9fa;
+                        min-height: 100vh;
+                        padding: 20px 0;
                     }
-                }
-                
-                function exportTickets() {
-                    window.open('/queue/export/tickets', '_blank');
-                }
-                
-                function maintenanceMode() {
-                    window.location.href = '/queue/admin/references';
-                }
-                
-                // Auto-refresh toutes les 60 secondes
-                setInterval(function() {
-                    location.reload();
-                }, 60000);
-            </script>
-        </t>
-    </template>
-    
-    <!-- Template d'administration des références -->
-    <template id="admin_references_template" name="Administration - Références">
-        <t t-call="website.layout">
-            <!-- Appel des assets -->
-            <t t-call="queue_management.queue_assets_common"/>
-            <div id="wrap" class="oe_structure oe_empty">
-                <div class="container mt-4">
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h2>
-                                    <i class="fa fa-link me-2"></i>
-                                    Gestion des Références
-                                </h2>
-                                <div class="btn-group">
-                                    <a href="/queue/admin" class="btn btn-outline-primary">
-                                        <i class="fa fa-arrow-left me-1"></i>Retour Admin
+                    
+                    .dashboard-card {
+                        background: white;
+                        border-radius: 8px;
+                        padding: 1.5rem;
+                        margin-bottom: 1.5rem;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                        border: 1px solid #e9ecef;
+                    }
+                    
+                    .stat-card {
+                        background: white;
+                        border-radius: 8px;
+                        padding: 1.25rem;
+                        text-align: center;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+                        border: 1px solid #e9ecef;
+                        transition: transform 0.2s ease;
+                    }
+                    
+                    .stat-card:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+                    }
+                    
+                    .stat-number {
+                        font-size: 2rem;
+                        font-weight: 700;
+                        color: #495057;
+                        margin-bottom: 0.5rem;
+                    }
+                    
+                    .stat-label {
+                        font-size: 0.875rem;
+                        color: #6c757d;
+                        font-weight: 500;
+                    }
+                    
+                    .service-card {
+                        background: white;
+                        border-radius: 8px;
+                        padding: 1.25rem;
+                        margin-bottom: 1rem;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+                        border: 1px solid #e9ecef;
+                        transition: all 0.2s ease;
+                    }
+                    
+                    .service-card:hover {
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+                    }
+                    
+                    .status-badge {
+                        padding: 0.375rem 0.75rem;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 0.75rem;
+                        text-transform: uppercase;
+                    }
+                    
+                    .status-open {
+                        background-color: #d4edda;
+                        color: #155724;
+                        border: 1px solid #c3e6cb;
+                    }
+                    
+                    .status-closed {
+                        background-color: #f8d7da;
+                        color: #721c24;
+                        border: 1px solid #f5c6cb;
+                    }
+                    
+                    .action-btn {
+                        border-radius: 6px;
+                        padding: 0.375rem 0.75rem;
+                        border: 1px solid;
+                        font-weight: 500;
+                        transition: all 0.2s ease;
+                        margin: 0 0.25rem;
+                        font-size: 0.875rem;
+                    }
+                    
+                    .btn-call {
+                        background-color: #007bff;
+                        color: white;
+                        border-color: #007bff;
+                    }
+                    
+                    .btn-call:hover:not(:disabled) {
+                        background-color: #0056b3;
+                        border-color: #0056b3;
+                        color: white;
+                        transform: translateY(-1px);
+                    }
+                    
+                    .btn-call:disabled {
+                        background-color: #6c757d;
+                        border-color: #6c757d;
+                        cursor: not-allowed;
+                    }
+                    
+                    .btn-view {
+                        background-color: #ffc107;
+                        color: #212529;
+                        border-color: #ffc107;
+                    }
+                    
+                    .btn-view:hover {
+                        background-color: #e0a800;
+                        border-color: #d39e00;
+                        color: #212529;
+                        transform: translateY(-1px);
+                    }
+                    
+                    .quick-action-btn {
+                        background-color: #6c757d;
+                        color: white;
+                        border: 1px solid #6c757d;
+                        border-radius: 6px;
+                        padding: 0.75rem 1rem;
+                        font-weight: 500;
+                        width: 100%;
+                        margin-bottom: 0.75rem;
+                        transition: all 0.2s ease;
+                    }
+                    
+                    .quick-action-btn:hover {
+                        background-color: #545b62;
+                        border-color: #545b62;
+                        color: white;
+                        transform: translateY(-1px);
+                    }
+                    
+                    .loading-overlay {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(255, 255, 255, 0.8);
+                        display: none;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 9999;
+                    }
+                    
+                    .loading-spinner {
+                        text-align: center;
+                    }
+                    
+                    .spinner-border-custom {
+                        width: 3rem;
+                        height: 3rem;
+                        border: 0.3rem solid #dee2e6;
+                        border-top: 0.3rem solid #007bff;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                    }
+                    
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    
+                    .alert-notification {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        z-index: 10000;
+                        min-width: 300px;
+                        max-width: 500px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    }
+                    
+                    .header-actions {
+                        display: flex;
+                        gap: 0.5rem;
+                        align-items: center;
+                    }
+                    
+                    .service-stats {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 1rem;
+                        margin: 1rem 0;
+                    }
+                    
+                    .service-stat {
+                        text-align: center;
+                    }
+                    
+                    .service-stat-number {
+                        font-size: 1.5rem;
+                        font-weight: 600;
+                        margin-bottom: 0.25rem;
+                    }
+                    
+                    .service-stat-label {
+                        font-size: 0.75rem;
+                        color: #6c757d;
+                        text-transform: uppercase;
+                        font-weight: 500;
+                    }
+                    
+                    @media (max-width: 768px) {
+                        .dashboard-card {
+                            padding: 1rem;
+                            margin-bottom: 1rem;
+                        }
+                        
+                        .stat-number {
+                            font-size: 1.5rem;
+                        }
+                        
+                        .header-actions {
+                            flex-direction: column;
+                            gap: 0.25rem;
+                        }
+                        
+                        .service-stats {
+                            grid-template-columns: 1fr;
+                            gap: 0.5rem;
+                        }
+                    }
+                </style>
+            </t>
+            
+            <div class="admin-dashboard">
+                <div class="container-fluid">
+                    
+                    <!-- Header -->
+                    <div class="dashboard-card">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h1 class="mb-2 h3">
+                                    <i class="fas fa-tachometer-alt me-2"></i>
+                                    Tableau de Bord - Files d'Attente
+                                </h1>
+                                <p class="text-muted mb-0">
+                                    Gestion en temps réel - <span id="current-time"></span>
+                                </p>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="header-actions justify-content-end">
+                                    <a href="/queue/admin/references" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-link me-1"></i>Références
                                     </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Statistiques des références -->
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="card bg-primary text-white">
-                                <div class="card-body text-center">
-                                    <h3><t t-esc="stats.total_tickets"/></h3>
-                                    <p class="mb-0">Total Tickets</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
-                                    <h3><t t-esc="stats.tickets_with_main_ref"/></h3>
-                                    <p class="mb-0">Références Principales</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card bg-info text-white">
-                                <div class="card-body text-center">
-                                    <h3><t t-esc="stats.tickets_with_short_ref"/></h3>
-                                    <p class="mb-0">Références Courtes</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card bg-warning text-dark">
-                                <div class="card-body text-center">
-                                    <h3><t t-esc="stats.tickets_with_hash"/></h3>
-                                    <p class="mb-0">Hash Sécurité</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Vérification de l'unicité -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">
-                                        <i class="fa fa-check-circle me-2"></i>
-                                        Vérification de l'Unicité
-                                    </h5>
-                                </div>
-                                
-                                <div class="card-body">
-                                    <t t-if="uniqueness_check.all_unique">
-                                        <div class="alert alert-success">
-                                            <i class="fa fa-check-circle me-2"></i>
-                                            Toutes les références sont uniques!
-                                        </div>
-                                    </t>
-                                    <t t-else="">
-                                        <div class="alert alert-warning">
-                                            <i class="fa fa-exclamation-triangle me-2"></i>
-                                            Doublons détectés: <t t-esc="len(uniqueness_check.duplicates)"/> références dupliquées
-                                        </div>
-                                        
-                                        <t t-if="uniqueness_check.duplicates">
-                                            <h6>Références dupliquées :</h6>
-                                            <ul>
-                                                <t t-foreach="uniqueness_check.duplicates" t-as="dup">
-                                                    <li><t t-esc="dup"/></li>
-                                                </t>
-                                            </ul>
-                                        </t>
-                                    </t>
-                                    
-                                    <button onclick="checkUniqueness()" class="btn btn-outline-primary">
-                                        <i class="fa fa-refresh me-2"></i>
-                                        Re-vérifier
+                                    <a href="/queue" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye me-1"></i>Vue Public
+                                    </a>
+                                    <button onclick="refreshDashboard()" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-sync-alt me-1"></i>Actualiser
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Tickets récents -->
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">
-                                        <i class="fa fa-clock me-2"></i>
-                                        Tickets Récents (Aujourd'hui)
-                                    </h5>
+
+                    <!-- Statistiques -->
+                    <div class="row mb-4">
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-card">
+                                <div class="stat-number">
+                                    <t t-esc="len(services)"/>
                                 </div>
-                                
-                                <div class="card-body">
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Numéro</th>
-                                                    <th>Référence</th>
-                                                    <th>Code Court</th>
-                                                    <th>Service</th>
-                                                    <th>État</th>
-                                                    <th>Créé</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <t t-foreach="recent_tickets" t-as="ticket">
-                                                    <tr>
-                                                        <td>
-                                                            <strong>#<t t-esc="ticket.ticket_number"/></strong>
-                                                        </td>
-                                                        <td>
-                                                            <t t-if="ticket.ticket_reference">
-                                                                <code class="small"><t t-esc="ticket.ticket_reference"/></code>
-                                                            </t>
-                                                            <t t-else="">
-                                                                <span class="text-muted">Non généré</span>
-                                                            </t>
-                                                        </td>
-                                                        <td>
-                                                            <t t-if="ticket.short_reference">
-                                                                <strong><t t-esc="ticket.short_reference"/></strong>
-                                                            </t>
-                                                            <t t-else="">
-                                                                <span class="text-muted">-</span>
-                                                            </t>
-                                                        </td>
-                                                        <td><t t-esc="ticket.service_id.name"/></td>
-                                                        <td>
-                                                            <t t-if="ticket.state == 'waiting'">
-                                                                <span class="badge bg-warning">Attente</span>
-                                                            </t>
-                                                            <t t-elif="ticket.state == 'called'">
-                                                                <span class="badge bg-primary">Appelé</span>
-                                                            </t>
-                                                            <t t-elif="ticket.state == 'served'">
-                                                                <span class="badge bg-success">Servi</span>
-                                                            </t>
-                                                            <t t-elif="ticket.state == 'cancelled'">
-                                                                <span class="badge bg-danger">Annulé</span>
-                                                            </t>
-                                                        </td>
-                                                        <td>
-                                                            <small><t t-esc="ticket.created_time.strftime('%H:%M') if ticket.created_time else ''"/></small>
-                                                        </td>
-                                                        <td>
-                                                            <t t-if="ticket.ticket_reference">
-                                                                <a t-att-href="'/queue/track/' + ticket.ticket_reference" 
-                                                                   class="btn btn-outline-primary btn-sm">
-                                                                    <i class="fa fa-eye"></i>
-                                                                </a>
-                                                            </t>
-                                                        </td>
-                                                    </tr>
-                                                </t>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                <div class="stat-label">Services Actifs</div>
+                                <div class="mt-2">
+                                    <i class="fas fa-cogs fa-lg text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-card">
+                                <div class="stat-number" id="tickets-today">
+                                    <t t-esc="total_tickets_today"/>
+                                </div>
+                                <div class="stat-label">Tickets Aujourd'hui</div>
+                                <div class="mt-2">
+                                    <i class="fas fa-ticket-alt fa-lg text-success"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-card">
+                                <div class="stat-number">
+                                    <t t-esc="tickets_with_references"/>
+                                </div>
+                                <div class="stat-label">Avec Références</div>
+                                <div class="mt-2">
+                                    <i class="fas fa-link fa-lg text-info"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-card">
+                                <div class="stat-number">
+                                    <t t-esc="int(reference_coverage)"/>%
+                                </div>
+                                <div class="stat-label">Couverture Réf.</div>
+                                <div class="mt-2">
+                                    <i class="fas fa-chart-pie fa-lg text-warning"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Actions de maintenance -->
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">
-                                        <i class="fa fa-wrench me-2"></i>
-                                        Actions de Maintenance
-                                    </h5>
-                                </div>
-                                
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-4 mb-3">
-                                            <button onclick="generateMissingReferences()" 
-                                                    class="btn btn-primary w-100">
-                                                <i class="fa fa-plus me-2"></i>
-                                                Générer Références Manquantes
-                                            </button>
+
+                    <!-- Services -->
+                    <div class="dashboard-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-list me-2"></i>
+                            Services - État en Temps Réel
+                        </h5>
+                        
+                        <div class="row" id="services-container">
+                            <t t-foreach="services" t-as="service">
+                                <div class="col-lg-6 mb-3">
+                                    <div class="service-card">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div>
+                                                <h6 class="mb-1 fw-semibold"><t t-esc="service.name"/></h6>
+                                                <t t-if="service.description">
+                                                    <small class="text-muted"><t t-esc="service.description"/></small>
+                                                </t>
+                                            </div>
+                                            <span t-if="service.is_open" class="status-badge status-open">
+                                                <i class="fas fa-circle me-1"></i>Ouvert
+                                            </span>
+                                            <span t-else="" class="status-badge status-closed">
+                                                <i class="fas fa-circle me-1"></i>Fermé
+                                            </span>
                                         </div>
                                         
-                                        <div class="col-md-4 mb-3">
-                                            <button onclick="cleanupOldTickets()" 
-                                                    class="btn btn-warning w-100">
-                                                <i class="fa fa-trash me-2"></i>
-                                                Nettoyer Anciens Tickets
-                                            </button>
+                                        <div class="service-stats">
+                                            <div class="service-stat">
+                                                <div class="service-stat-number text-warning">
+                                                    <t t-esc="service.waiting_count or 0"/>
+                                                </div>
+                                                <div class="service-stat-label">En attente</div>
+                                            </div>
+                                            <div class="service-stat">
+                                                <div class="service-stat-number text-primary">
+                                                    <t t-if="service.current_ticket_number">
+                                                        #<t t-esc="service.current_ticket_number"/>
+                                                    </t>
+                                                    <t t-else="">-</t>
+                                                </div>
+                                                <div class="service-stat-label">Actuel</div>
+                                            </div>
+                                            <div class="service-stat">
+                                                <div class="service-stat-number text-info">
+                                                    <t t-esc="int(service.avg_waiting_time or 0)"/>m
+                                                </div>
+                                                <div class="service-stat-label">Temps moy.</div>
+                                            </div>
                                         </div>
                                         
-                                        <div class="col-md-4 mb-3">
-                                            <button onclick="scheduledMaintenance()" 
-                                                    class="btn btn-info w-100">
-                                                <i class="fa fa-cogs me-2"></i>
-                                                Maintenance Programmée
-                                            </button>
+                                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                                            <small class="text-muted">
+                                                Total: <strong><t t-esc="service.total_tickets_today or 0"/></strong>
+                                            </small>
+                                            <div>
+                                                <button class="action-btn btn-call" 
+                                                        onclick="callNextTicket(this)"
+                                                        t-att-data-service-id="service.id"
+                                                        t-att-disabled="'disabled' if not service.is_open else None"
+                                                        title="Appeler le prochain ticket">
+                                                    <i class="fas fa-bell"></i>
+                                                </button>
+                                                <button class="action-btn btn-view"
+                                                        onclick="viewServiceTickets(this)"
+                                                        t-att-data-service-id="service.id"
+                                                        title="Voir les tickets du service">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Actions Rapides -->
+                    <div class="dashboard-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-bolt me-2"></i>
+                            Actions Rapides
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6">
+                                <button onclick="refreshStats()" class="quick-action-btn">
+                                    <i class="fas fa-sync-alt me-2"></i>
+                                    Actualiser Stats
+                                </button>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <button onclick="generateReferences()" class="quick-action-btn">
+                                    <i class="fas fa-link me-2"></i>
+                                    Générer Références
+                                </button>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <button onclick="exportTickets()" class="quick-action-btn">
+                                    <i class="fas fa-download me-2"></i>
+                                    Export CSV
+                                </button>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <button onclick="maintenanceMode()" class="quick-action-btn">
+                                    <i class="fas fa-tools me-2"></i>
+                                    Maintenance
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading Overlay -->
+                    <div class="loading-overlay" id="loading-overlay">
+                        <div class="loading-spinner">
+                            <div class="spinner-border-custom"></div>
+                            <p class="mt-3 text-muted">Traitement en cours...</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Scripts corrigés -->
+            <script>
+                // Variables globales
+                let isLoading = false;
+                let csrfToken = null;
+                
+                // Initialisation
+                document.addEventListener('DOMContentLoaded', function() {
+                    updateCurrentTime();
+                    startAutoRefresh();
+                    getCsrfToken();
+                });
+
+                // Récupération du token CSRF
+                function getCsrfToken() {
+                    const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+                    if (metaCsrf) {
+                        csrfToken = metaCsrf.getAttribute('content');
+                    }
+                }
+
+                // Mise à jour de l'heure
+                function updateCurrentTime() {
+                    const now = new Date();
+                    const timeStr = now.toLocaleString('fr-FR', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const timeElement = document.getElementById('current-time');
+                    if (timeElement) {
+                        timeElement.textContent = timeStr;
+                    }
+                }
+
+                // Gestion du loading
+                function showLoading() {
+                    if (isLoading) return;
+                    isLoading = true;
+                    const overlay = document.getElementById('loading-overlay');
+                    if (overlay) {
+                        overlay.style.display = 'flex';
+                    }
+                }
+
+                function hideLoading() {
+                    isLoading = false;
+                    const overlay = document.getElementById('loading-overlay');
+                    if (overlay) {
+                        overlay.style.display = 'none';
+                    }
+                }
+
+                // Appel du prochain ticket - CORRIGÉ
+                // Appel du prochain ticket - VERSION CORRIGÉE POUR ODOO 17
+                function callNextTicket(button) {
+                    if (isLoading) return;
+                    
+                    const serviceId = button.getAttribute('data-service-id');
+                    if (!serviceId) {
+                        showNotification('error', 'ID du service manquant');
+                        return;
+                    }
+                    
+                    showLoading();
+                    button.disabled = true;
+                    
+                    // Utiliser l'API JSON avec fetch
+                    fetch('/queue/admin/call_next', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            service_id: parseInt(serviceId),
+                            csrf_token: csrfToken
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        hideLoading();
+                        button.disabled = false;
+                        
+                        if (data.success) {
+                            showNotification('success', data.message || 'Prochain ticket appelé!');
+                            // Rafraîchir après un court délai
+                            setTimeout(() => refreshDashboard(), 1500);
+                        } else {
+                            showNotification('error', data.error || 'Erreur lors de l\'appel');
+                        }
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        button.disabled = false;
+                        console.error('Erreur appel ticket:', error);
+                        showNotification('error', 'Erreur de connexion');
+                    });
+                }
+
+                // Fonctions manquantes - AJOUTER DANS LE SCRIPT
+                function refreshDashboard() {
+                    if (isLoading) return;
+                    showLoading();
+                    location.reload();
+                }
+
+                function startAutoRefresh() {
+                    setInterval(() => {
+                        updateCurrentTime();
+                    }, 60000);
+                    
+                    // Refresh complet toutes les 5 minutes
+                    setInterval(() => {
+                        if (!isLoading) {
+                            console.log('Auto-refresh du dashboard');
+                            location.reload();
+                        }
+                    }, 300000);
+                }
+
+                function updateCurrentTime() {
+                    const now = new Date();
+                    const timeStr = now.toLocaleString('fr-FR', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const timeElement = document.getElementById('current-time');
+                    if (timeElement) {
+                        timeElement.textContent = timeStr;
+                    }
+                }
+
+                // Voir les tickets du service - CORRIGÉ
+                function viewServiceTickets(button) {
+                    const serviceId = button.getAttribute('data-service-id');
+                    if (!serviceId) {
+                        showNotification('error', 'ID du service manquant');
+                        return;
+                    }
+                    window.open(`/queue/admin/service/${serviceId}/tickets`, '_blank');
+                }
+
+                // Actualiser les statistiques - CORRIGÉ
+                function refreshStats() {
+                    if (isLoading) return;
+                    showLoading();
+                    showNotification('info', 'Actualisation en cours...');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                }
+
+                // Générer les références - CORRIGÉ
+                function generateReferences() {
+                    if (isLoading) return;
+                    
+                    if (!confirm('Générer les références manquantes pour tous les tickets ?')) {
+                        return;
+                    }
+                    
+                    showLoading();
+                    
+                    fetch('/queue/admin/generate_references', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: csrfToken ? `csrf_token=${csrfToken}` : ''
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        hideLoading();
+                        if (data.success) {
+                            showNotification('success', data.message);
+                            setTimeout(() => location.reload(), 2000);
+                        } else {
+                            showNotification('error', data.error || 'Erreur lors de la génération');
+                        }
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        console.error('Erreur génération références:', error);
+                        showNotification('error', 'Erreur de connexion');
+                    });
+                }
+
+                // Export des tickets - CORRIGÉ
+                function exportTickets() {
+                    if (isLoading) return;
+                    showLoading();
+                    showNotification('info', 'Préparation de l\'export...');
+                    
+                    try {
+                        const exportUrl = '/queue/export/tickets';
+                        const link = document.createElement('a');
+                        link.href = exportUrl;
+                        link.download = `tickets_${new Date().toISOString().split('T')[0]}.csv`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        setTimeout(() => {
+                            hideLoading();
+                            showNotification('success', 'Export téléchargé!');
+                        }, 2000);
+                    } catch (error) {
+                        hideLoading();
+                        showNotification('error', 'Erreur lors de l\'export');
+                    }
+                }
+
+                // Mode maintenance - CORRIGÉ
+                function maintenanceMode() {
+                    if (confirm('Accéder à la page de maintenance ?')) {
+                        window.location.href = '/queue/admin/references';
+                    }
+                }
+
+                // Actualiser le dashboard - CORRIGÉ
+                function refreshDashboard() {
+                    if (isLoading) return;
+                    showLoading();
+                    location.reload();
+                }
+
+                // Notifications améliorées
+                function showNotification(type, message) {
+                    // Supprimer les notifications existantes
+                    const existingNotifications = document.querySelectorAll('.alert-notification');
+                    existingNotifications.forEach(n => n.remove());
+                    
+                    // Créer la nouvelle notification
+                    const notification = document.createElement('div');
+                    const alertClass = type === 'success' ? 'alert-success' : 
+                                    type === 'error' ? 'alert-danger' : 
+                                    type === 'info' ? 'alert-info' : 'alert-warning';
+                    
+                    notification.className = `alert ${alertClass} alert-notification alert-dismissible fade show`;
+                    
+                    const icon = type === 'success' ? 'fas fa-check-circle' : 
+                            type === 'error' ? 'fas fa-exclamation-circle' :
+                            type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
+                    
+                    notification.innerHTML = `
+                        <i class="${icon} me-2"></i>
+                        ${message}
+                        <button type="button" class="btn-close" onclick="this.parentElement.remove()" aria-label="Close"></button>
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    // Auto-remove après 4 secondes
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.classList.remove('show');
+                            setTimeout(() => notification.remove(), 150);
+                        }
+                    }, 4000);
+                }
+
+                // Auto-refresh amélioré
+                function startAutoRefresh() {
+                    setInterval(() => {
+                        updateCurrentTime();
+                    }, 60000); // Mise à jour de l'heure chaque minute
+                    
+                    // Refresh complet toutes les 5 minutes
+                    setInterval(() => {
+                        if (!isLoading) {
+                            console.log('Auto-refresh du dashboard');
+                            location.reload();
+                        }
+                    }, 300000); // 5 minutes
+                }
+
+                // Gestion des erreurs globales
+                window.addEventListener('error', function(e) {
+                    console.error('Erreur JavaScript:', e.error);
+                    if (!isLoading) {
+                        showNotification('error', 'Une erreur inattendue s\'est produite');
+                    }
+                });
+
+                // Gestion des erreurs de réseau
+                window.addEventListener('online', function() {
+                    showNotification('success', 'Connexion rétablie');
+                });
+
+                window.addEventListener('offline', function() {
+                    showNotification('error', 'Connexion perdue');
+                });
+
+                // Responsive: ajustements pour mobile
+                function adjustForMobile() {
+                    const isMobile = window.innerWidth &lt; 768;
+                    const serviceCards = document.querySelectorAll('.service-card');
+                    
+                    serviceCards.forEach(card => {
+                        if (isMobile) {
+                            card.style.marginBottom = '1rem';
+                        }
+                    });
+                }
+
+                window.addEventListener('resize', adjustForMobile);
+                adjustForMobile(); // Appel initial
+
+                // Debug: vérifications au chargement
+                console.log('Dashboard admin initialisé');
+                console.log('CSRF Token:', csrfToken ? 'Présent' : 'Absent');
+            </script>
+        </t>
+    </template>
+
+    <!-- Template pour les erreurs -->
+    <template id="admin_error_template" name="Erreur Admin">
+        <t t-call="website.layout">
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6">
+                        <div class="alert alert-danger text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                            <h4>Erreur d'accès</h4>
+                            <p><t t-esc="error_message or 'Une erreur est survenue'"/></p>
+                            <div class="mt-3">
+                                <a href="/queue" class="btn btn-primary me-2">Retour à l'accueil</a>
+                                <a href="/queue/admin" class="btn btn-outline-secondary">Dashboard</a>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </t>
+    </template>
+
+    <!-- Template pour la page des références -->
+    <template id="admin_references_template" name="Administration - Références">
+        <t t-call="website.layout">
+            <t t-set="title">Gestion des Références</t>
+            <t t-set="head">
+                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+                <style>
+                    .references-page {
+                        background-color: #f8f9fa;
+                        min-height: 100vh;
+                        padding: 20px 0;
+                    }
+                    
+                    .ref-card {
+                        background: white;
+                        border-radius: 8px;
+                        padding: 1.5rem;
+                        margin-bottom: 1.5rem;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                        border: 1px solid #e9ecef;
+                    }
+                    
+                    .stat-box {
+                        background: white;
+                        border-radius: 8px;
+                        padding: 1.25rem;
+                        text-align: center;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+                        border: 1px solid #e9ecef;
+                        transition: transform 0.2s ease;
+                    }
+                    
+                    .stat-box:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+                    }
+                    
+                    .maintenance-btn {
+                        background-color: #6c757d;
+                        color: white;
+                        border: 1px solid #6c757d;
+                        border-radius: 6px;
+                        padding: 0.75rem;
+                        width: 100%;
+                        transition: all 0.2s ease;
+                        font-weight: 500;
+                    }
+                    
+                    .maintenance-btn:hover {
+                        background-color: #545b62;
+                        border-color: #545b62;
+                        color: white;
+                        transform: translateY(-1px);
+                    }
+                    
+                    .table-responsive {
+                        border-radius: 8px;
+                        overflow: hidden;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+                    }
+                    
+                    .table {
+                        margin-bottom: 0;
+                    }
+                    
+                    .table th {
+                        background-color: #495057;
+                        color: white;
+                        border: none;
+                        font-weight: 600;
+                        font-size: 0.875rem;
+                    }
+                    
+                    .table td {
+                        vertical-align: middle;
+                        border-color: #e9ecef;
+                    }
+                    
+                    .badge {
+                        font-size: 0.7rem;
+                        padding: 0.35rem 0.65rem;
+                    }
+                </style>
+            </t>
             
-            <!-- Scripts de maintenance -->
+            <div class="references-page">
+                <div class="container">
+                    
+                    <!-- Header -->
+                    <div class="ref-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h1 class="h3 mb-0">
+                                <i class="fas fa-link me-2"></i>
+                                Gestion des Références
+                            </h1>
+                            <a href="/queue/admin" class="btn btn-outline-primary">
+                                <i class="fas fa-arrow-left me-1"></i>Retour Admin
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Statistiques des références -->
+                    <div class="row mb-4">
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-box">
+                                <h3 class="text-primary mb-1"><t t-esc="stats.total_tickets"/></h3>
+                                <p class="mb-0 text-muted">Total Tickets</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-box">
+                                <h3 class="text-success mb-1"><t t-esc="stats.tickets_with_main_ref"/></h3>
+                                <p class="mb-0 text-muted">Références Principales</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-box">
+                                <h3 class="text-info mb-1"><t t-esc="stats.tickets_with_short_ref"/></h3>
+                                <p class="mb-0 text-muted">Références Courtes</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stat-box">
+                                <h3 class="text-warning mb-1"><t t-esc="stats.tickets_with_hash"/></h3>
+                                <p class="mb-0 text-muted">Hash Sécurité</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vérification de l'unicité -->
+                    <div class="ref-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Vérification de l'Unicité
+                        </h5>
+                        
+                        <t t-if="uniqueness_check.all_unique">
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Toutes les références sont uniques!
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Doublons détectés: <t t-esc="len(uniqueness_check.duplicates)"/> références dupliquées
+                            </div>
+                            
+                            <t t-if="uniqueness_check.duplicates">
+                                <h6>Références dupliquées :</h6>
+                                <ul class="list-unstyled">
+                                    <t t-foreach="uniqueness_check.duplicates" t-as="dup">
+                                        <li class="mb-1">
+                                            <code class="text-danger"><t t-esc="dup"/></code>
+                                        </li>
+                                    </t>
+                                </ul>
+                            </t>
+                        </t>
+                    </div>
+
+                    <!-- Tickets récents -->
+                    <div class="ref-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-clock me-2"></i>
+                            Tickets Récents (Aujourd'hui)
+                        </h5>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Numéro</th>
+                                        <th>Référence</th>
+                                        <th>Code Court</th>
+                                        <th>Service</th>
+                                        <th>État</th>
+                                        <th>Créé</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="recent_tickets" t-as="ticket">
+                                        <tr>
+                                            <td>
+                                                <strong class="text-primary">#<t t-esc="ticket.ticket_number"/></strong>
+                                            </td>
+                                            <td>
+                                                <t t-if="ticket.ticket_reference">
+                                                    <code class="text-success"><t t-esc="ticket.ticket_reference"/></code>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="text-muted fst-italic">Non généré</span>
+                                                </t>
+                                            </td>
+                                            <td>
+                                                <t t-if="ticket.short_reference">
+                                                    <strong class="text-info"><t t-esc="ticket.short_reference"/></strong>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="text-muted">-</span>
+                                                </t>
+                                            </td>
+                                            <td>
+                                                <small><t t-esc="ticket.service_id.name"/></small>
+                                            </td>
+                                            <td>
+                                                <t t-if="ticket.state == 'waiting'">
+                                                    <span class="badge bg-warning text-dark">Attente</span>
+                                                </t>
+                                                <t t-elif="ticket.state == 'called'">
+                                                    <span class="badge bg-primary">Appelé</span>
+                                                </t>
+                                                <t t-elif="ticket.state == 'served'">
+                                                    <span class="badge bg-success">Servi</span>
+                                                </t>
+                                                <t t-elif="ticket.state == 'cancelled'">
+                                                    <span class="badge bg-danger">Annulé</span>
+                                                </t>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    <t t-esc="ticket.created_time.strftime('%H:%M') if ticket.created_time else ''"/>
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <t t-if="ticket.ticket_reference">
+                                                    <a t-att-href="'/queue/track/' + ticket.ticket_reference" 
+                                                    class="btn btn-outline-primary btn-sm"
+                                                    target="_blank"
+                                                    title="Voir le ticket">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </t>
+                                                <t t-else="">
+                                                    <button class="btn btn-outline-secondary btn-sm" disabled="disabled">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                </t>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                    <t t-if="not recent_tickets">
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">
+                                                Aucun ticket créé aujourd'hui
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Actions de maintenance -->
+                    <div class="ref-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-tools me-2"></i>
+                            Actions de Maintenance
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <button onclick="generateMissingReferences()" class="maintenance-btn">
+                                    <i class="fas fa-plus me-2"></i>
+                                    Générer Références Manquantes
+                                </button>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <button onclick="cleanupOldTickets()" class="maintenance-btn">
+                                    <i class="fas fa-trash me-2"></i>
+                                    Nettoyer Anciens Tickets
+                                </button>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <button onclick="scheduledMaintenance()" class="maintenance-btn">
+                                    <i class="fas fa-cogs me-2"></i>
+                                    Maintenance Programmée
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <button onclick="checkUniqueReferences()" class="maintenance-btn">
+                                    <i class="fas fa-search me-2"></i>
+                                    Vérifier Unicité
+                                </button>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <button onclick="refreshReferencesPage()" class="maintenance-btn">
+                                    <i class="fas fa-sync-alt me-2"></i>
+                                    Actualiser Page
+                                </button>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <button onclick="exportReferencesReport()" class="maintenance-btn">
+                                    <i class="fas fa-file-csv me-2"></i>
+                                    Rapport CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Scripts pour les références - CORRIGÉS -->
             <script>
+                // Variables globales
+                let isMaintenanceRunning = false;
+                let csrfToken = null;
+                
+                // Initialisation
+                document.addEventListener('DOMContentLoaded', function() {
+                    getCsrfToken();
+                    console.log('Page références initialisée');
+                });
+                
+                // Récupération du token CSRF
+                function getCsrfToken() {
+                    const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+                    if (metaCsrf) {
+                        csrfToken = metaCsrf.getAttribute('content');
+                    }
+                }
+                
+                // Générer références manquantes - CORRIGÉ
                 function generateMissingReferences() {
-                    if (confirm('Générer les références manquantes pour tous les tickets ?')) {
-                        showLoader('Génération en cours...');
-                        fetch('/queue/admin/generate_references', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'}
-                        }).then(response => response.json())
-                          .then(data => {
-                              hideLoader();
-                              alert(data.success ? data.message : 'Erreur: ' + data.error);
-                              if (data.success) location.reload();
-                          })
-                          .catch(error => {
-                              hideLoader();
-                              alert('Erreur réseau: ' + error);
-                          });
+                    if (isMaintenanceRunning) {
+                        showMaintenanceNotification('warning', 'Une opération de maintenance est déjà en cours');
+                        return;
                     }
+                    
+                    if (!confirm('Générer les références manquantes pour tous les tickets ?\n\nCette opération peut prendre du temps selon le nombre de tickets.')) {
+                        return;
+                    }
+                    
+                    isMaintenanceRunning = true;
+                    showMaintenanceLoader('Génération des références en cours...');
+                    
+                    fetch('/queue/admin/generate_references', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: csrfToken ? `csrf_token=${csrfToken}` : ''
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                        
+                        if (data.success) {
+                            showMaintenanceNotification('success', data.message || 'Références générées avec succès');
+                            setTimeout(() => location.reload(), 2000);
+                        } else {
+                            showMaintenanceNotification('error', data.error || 'Erreur lors de la génération');
+                        }
+                    })
+                    .catch(error => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                        console.error('Erreur génération références:', error);
+                        showMaintenanceNotification('error', `Erreur: ${error.message}`);
+                    });
                 }
                 
+                // Nettoyer anciens tickets - CORRIGÉ
                 function cleanupOldTickets() {
-                    if (confirm('Supprimer les tickets annulés de plus de 30 jours ?')) {
-                        showLoader('Nettoyage en cours...');
-                        fetch('/queue/maintenance', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({operation: 'cleanup_old_tickets'})
-                        }).then(response => response.json())
-                          .then(data => {
-                              hideLoader();
-                              alert(data.success ? data.message : 'Erreur: ' + data.error);
-                              if (data.success) location.reload();
-                          });
+                    if (isMaintenanceRunning) {
+                        showMaintenanceNotification('warning', 'Une opération de maintenance est déjà en cours');
+                        return;
                     }
-                }
-                
-                function scheduledMaintenance() {
-                    if (confirm('Effectuer la maintenance programmée complète ?')) {
-                        showLoader('Maintenance en cours...');
-                        fetch('/queue/maintenance', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({operation: 'scheduled_maintenance'})
-                        }).then(response => response.json())
-                          .then(data => {
-                              hideLoader();
-                              alert(data.success ? 'Maintenance terminée!' : 'Erreur: ' + data.error);
-                              if (data.success) location.reload();
-                          });
+                    
+                    const daysToKeep = prompt('Nombre de jours à conserver pour les tickets annulés :', '30');
+                    if (!daysToKeep || isNaN(daysToKeep) || parseInt(daysToKeep) &lt; 1) {
+                        showMaintenanceNotification('warning', 'Nombre de jours invalide');
+                        return;
                     }
-                }
-                
-                function checkUniqueness() {
-                    showLoader('Vérification...');
+                    
+                    if (!confirm(`Supprimer les tickets annulés de plus de ${daysToKeep} jours ?\n\nCette action est irréversible.`)) {
+                        return;
+                    }
+                    
+                    isMaintenanceRunning = true;
+                    showMaintenanceLoader('Nettoyage des anciens tickets...');
+                    
                     fetch('/queue/maintenance', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({operation: 'check_uniqueness'})
-                    }).then(response => response.json())
-                      .then(data => {
-                          hideLoader();
-                          if (data.success) {
-                              location.reload();
-                          } else {
-                              alert('Erreur: ' + data.error);
-                          }
-                      });
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `operation=cleanup_old_tickets&amp;days_to_keep=${daysToKeep}${csrfToken ? `&amp;csrf_token=${csrfToken}` : ''}`
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                        
+                        if (data.success) {
+                            showMaintenanceNotification('success', data.message || 'Nettoyage terminé');
+                            setTimeout(() => location.reload(), 2000);
+                        } else {
+                            showMaintenanceNotification('error', data.error || 'Erreur lors du nettoyage');
+                        }
+                    })
+                    .catch(error => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                        console.error('Erreur nettoyage:', error);
+                        showMaintenanceNotification('error', `Erreur: ${error.message}`);
+                    });
                 }
                 
-                function showLoader(message) {
-                    // Affichage d'un loader simple
+                // Maintenance programmée - CORRIGÉ
+                function scheduledMaintenance() {
+                    if (isMaintenanceRunning) {
+                        showMaintenanceNotification('warning', 'Une opération de maintenance est déjà en cours');
+                        return;
+                    }
+                    
+                    if (!confirm('Effectuer la maintenance programmée complète ?\n\nCela inclut :\n- Génération des références manquantes\n- Vérification de l\'unicité\n- Nettoyage des données\n- Mise à jour des statistiques')) {
+                        return;
+                    }
+                    
+                    isMaintenanceRunning = true;
+                    showMaintenanceLoader('Maintenance programmée en cours...');
+                    
+                    fetch('/queue/maintenance', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `operation=scheduled_maintenance${csrfToken ? `&amp;csrf_token=${csrfToken}` : ''}`
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                        
+                        if (data.success) {
+                            showMaintenanceNotification('success', 'Maintenance programmée terminée avec succès!');
+                            setTimeout(() => location.reload(), 3000);
+                        } else {
+                            showMaintenanceNotification('error', data.error || 'Erreur lors de la maintenance');
+                        }
+                    })
+                    .catch(error => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                        console.error('Erreur maintenance:', error);
+                        showMaintenanceNotification('error', `Erreur: ${error.message}`);
+                    });
+                }
+                
+                // Vérifier unicité des références - NOUVEAU
+                function checkUniqueReferences() {
+                    if (isMaintenanceRunning) {
+                        showMaintenanceNotification('warning', 'Une opération est déjà en cours');
+                        return;
+                    }
+                    
+                    isMaintenanceRunning = true;
+                    showMaintenanceLoader('Vérification de l\'unicité...');
+                    
+                    fetch('/queue/maintenance', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `operation=check_uniqueness${csrfToken ? `&amp;csrf_token=${csrfToken}` : ''}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+
+                        if (data.success &amp;&amp; data.result) {
+                            const result = data.result;
+                            if (result.all_unique) {
+                                showMaintenanceNotification('success', '✅ Toutes les références sont uniques!');
+                            } else {
+                                const duplicateCount = result.duplicates ? result.duplicates.length : 0;
+                                showMaintenanceNotification('warning', `⚠️ ${duplicateCount} références dupliquées trouvées`);
+                            }
+                        } else {
+                            showMaintenanceNotification('error', data.error || 'Erreur lors de la vérification');
+                        }
+                    })
+                    .catch(error => {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                        showMaintenanceNotification('error', `Erreur: ${error.message}`);
+                    });
+                }
+                
+                // Actualiser la page - NOUVEAU
+                function refreshReferencesPage() {
+                    showMaintenanceNotification('info', 'Actualisation de la page...');
+                    setTimeout(() => location.reload(), 500);
+                }
+                
+                // Export rapport CSV - NOUVEAU
+                function exportReferencesReport() {
+                    try {
+                        showMaintenanceNotification('info', 'Préparation du rapport...');
+                        const exportUrl = '/queue/export/tickets?include_references=1';
+                        const link = document.createElement('a');
+                        link.href = exportUrl;
+                        link.download = `rapport_references_${new Date().toISOString().split('T')[0]}.csv`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        showMaintenanceNotification('success', 'Rapport téléchargé!');
+                    } catch (error) {
+                        showMaintenanceNotification('error', 'Erreur lors de l\'export');
+                    }
+                }
+                
+                // Affichage du loader de maintenance - AMÉLIORÉ
+                function showMaintenanceLoader(message) {
+                    // Supprimer le loader existant
+                    const existingLoader = document.getElementById('maintenance-loader');
+                    if (existingLoader) {
+                        existingLoader.remove();
+                    }
+                    
                     const loader = document.createElement('div');
                     loader.id = 'maintenance-loader';
                     loader.innerHTML = `
                         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                                    background: rgba(0,0,0,0.7); z-index: 9999; display: flex; 
-                                    align-items: center; justify-content: center; color: white;">
+                                    background: rgba(255,255,255,0.9); z-index: 9999; display: flex; 
+                                    align-items: center; justify-content: center;">
                             <div class="text-center">
-                                <i class="fa fa-spinner fa-spin fa-3x mb-3"></i>
-                                <p>${message}</p>
+                                <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <h5 class="text-primary">${message}</h5>
+                                <p class="text-muted">Veuillez patienter...</p>
                             </div>
                         </div>
                     `;
                     document.body.appendChild(loader);
                 }
                 
-                function hideLoader() {
+                // Masquer le loader - AMÉLIORÉ
+                function hideMaintenanceLoader() {
                     const loader = document.getElementById('maintenance-loader');
-                    if (loader) loader.remove();
+                    if (loader) {
+                        loader.remove();
+                    }
                 }
+                
+                // Notifications pour maintenance - NOUVEAU
+                function showMaintenanceNotification(type, message) {
+                    // Supprimer les notifications existantes
+                    const existingNotifications = document.querySelectorAll('.maintenance-notification');
+                    existingNotifications.forEach(n => n.remove());
+                    
+                    const notification = document.createElement('div');
+                    const alertClass = type === 'success' ? 'alert-success' : 
+                                    type === 'error' ? 'alert-danger' : 
+                                    type === 'info' ? 'alert-info' : 'alert-warning';
+                    
+                    notification.className = `alert ${alertClass} maintenance-notification alert-dismissible fade show`;
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        z-index: 10000;
+                        min-width: 350px;
+                        max-width: 500px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    `;
+                    
+                    const icon = type === 'success' ? 'fas fa-check-circle' : 
+                            type === 'error' ? 'fas fa-exclamation-circle' :
+                            type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
+                    
+                    notification.innerHTML = `
+                        <i class="${icon} me-2"></i>
+                        ${message}
+                        <button type="button" class="btn-close" onclick="this.parentElement.remove()" aria-label="Close"></button>
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    // Auto-remove après 5 secondes pour les succès, 8 secondes pour les erreurs
+                    const timeout = type === 'error' ? 8000 : 5000;
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.classList.remove('show');
+                            setTimeout(() => notification.remove(), 150);
+                        }
+                    }, timeout);
+                }
+                
+                // Gestion des erreurs
+                window.addEventListener('error', function(e) {
+                    console.error('Erreur JavaScript:', e.error);
+                    if (isMaintenanceRunning) {
+                        hideMaintenanceLoader();
+                        isMaintenanceRunning = false;
+                    }
+                    showMaintenanceNotification('error', 'Une erreur inattendue s\'est produite');
+                });
             </script>
         </t>
     </template>
+
+    <!-- Template pour les tickets d'un service -->
+    <template id="admin_service_tickets_template" name="Tickets du Service">
+        <t t-call="website.layout">
+            <t t-set="title">Tickets - <t t-esc="service.name"/></t>
+            
+            <div class="container mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1>
+                        <i class="fas fa-ticket-alt me-2"></i>
+                        Tickets - <t t-esc="service.name"/>
+                    </h1>
+                    <a href="/queue/admin" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-1"></i>Retour
+                    </a>
+                </div>
+
+                <!-- Tickets en attente -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clock me-2"></i>
+                            Tickets en Attente (<t t-esc="len(waiting_tickets)"/>)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <t t-if="waiting_tickets">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Numéro</th>
+                                            <th>Référence</th>
+                                            <th>Client</th>
+                                            <th>Créé</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="waiting_tickets" t-as="ticket">
+                                            <tr>
+                                                <td>
+                                                    <strong class="text-primary">#<t t-esc="ticket.ticket_number"/></strong>
+                                                </td>
+                                                <td>
+                                                    <t t-if="ticket.ticket_reference">
+                                                        <code class="text-success"><t t-esc="ticket.ticket_reference"/></code>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <span class="text-muted">-</span>
+                                                    </t>
+                                                </td>
+                                                <td>
+                                                    <t t-if="ticket.customer_name">
+                                                        <t t-esc="ticket.customer_name"/>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <span class="text-muted">Anonyme</span>
+                                                    </t>
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted">
+                                                        <t t-esc="ticket.created_time.strftime('%H:%M') if ticket.created_time else ''"/>
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <t t-if="ticket.ticket_reference">
+                                                        <a t-att-href="'/queue/track/' + ticket.ticket_reference" 
+                                                        class="btn btn-outline-primary btn-sm"
+                                                        target="_blank">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    </t>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <p class="text-muted text-center mb-0">Aucun ticket en attente</p>
+                        </t>
+                    </div>
+                </div>
+
+                <!-- Tickets appelés aujourd'hui -->
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history me-2"></i>
+                            Tickets Appelés Aujourd'hui (<t t-esc="len(called_today)"/>)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <t t-if="called_today">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Numéro</th>
+                                            <th>Référence</th>
+                                            <th>Appelé à</th>
+                                            <th>Client</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="called_today" t-as="ticket">
+                                            <tr>
+                                                <td>
+                                                    <strong class="text-primary">#<t t-esc="ticket.ticket_number"/></strong>
+                                                </td>
+                                                <td>
+                                                    <t t-if="ticket.ticket_reference">
+                                                        <code class="text-success"><t t-esc="ticket.ticket_reference"/></code>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <span class="text-muted">-</span>
+                                                    </t>
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted">
+                                                        <t t-esc="ticket.called_time.strftime('%H:%M') if ticket.called_time else ''"/>
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <t t-if="ticket.customer_name">
+                                                        <t t-esc="ticket.customer_name"/>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <span class="text-muted">Anonyme</span>
+                                                    </t>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <p class="text-muted text-center mb-0">Aucun ticket appelé aujourd'hui</p>
+                        </t>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================ -->
+    <!-- CONTRÔLEUR PYTHON POUR ODOO 17 -->
+    <!-- ================================ -->
 
     <!-- ========================================
          TEMPLATES FEEDBACK

@@ -1449,3 +1449,76 @@ class QueueController(http.Controller):
         except Exception as e:
             _logger.error(f"Erreur migration: {e}")
             return request.make_response(f"Erreur: {str(e)}", status=500)
+
+    # ========================================
+    # NOUVELLES ROUTES POUR L'ADMIN - COMPLÉMENTAIRES
+    # ========================================
+
+    @http.route('/queue/admin/call_next', type='json', auth='user', methods=['POST'], csrf=False)
+    def admin_call_next_ticket(self, service_id, **kwargs):
+        """Appeler le prochain ticket pour un service - CORRIGÉ POUR ODOO 17"""
+        try:
+            if not request.env.user.has_group('base.group_user'):
+                return {'success': False, 'error': 'Accès non autorisé'}
+            
+            service = request.env['queue.service'].sudo().browse(int(service_id))
+            if not service.exists():
+                return {'success': False, 'error': 'Service non trouvé'}
+            
+            if not service.is_open:
+                return {'success': False, 'error': 'Service fermé'}
+            
+            # Appeler le prochain ticket
+            next_ticket = service.action_call_next_ticket()
+            
+            if next_ticket:
+                return {
+                    'success': True,
+                    'message': f'Ticket #{next_ticket.ticket_number} appelé pour {service.name}',
+                    'ticket_number': next_ticket.ticket_number,
+                    'ticket_reference': getattr(next_ticket, 'ticket_reference', '')
+                }
+            else:
+                return {'success': False, 'error': 'Aucun ticket en attente'}
+                
+        except Exception as e:
+            _logger.error(f"Erreur appel prochain ticket: {e}")
+            return {'success': False, 'error': f'Erreur: {str(e)}'}
+
+    @http.route('/queue/admin/service/<int:service_id>/tickets', type='http', auth='user', website=True)
+    def admin_service_tickets(self, service_id, **kwargs):
+        """Voir les tickets d'un service spécifique"""
+        try:
+            if not request.env.user.has_group('base.group_user'):
+                return request.render('website.403')
+            
+            service = request.env['queue.service'].sudo().browse(service_id)
+            if not service.exists():
+                return request.render('queue_management.error_template', {
+                    'error_message': 'Service non trouvé'
+                })
+            
+            # Tickets en attente
+            waiting_tickets = request.env['queue.ticket'].sudo().search([
+                ('service_id', '=', service_id),
+                ('state', '=', 'waiting')
+            ], order='ticket_number')
+            
+            # Tickets appelés aujourd'hui
+            called_today = request.env['queue.ticket'].sudo().search([
+                ('service_id', '=', service_id),
+                ('state', '=', 'called'),
+                ('called_time', '>=', fields.Date.today())
+            ], order='called_time desc', limit=20)
+            
+            return request.render('queue_management.admin_service_tickets_template', {
+                'service': service,
+                'waiting_tickets': waiting_tickets,
+                'called_today': called_today
+            })
+            
+        except Exception as e:
+            _logger.error(f"Erreur tickets service {service_id}: {e}")
+            return request.render('queue_management.error_template', {
+                'error_message': 'Erreur lors du chargement des tickets'
+            })
