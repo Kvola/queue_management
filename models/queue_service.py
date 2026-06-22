@@ -47,10 +47,10 @@ class QueueService(models.Model):
 
     waiting_count = fields.Integer("En attente", compute='_compute_waiting_count')
 
-    _sql_constraints = [
-        ('code_uniq_per_location', 'unique(code, location_id)',
-         "Le préfixe doit être unique par site."),
-    ]
+    _code_uniq_per_location = models.Constraint(
+        'UNIQUE(code, location_id)',
+        "Le préfixe doit être unique par site.",
+    )
 
     @api.depends('ticket_ids.state')
     def _compute_waiting_count(self):

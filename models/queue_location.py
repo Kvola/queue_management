@@ -40,9 +40,10 @@ class QueueLocation(models.Model):
     service_count = fields.Integer("Nb de files", compute='_compute_counts')
     counter_count = fields.Integer("Nb de guichets", compute='_compute_counts')
 
-    _sql_constraints = [
-        ('qr_token_uniq', 'unique(qr_token)', "Le jeton QR doit être unique."),
-    ]
+    _qr_token_uniq = models.Constraint(
+        'UNIQUE(qr_token)',
+        "Le jeton QR doit être unique.",
+    )
 
     @api.depends('service_ids', 'counter_ids')
     def _compute_counts(self):
