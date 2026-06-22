@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Démo : DEUX établissements distincts pour illustrer l'isolation SaaS.
+         Un agent de l'Hôpital ne doit jamais voir les files de la Mairie. -->
+
+    <!-- ========== Établissement A : Hôpital Central ========== -->
+    <record id="company_hopital" model="res.company">
+        <field name="name">Hôpital Central (démo)</field>
+    </record>
+
+    <record id="location_hopital_main" model="queue.location">
+        <field name="name">Hôpital Central — Site principal</field>
+        <field name="company_id" ref="company_hopital"/>
+        <field name="city">Abidjan</field>
+    </record>
+
+    <record id="service_cardio" model="queue.service">
+        <field name="name">Cardiologie</field>
+        <field name="code">CAR</field>
+        <field name="location_id" ref="location_hopital_main"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="service_radio" model="queue.service">
+        <field name="name">Radiologie</field>
+        <field name="code">RAD</field>
+        <field name="location_id" ref="location_hopital_main"/>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="counter_hopital_1" model="queue.counter">
+        <field name="name">Guichet 1</field>
+        <field name="location_id" ref="location_hopital_main"/>
+        <field name="service_ids" eval="[(6, 0, [ref('service_cardio'), ref('service_radio')])]"/>
+    </record>
+
+    <!-- ========== Établissement B : Mairie de Cocody ========== -->
+    <record id="company_mairie" model="res.company">
+        <field name="name">Mairie de Cocody (démo)</field>
+    </record>
+
+    <record id="location_mairie_main" model="queue.location">
+        <field name="name">Mairie de Cocody — Accueil</field>
+        <field name="company_id" ref="company_mairie"/>
+        <field name="city">Abidjan</field>
+    </record>
+
+    <record id="service_etat_civil" model="queue.service">
+        <field name="name">État civil</field>
+        <field name="code">EC</field>
+        <field name="location_id" ref="location_mairie_main"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="counter_mairie_1" model="queue.counter">
+        <field name="name">Guichet A</field>
+        <field name="location_id" ref="location_mairie_main"/>
+        <field name="service_ids" eval="[(6, 0, [ref('service_etat_civil')])]"/>
+    </record>
+
+    <!-- ========== Quelques tickets en attente (Hôpital) ========== -->
+    <record id="ticket_demo_1" model="queue.ticket">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="channel">kiosk</field>
+        <field name="priority">0</field>
+    </record>
+
+    <record id="ticket_demo_2" model="queue.ticket">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="channel">mobile</field>
+        <field name="priority">2</field>
+    </record>
+
+    <record id="ticket_demo_3" model="queue.ticket">
+        <field name="service_id" ref="service_radio"/>
+        <field name="channel">mobile</field>
+        <field name="priority">0</field>
+    </record>
+
+    <!-- Tickets pour la Mairie -->
+    <record id="ticket_demo_4" model="queue.ticket">
+        <field name="service_id" ref="service_etat_civil"/>
+        <field name="channel">kiosk</field>
+        <field name="priority">0</field>
+    </record>
+
+</odoo>

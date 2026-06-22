@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_queue_root" name="File d'attente"
+              sequence="50"/>
+
+    <menuitem id="menu_queue_tickets" name="Tickets"
+              parent="menu_queue_root" action="action_queue_ticket"
+              sequence="10"/>
+
+    <menuitem id="menu_queue_counters" name="Guichets"
+              parent="menu_queue_root" action="action_queue_counter"
+              sequence="20"/>
+
+    <menuitem id="menu_queue_config" name="Configuration"
+              parent="menu_queue_root" sequence="90"
+              groups="queue_management.group_queue_manager"/>
+
+    <menuitem id="menu_queue_locations" name="Sites"
+              parent="menu_queue_config" action="action_queue_location"
+              sequence="10"/>
+
+    <menuitem id="menu_queue_services" name="Files"
+              parent="menu_queue_config" action="action_queue_service"
+              sequence="20"/>
+
+</odoo>

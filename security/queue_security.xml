@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!-- Catégorie visible dans Paramètres → Utilisateurs -->
+        <record id="module_category_queue" model="ir.module.category">
+            <field name="name">File d'attente</field>
+            <field name="description">Gestion des files d'attente</field>
+            <field name="sequence">20</field>
+        </record>
+
+        <record id="privilege_queue" model="res.groups.privilege">
+            <field name="name">File d'attente</field>
+            <field name="category_id" ref="module_category_queue"/>
+        </record>
+
+        <!-- Agent : travaille au guichet (appeler, démarrer, terminer, absent).
+             Hérite de l'utilisateur interne pour pouvoir se connecter. -->
+        <record id="group_queue_agent" model="res.groups">
+            <field name="name">Agent de guichet</field>
+            <field name="privilege_id" ref="privilege_queue"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="comment">Appelle et traite les clients à son guichet.</field>
+        </record>
+
+        <!-- Responsable : configure sites, files, guichets ; voit les stats.
+             Hérite de l'agent. -->
+        <record id="group_queue_manager" model="res.groups">
+            <field name="name">Responsable file d'attente</field>
+            <field name="privilege_id" ref="privilege_queue"/>
+            <field name="implied_ids" eval="[(4, ref('group_queue_agent'))]"/>
+            <field name="comment">Configure l'établissement et supervise les files.</field>
+        </record>
+
+    </data>
+</odoo>

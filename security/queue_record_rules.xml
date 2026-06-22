@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!-- ISOLATION MULTI-TENANT (cœur du SaaS).
+             Chaque enregistrement n'est visible que pour les utilisateurs dont
+             il fait partie des sociétés autorisées. Un agent de l'hôpital A ne
+             voit jamais les files de l'administration B.
+             ``company_ids`` = sociétés cochées dans le sélecteur multi-société. -->
+
+        <record id="rule_queue_location_company" model="ir.rule">
+            <field name="name">Site : isolation par société</field>
+            <field name="model_id" ref="model_queue_location"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+
+        <record id="rule_queue_service_company" model="ir.rule">
+            <field name="name">File : isolation par société</field>
+            <field name="model_id" ref="model_queue_service"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+
+        <record id="rule_queue_counter_company" model="ir.rule">
+            <field name="name">Guichet : isolation par société</field>
+            <field name="model_id" ref="model_queue_counter"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+
+        <record id="rule_queue_ticket_company" model="ir.rule">
+            <field name="name">Ticket : isolation par société</field>
+            <field name="model_id" ref="model_queue_ticket"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_queue_counter_list" model="ir.ui.view">
+        <field name="name">queue.counter.list</field>
+        <field name="model">queue.counter</field>
+        <field name="arch" type="xml">
+            <list string="Guichets">
+                <field name="name"/>
+                <field name="location_id"/>
+                <field name="service_ids" widget="many2many_tags"/>
+                <field name="agent_id"/>
+                <field name="current_ticket_id"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'free'"
+                       decoration-warning="state == 'busy'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_queue_counter_form" model="ir.ui.view">
+        <field name="name">queue.counter.form</field>
+        <field name="model">queue.counter</field>
+        <field name="arch" type="xml">
+            <form string="Guichet">
+                <header>
+                    <button name="action_call_next" type="object"
+                            string="Appeler le suivant" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Ex. Guichet 3"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="location_id"/>
+                            <field name="agent_id"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="current_ticket_id"/>
+                            <field name="state"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <field name="service_ids" widget="many2many_tags"
+                           string="Files desservies"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_queue_counter" model="ir.actions.act_window">
+        <field name="name">Guichets</field>
+        <field name="res_model">queue.counter</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

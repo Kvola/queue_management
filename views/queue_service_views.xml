@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_queue_service_list" model="ir.ui.view">
+        <field name="name">queue.service.list</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <list string="Files">
+                <field name="sequence" widget="handle"/>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="location_id"/>
+                <field name="waiting_count"/>
+                <field name="active"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_queue_service_form" model="ir.ui.view">
+        <field name="name">queue.service.form</field>
+        <field name="model">queue.service</field>
+        <field name="arch" type="xml">
+            <form string="File">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Ex. Cardiologie"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code" placeholder="B"/>
+                            <field name="location_id"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="waiting_count"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <field name="counter_ids" widget="many2many_tags"
+                           string="Guichets desservant la file"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_queue_service" model="ir.actions.act_window">
+        <field name="name">Files</field>
+        <field name="res_model">queue.service</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>
