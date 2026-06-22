@@ -118,3 +118,19 @@ class TestQueue(TransactionCase):
         self.assertEqual(self.counter.next_ticket_id, urgent)
         self.assertEqual(self.counter.next_number, urgent.name)
         self.assertEqual(self.counter.waiting_count, 2)
+
+    def test_notify_upcoming_marks_flag(self):
+        """Après un appel, les têtes de file restantes sont notifiées une fois."""
+        self._new_ticket()
+        self._new_ticket()
+        self._new_ticket()
+        self.counter.action_call_next()
+        remaining = self.service._get_ordered_waiting()
+        self.assertTrue(all(t.soon_notified for t in remaining[:2]))
+
+    def test_push_graceful_without_fcm(self):
+        """Sans credentials FCM, _push ne lève pas et renvoie False."""
+        c = self.env['queue.customer'].create({'email': 'push@test.com'})
+        self.assertFalse(c._push("Titre", "Corps"))  # pas de fcm_token
+        c.fcm_token = 'device-token'
+        self.assertFalse(c._push("Titre", "Corps"))  # FCM non configuré → no-op

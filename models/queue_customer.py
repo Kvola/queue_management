@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import hashlib
+import logging
 import secrets
 import string
 from datetime import timedelta
 
 from odoo import api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class QueueCustomer(models.Model):
@@ -114,3 +117,31 @@ class QueueCustomer(models.Model):
             'otp_attempts': 0,
         })
         return token
+
+    def _push(self, title, body, data=None):
+        """Envoie une notification push FCM au client (best-effort).
+
+        Réutilise l'initialisation Firebase de ``push_notification_hub`` mais en
+        ciblant directement le ``fcm_token`` du client (qui n'est pas un
+        ``res.users``, donc hors API ``send(user_ids=...)`` du hub). Ne lève
+        jamais : si FCM n'est pas configuré ou échoue, on logge et on continue.
+        """
+        self.ensure_one()
+        if not self.fcm_token:
+            return False
+        if 'push.notification' not in self.env:
+            _logger.info("push_notification_hub absent : push « %s » non envoyé", title)
+            return False
+        Push = self.env['push.notification'].sudo()
+        messaging = Push._get_fcm_messaging()
+        if messaging is None:
+            _logger.info("FCM non configuré : push « %s » non envoyé à %s",
+                         title, self.email)
+            return False
+        payload = {str(k): str(v) for k, v in (data or {}).items() if v is not None}
+        try:
+            Push._send_one(messaging, self.fcm_token, title, body, payload)
+            return True
+        except Exception as exc:  # noqa: BLE001 — best-effort, jamais bloquant
+            _logger.warning("queue_management : échec push à %s : %s", self.email, exc)
+            return False

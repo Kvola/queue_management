@@ -96,3 +96,21 @@ class QueueService(models.Model):
         """Le prochain ticket à appeler pour cette file (ou recordset vide)."""
         self.ensure_one()
         return self._get_ordered_waiting()[:1]
+
+    def _notify_upcoming(self, threshold=2):
+        """Prévient (push) les clients qui approchent de la tête de file.
+
+        Une seule fois par ticket (flag ``soon_notified``) pour ne pas spammer.
+        Appelé après chaque mouvement de file (appel, fin, absence, annulation).
+        """
+        for service in self:
+            for idx, ticket in enumerate(service._get_ordered_waiting(), start=1):
+                if idx > threshold:
+                    break
+                if not ticket.soon_notified:
+                    ticket.soon_notified = True
+                    ticket._notify(
+                        "Bientôt votre tour",
+                        "Vous êtes en position %d dans la file %s." % (idx, service.name),
+                        {'type': 'soon', 'position': idx, 'service': service.name},
+                    )

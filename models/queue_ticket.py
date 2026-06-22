@@ -80,6 +80,10 @@ class QueueTicket(models.Model):
         "Position", compute='_compute_position',
         help="Rang dans la file parmi les tickets en attente (1 = prochain).",
     )
+    soon_notified = fields.Boolean(
+        "Push « bientôt » envoyé", default=False, copy=False,
+        help="Évite d'envoyer plusieurs fois la notification « bientôt votre tour ».",
+    )
 
     @api.depends('state', 'priority', 'created_at', 'scheduled_time',
                  'service_id', 'service_id.ticket_ids.state')
@@ -114,6 +118,23 @@ class QueueTicket(models.Model):
             weight = max(weight, 2)
         return (-weight, self.created_at or self.create_date)
 
+    # --- Notifications push --------------------------------------------------
+
+    def _customer(self):
+        self.ensure_one()
+        if not self.partner_id:
+            return self.env['queue.customer']
+        return self.env['queue.customer'].sudo().search(
+            [('partner_id', '=', self.partner_id.id)], limit=1)
+
+    def _notify(self, title, body, data=None):
+        """Push best-effort au client du ticket (silencieux si pas de client)."""
+        self.ensure_one()
+        customer = self._customer()
+        if customer:
+            customer._push(title, body, dict(data or {}, ticket_id=self.id,
+                                             ticket=self.name))
+
     # --- Transitions d'état --------------------------------------------------
 
     def action_call(self, counter=None):
@@ -128,6 +149,13 @@ class QueueTicket(models.Model):
             })
             if counter:
                 counter.current_ticket_id = ticket
+            ticket._notify(
+                "C'est à vous !",
+                "Ticket %s — %s" % (ticket.name, (counter or ticket.counter_id).name or ''),
+                {'type': 'called', 'counter': (counter or ticket.counter_id).name or '',
+                 'service': ticket.service_id.name},
+            )
+            ticket.service_id._notify_upcoming()
         return True
 
     def action_recall(self):
@@ -157,6 +185,7 @@ class QueueTicket(models.Model):
                 raise UserError(_("Ce ticket ne peut pas être terminé."))
             ticket.write({'state': 'done', 'closed_at': fields.Datetime.now()})
             ticket._release_counter()
+            ticket.service_id._notify_upcoming()
         return True
 
     def action_no_show(self):
@@ -166,6 +195,7 @@ class QueueTicket(models.Model):
                 raise UserError(_("Seul un ticket appelé peut être marqué absent."))
             ticket.write({'state': 'no_show', 'closed_at': fields.Datetime.now()})
             ticket._release_counter()
+            ticket.service_id._notify_upcoming()
         return True
 
     def action_cancel(self):
@@ -175,6 +205,7 @@ class QueueTicket(models.Model):
                 raise UserError(_("Ce ticket est déjà clôturé."))
             ticket.write({'state': 'cancelled', 'closed_at': fields.Datetime.now()})
             ticket._release_counter()
+            ticket.service_id._notify_upcoming()
         return True
 
     def _release_counter(self):

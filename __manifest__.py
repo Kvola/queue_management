@@ -36,6 +36,9 @@ d'attente & statistiques (Phase 5).
     'depends': [
         'base',
         'mail',
+        # 'push_notification_hub' : dépendance VOLONTAIREMENT souple (non listée).
+        # Le push réutilise ce hub quand il est installé, mais queue_management
+        # reste installable et fonctionnel sans lui (cf. queue.customer._push).
     ],
     'data': [
         # Sécurité : catégorie + privilège + groupes, puis ACL, puis record rules.
