@@ -65,3 +65,12 @@ class QueueLocation(models.Model):
             'url': f'/queue/display/{self.qr_token}',
             'target': 'new',
         }
+
+    def action_open_kiosk(self):
+        """Ouvre la borne tactile du site (à mettre en plein écran à l'entrée)."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/queue/kiosk/{self.qr_token}',
+            'target': 'new',
+        }

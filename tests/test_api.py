@@ -116,3 +116,43 @@ class TestQueueApi(HttpCase):
         res = self._call('/api/queue/ticket/status', {
             'auth_token': 'INTRUS', 'ticket_id': ticket.id})
         self.assertEqual(res['status'], 'error')
+
+
+@tagged('post_install', '-at_install')
+class TestQueueKiosk(HttpCase):
+    """Borne tactile : page publique + création de ticket anonyme."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.location = cls.env['queue.location'].create({'name': "Borne Site"})
+        cls.service = cls.env['queue.service'].create({
+            'name': "Borne Svc", 'code': 'KSK', 'location_id': cls.location.id,
+        })
+
+    def test_kiosk_page_renders(self):
+        resp = self.url_open('/queue/kiosk/%s' % self.location.qr_token)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Borne Site", resp.text)
+        self.assertIn("Borne Svc", resp.text)
+
+    def test_kiosk_creates_anonymous_ticket(self):
+        resp = self.url_open(
+            '/queue/kiosk/%s/ticket' % self.location.qr_token,
+            data={'service_id': self.service.id})
+        body = resp.json()
+        self.assertEqual(body['status'], 'ok')
+        self.assertEqual(body['ticket']['service'], "Borne Svc")
+        ticket = self.env['queue.ticket'].search(
+            [('name', '=', body['ticket']['name'])], limit=1)
+        self.assertEqual(ticket.channel, 'kiosk')
+        self.assertFalse(ticket.partner_id)
+
+    def test_kiosk_rejects_foreign_service(self):
+        resp = self.url_open(
+            '/queue/kiosk/%s/ticket' % self.location.qr_token,
+            data={'service_id': 999999})
+        self.assertEqual(resp.json()['status'], 'error')
+
+    def test_kiosk_bad_token_404(self):
+        self.assertEqual(self.url_open('/queue/kiosk/nope').status_code, 404)

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="kiosk_page" name="Borne file d'attente">
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+                <title>Borne — File d'attente</title>
+                <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+                    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                           background: #0f172a; color: #f1f5f9; min-height: 100vh; padding: 4vw; }
+                    h1 { font-size: 2.2rem; text-align: center; margin-bottom: .3rem; }
+                    .sub { text-align: center; color: #94a3b8; font-size: 1.2rem; margin-bottom: 2rem; }
+                    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+                    .svc { background: #1e293b; border: 2px solid #334155; border-radius: 1.25rem;
+                           padding: 2rem 1.5rem; text-align: center; cursor: pointer; transition: transform .08s; }
+                    .svc:active { transform: scale(.97); border-color: #2563eb; }
+                    .svc .name { font-size: 1.8rem; font-weight: 700; }
+                    .svc .wait { color: #94a3b8; margin-top: .5rem; font-size: 1.05rem; }
+                    .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.97);
+                               display: none; flex-direction: column; align-items: center; justify-content: center;
+                               text-align: center; padding: 2rem; }
+                    .overlay.show { display: flex; }
+                    .overlay .lead { font-size: 1.5rem; color: #94a3b8; }
+                    .overlay .num { font-size: 7rem; font-weight: 800; color: #22c55e; line-height: 1.1; margin: 1rem 0; }
+                    .overlay .info { font-size: 1.4rem; }
+                    .overlay .hint { margin-top: 2.5rem; color: #64748b; font-size: 1.1rem; }
+                </style>
+            </head>
+            <body>
+                <h1><t t-out="site_name"/></h1>
+                <div class="sub">Touchez le service souhaité pour obtenir votre ticket</div>
+                <div class="grid">
+                    <t t-foreach="services" t-as="s">
+                        <div class="svc" t-att-data-id="s['id']">
+                            <div class="name"><t t-out="s['name']"/></div>
+                            <div class="wait"><t t-out="s['waiting']"/> en attente</div>
+                        </div>
+                    </t>
+                    <t t-if="not services">
+                        <div class="sub">Aucune file ouverte pour le moment.</div>
+                    </t>
+                </div>
+
+                <div class="overlay" id="overlay">
+                    <div class="lead">Votre ticket</div>
+                    <div class="num" id="ovNum">—</div>
+                    <div class="info" id="ovInfo"></div>
+                    <div class="hint">Touchez l'écran pour continuer…</div>
+                </div>
+
+                <script><![CDATA[
+                    var busy = false;
+                    function takeTicket(serviceId) {
+                        if (busy) return;
+                        busy = true;
+                        var body = new FormData();
+                        body.append('service_id', serviceId);
+                        fetch(window.location.pathname + '/ticket', {method: 'POST', body: body})
+                            .then(function(r){ return r.json(); })
+                            .then(function(d){
+                                busy = false;
+                                if (!d || d.status !== 'ok') {
+                                    alert((d && d.message) || 'Erreur. Réessayez.');
+                                    return;
+                                }
+                                document.getElementById('ovNum').textContent = d.ticket.name;
+                                document.getElementById('ovInfo').textContent =
+                                    d.ticket.service + ' · position ' + d.ticket.position;
+                                document.getElementById('overlay').classList.add('show');
+                                clearTimeout(window._ovTimer);
+                                window._ovTimer = setTimeout(reloadKiosk, 8000);
+                            })
+                            .catch(function(){ busy = false; alert('Connexion impossible.'); });
+                    }
+                    function reloadKiosk(){ window.location.reload(); }
+                    document.querySelectorAll('.svc').forEach(function(el){
+                        el.addEventListener('click', function(){ takeTicket(el.getAttribute('data-id')); });
+                    });
+                    document.getElementById('overlay').addEventListener('click', reloadKiosk);
+                ]]></script>
+            </body>
+        </html>
+    </template>
+</odoo>
