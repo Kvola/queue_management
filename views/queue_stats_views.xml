@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_queue_ticket_pivot" model="ir.ui.view">
+        <field name="name">queue.ticket.pivot</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <pivot string="Statistiques files d'attente" sample="1">
+                <field name="service_id" type="row"/>
+                <field name="state" type="col"/>
+                <field name="wait_real_minutes" type="measure"/>
+                <field name="service_real_minutes" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_queue_ticket_graph" model="ir.ui.view">
+        <field name="name">queue.ticket.graph</field>
+        <field name="model">queue.ticket</field>
+        <field name="arch" type="xml">
+            <graph string="Affluence" type="bar" sample="1">
+                <field name="created_at" interval="hour"/>
+                <field name="service_id"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_queue_stats" model="ir.actions.act_window">
+        <field name="name">Statistiques</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="search_view_id" ref="view_queue_ticket_search"/>
+        <field name="context">{'search_default_today': 1}</field>
+    </record>
+
+    <menuitem id="menu_queue_stats" name="Statistiques"
+              parent="menu_queue_root" action="action_queue_stats"
+              sequence="80"
+              groups="queue_management.group_queue_manager"/>
+
+</odoo>

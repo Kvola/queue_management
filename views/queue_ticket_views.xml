@@ -62,6 +62,7 @@
                         <group>
                             <field name="counter_id"/>
                             <field name="position"/>
+                            <field name="eta_minutes"/>
                             <field name="created_at"/>
                             <field name="called_at"/>
                             <field name="served_at"/>

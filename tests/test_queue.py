@@ -188,6 +188,39 @@ class TestQueue(TransactionCase):
         self.assertEqual(ticket.state, 'waiting')
         self.assertTrue(ticket.name.startswith('CAR'))
 
+    # --- Estimation & statistiques (Phase 5) ---------------------------------
+
+    def test_durations_and_average(self):
+        base = fields.Datetime.now()
+        ticket = self._new_ticket()
+        ticket.write({
+            'state': 'done',
+            'created_at': base - timedelta(minutes=10),
+            'called_at': base - timedelta(minutes=6),
+            'served_at': base - timedelta(minutes=5),
+            'closed_at': base,
+        })
+        self.assertAlmostEqual(ticket.wait_real_minutes, 4.0, delta=0.05)
+        self.assertAlmostEqual(ticket.service_real_minutes, 5.0, delta=0.05)
+        self.assertAlmostEqual(self.service._avg_service_minutes(), 5.0, delta=0.05)
+
+    def test_eta_estimation(self):
+        base = fields.Datetime.now()
+        history = self._new_ticket()
+        history.write({
+            'state': 'done',
+            'served_at': base - timedelta(minutes=6),
+            'closed_at': base,
+        })
+        waiting = self._new_ticket()
+        self.assertEqual(waiting.position, 1)
+        # 1 position × 6 min / 1 guichet = 6 min
+        self.assertEqual(waiting.eta_minutes, 6)
+
+    def test_eta_zero_without_history(self):
+        waiting = self._new_ticket()
+        self.assertEqual(waiting.eta_minutes, 0)
+
     def test_cron_expires_overdue_appointment(self):
         old = self.env['queue.ticket'].create({
             'service_id': self.service.id,

@@ -53,6 +53,7 @@ d'attente & statistiques (Phase 5).
         'views/queue_display_templates.xml',
         'views/queue_kiosk_templates.xml',
         'views/queue_menus.xml',
+        'views/queue_stats_views.xml',
         'views/queue_customer_views.xml',
         'data/queue_cron.xml',
     ],

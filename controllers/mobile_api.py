@@ -51,6 +51,7 @@ class QueueMobileApi(http.Controller):
             'channel': ticket.channel,
             'scheduled_time': fields.Datetime.to_string(ticket.scheduled_time)
             if ticket.scheduled_time else '',
+            'eta_minutes': ticket.eta_minutes,
         }
 
     # --- Authentification par email (OTP) ------------------------------------

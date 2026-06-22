@@ -88,6 +88,47 @@ class QueueTicket(models.Model):
         help="Évite d'envoyer plusieurs fois la notification « bientôt votre tour ».",
     )
 
+    # Durées réelles (pour les statistiques) — figées par les horodatages.
+    wait_real_minutes = fields.Float(
+        "Attente réelle (min)", compute='_compute_durations', store=True,
+        aggregator='avg', help="Du ticket pris à l'appel.")
+    service_real_minutes = fields.Float(
+        "Service réel (min)", compute='_compute_durations', store=True,
+        aggregator='avg', help="Du début de service à la clôture.")
+    # Estimation dynamique pour le client (non stockée).
+    eta_minutes = fields.Integer(
+        "Attente estimée (min)", compute='_compute_eta',
+        help="Estimation basée sur la durée de service moyenne récente.")
+
+    @api.depends('created_at', 'called_at', 'served_at', 'closed_at')
+    def _compute_durations(self):
+        for ticket in self:
+            ticket.wait_real_minutes = (
+                (ticket.called_at - ticket.created_at).total_seconds() / 60.0
+                if ticket.called_at and ticket.created_at else 0.0)
+            ticket.service_real_minutes = (
+                (ticket.closed_at - ticket.served_at).total_seconds() / 60.0
+                if ticket.closed_at and ticket.served_at else 0.0)
+
+    @api.depends('state', 'position', 'service_id')
+    def _compute_eta(self):
+        for ticket in self:
+            ticket.eta_minutes = ticket._estimated_wait_minutes()
+
+    def _estimated_wait_minutes(self):
+        """Estimation : position × durée de service moyenne / nb de guichets.
+
+        Retourne 0 si le ticket n'attend pas ou si l'historique est insuffisant.
+        """
+        self.ensure_one()
+        if self.state != 'waiting' or self.position <= 0:
+            return 0
+        avg = self.service_id._avg_service_minutes()
+        if avg <= 0:
+            return 0
+        counters = max(len(self.service_id.counter_ids), 1)
+        return int(round(self.position * avg / counters))
+
     @api.depends('state', 'priority', 'created_at', 'scheduled_time',
                  'service_id', 'service_id.ticket_ids.state')
     def _compute_position(self):

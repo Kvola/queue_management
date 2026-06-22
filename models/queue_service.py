@@ -177,6 +177,22 @@ class QueueService(models.Model):
             'state': 'scheduled',
         })
 
+    def _avg_service_minutes(self, window=20):
+        """Durée de service moyenne des ``window`` derniers tickets terminés.
+
+        Moyenne glissante récente : s'adapte à l'affluence du moment. Retourne
+        0.0 si l'historique est insuffisant (l'estimation est alors masquée).
+        """
+        self.ensure_one()
+        done = self.env['queue.ticket'].search([
+            ('service_id', '=', self.id),
+            ('state', '=', 'done'),
+            ('service_real_minutes', '>', 0),
+        ], order='closed_at desc', limit=window)
+        if not done:
+            return 0.0
+        return sum(done.mapped('service_real_minutes')) / len(done)
+
     def _notify_upcoming(self, threshold=2):
         """Prévient (push) les clients qui approchent de la tête de file.
 
