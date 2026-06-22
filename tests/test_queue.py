@@ -82,3 +82,39 @@ class TestQueue(TransactionCase):
         ticket.action_no_show()
         self.assertEqual(ticket.state, 'no_show')
         self.assertFalse(self.counter.current_ticket_id)
+
+    def test_call_next_blocked_when_busy(self):
+        """On ne peut pas appeler un nouveau client tant que le précédent
+        n'est pas clôturé (évite d'écraser le ticket en cours au guichet)."""
+        from odoo.exceptions import UserError
+        self._new_ticket()
+        self._new_ticket()
+        self.counter.action_call_next()
+        with self.assertRaises(UserError):
+            self.counter.action_call_next()
+
+    def test_counter_console_shortcuts(self):
+        """Les raccourcis du guichet agissent sur le ticket en cours."""
+        ticket = self._new_ticket()
+        self.counter.action_call_next()
+        self.counter.action_start()
+        self.assertEqual(ticket.state, 'serving')
+        self.counter.action_done()
+        self.assertEqual(ticket.state, 'done')
+
+    def test_recall_keeps_state(self):
+        """Le rappel ré-annonce sans changer l'état."""
+        ticket = self._new_ticket()
+        self.counter.action_call_next()
+        before = ticket.called_at
+        ticket.action_recall()
+        self.assertEqual(ticket.state, 'called')
+        self.assertGreaterEqual(ticket.called_at, before)
+
+    def test_counter_next_preview(self):
+        """L'aperçu du guichet annonce le bon prochain numéro et le compte."""
+        self._new_ticket(priority='0')
+        urgent = self._new_ticket(priority='2')
+        self.assertEqual(self.counter.next_ticket_id, urgent)
+        self.assertEqual(self.counter.next_number, urgent.name)
+        self.assertEqual(self.counter.waiting_count, 2)

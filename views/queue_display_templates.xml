@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="display_page" name="Affichage salle d'attente">
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>File d'attente</title>
+                <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                           background: #0f172a; color: #f1f5f9; min-height: 100vh; padding: 2vw; }
+                    header { display: flex; justify-content: space-between; align-items: baseline;
+                             border-bottom: 2px solid #1e293b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+                    header h1 { font-size: 2rem; font-weight: 700; }
+                    header .clock { font-size: 1.5rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
+                    .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+                    #serving { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                               gap: 1rem; }
+                    .card { background: #1e293b; border-radius: 1rem; padding: 1.5rem 1rem;
+                            text-align: center; border: 2px solid transparent; }
+                    .card .counter { font-size: 1.1rem; color: #94a3b8; text-transform: uppercase;
+                                     letter-spacing: .05em; }
+                    .card .num { font-size: 3.5rem; font-weight: 800; line-height: 1.1; margin: .3rem 0; }
+                    .card .svc { font-size: 1rem; color: #cbd5e1; }
+                    .card.called { border-color: #22c55e; animation: blink 1s ease-in-out infinite; }
+                    @keyframes blink { 0%,100% { background: #1e293b; } 50% { background: #166534; } }
+                    aside { background: #1e293b; border-radius: 1rem; padding: 1.25rem; }
+                    aside h2 { font-size: 1.1rem; color: #94a3b8; text-transform: uppercase;
+                               letter-spacing: .05em; margin-bottom: .75rem; }
+                    aside ul { list-style: none; }
+                    aside li { display: flex; justify-content: space-between; padding: .6rem 0;
+                               border-bottom: 1px solid #334155; font-size: 1.3rem; font-weight: 600; }
+                    aside li span { color: #94a3b8; font-weight: 400; font-size: 1rem; }
+                    aside li.empty { color: #64748b; font-weight: 400; justify-content: center; }
+                </style>
+            </head>
+            <body>
+                <header>
+                    <h1 id="loc"><t t-out="data['location']"/></h1>
+                    <div class="clock" id="clock"></div>
+                </header>
+                <div class="layout">
+                    <main id="serving">
+                        <t t-foreach="data['now_serving']" t-as="c">
+                            <div t-attf-class="card {{ 'called' if c['called'] else '' }}">
+                                <div class="counter"><t t-out="c['counter']"/></div>
+                                <div class="num"><t t-out="c['ticket'] or '—'"/></div>
+                                <div class="svc"><t t-out="c['service']"/></div>
+                            </div>
+                        </t>
+                    </main>
+                    <aside>
+                        <h2>Prochains appels</h2>
+                        <ul id="upcoming">
+                            <t t-foreach="data['upcoming']" t-as="t">
+                                <li><span t-out="t['ticket']"/><span t-out="t['service']"/></li>
+                            </t>
+                            <li t-if="not data['upcoming']" class="empty">Aucun en attente</li>
+                        </ul>
+                    </aside>
+                </div>
+                <script><![CDATA[
+                    function h(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){
+                        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+                    function render(d){
+                        document.getElementById('loc').textContent = d.location || '';
+                        document.getElementById('serving').innerHTML = (d.now_serving || []).map(function(c){
+                            return '<div class="card ' + (c.called ? 'called' : '') + '">'
+                                 + '<div class="counter">' + h(c.counter) + '</div>'
+                                 + '<div class="num">' + (h(c.ticket) || '—') + '</div>'
+                                 + '<div class="svc">' + h(c.service) + '</div></div>';
+                        }).join('');
+                        var up = (d.upcoming || []).map(function(t){
+                            return '<li><span>' + h(t.ticket) + '</span><span>' + h(t.service) + '</span></li>';
+                        }).join('');
+                        document.getElementById('upcoming').innerHTML = up
+                            || '<li class="empty">Aucun en attente</li>';
+                    }
+                    function refresh(){
+                        fetch(window.location.pathname + '/data', {cache:'no-store'})
+                            .then(function(r){ return r.ok ? r.json() : null; })
+                            .then(function(d){ if(d) render(d); })
+                            .catch(function(){});
+                    }
+                    function tick(){
+                        document.getElementById('clock').textContent =
+                            new Date().toLocaleTimeString('fr-FR');
+                    }
+                    setInterval(refresh, 3000);
+                    setInterval(tick, 1000);
+                    tick();
+                ]]></script>
+            </body>
+        </html>
+    </template>
+</odoo>

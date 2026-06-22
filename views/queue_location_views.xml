@@ -21,6 +21,8 @@
         <field name="arch" type="xml">
             <form string="Site">
                 <header>
+                    <button name="action_open_display" type="object"
+                            string="Écran d'affichage" class="btn-primary"/>
                     <button name="action_regenerate_qr_token" type="object"
                             string="Régénérer le QR" class="btn-secondary"
                             confirm="L'ancien QR code affiché à l'entrée ne fonctionnera plus. Continuer ?"/>

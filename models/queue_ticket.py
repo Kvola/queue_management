@@ -100,6 +100,20 @@ class QueueTicket(models.Model):
                 vals['name'] = service._next_number()
         return super().create(vals_list)
 
+    def _scheduling_key(self):
+        """Clé de tri d'un ticket dans la file (unique source de vérité).
+
+        Priorité décroissante, puis ordre d'arrivée. Un rendez-vous dont l'heure
+        est passée est remonté au moins en priorité haute. Réutilisée par la file
+        (``_get_ordered_waiting``), le guichet et l'écran d'affichage.
+        """
+        self.ensure_one()
+        weight = int(self.priority)
+        if (self.channel == 'appointment' and self.scheduled_time
+                and self.scheduled_time <= fields.Datetime.now()):
+            weight = max(weight, 2)
+        return (-weight, self.created_at or self.create_date)
+
     # --- Transitions d'état --------------------------------------------------
 
     def action_call(self, counter=None):
@@ -114,6 +128,18 @@ class QueueTicket(models.Model):
             })
             if counter:
                 counter.current_ticket_id = ticket
+        return True
+
+    def action_recall(self):
+        """Ré-annoncer un ticket déjà appelé (le client n'a pas réagi).
+
+        Ne change pas d'état : rafraîchit ``called_at`` pour que l'écran de salle
+        d'attente le remette en avant.
+        """
+        for ticket in self:
+            if ticket.state != 'called':
+                raise UserError(_("Seul un ticket appelé peut être ré-annoncé."))
+            ticket.called_at = fields.Datetime.now()
         return True
 
     def action_start(self):

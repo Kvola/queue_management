@@ -55,3 +55,12 @@ class QueueLocation(models.Model):
         for location in self:
             location.qr_token = secrets.token_urlsafe(16)
         return True
+
+    def action_open_display(self):
+        """Ouvre l'écran d'affichage public du site (à mettre en plein écran)."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/queue/display/{self.qr_token}',
+            'target': 'new',
+        }

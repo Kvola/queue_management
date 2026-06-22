@@ -47,6 +47,7 @@ d'attente & statistiques (Phase 5).
         'views/queue_service_views.xml',
         'views/queue_counter_views.xml',
         'views/queue_ticket_views.xml',
+        'views/queue_display_templates.xml',
         'views/queue_menus.xml',
     ],
     'demo': [

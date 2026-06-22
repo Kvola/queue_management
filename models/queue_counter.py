@@ -41,6 +41,13 @@ class QueueCounter(models.Model):
         string="État", compute='_compute_state',
     )
 
+    # Aperçu pour la console agent : qui passe ensuite et combien attendent.
+    next_ticket_id = fields.Many2one(
+        'queue.ticket', string="Prochain", compute='_compute_next',
+    )
+    next_number = fields.Char("N° suivant", compute='_compute_next')
+    waiting_count = fields.Integer("En attente", compute='_compute_next')
+
     @api.depends('current_ticket_id', 'current_ticket_id.state')
     def _compute_state(self):
         for counter in self:
@@ -48,29 +55,54 @@ class QueueCounter(models.Model):
                 counter.current_ticket_id.state in ('called', 'serving')
             counter.state = 'busy' if busy else 'free'
 
-    def action_call_next(self):
-        """Appelle le prochain client parmi toutes les files du guichet.
+    @api.depends('service_ids', 'service_ids.ticket_ids.state',
+                 'service_ids.ticket_ids.priority')
+    def _compute_next(self):
+        for counter in self:
+            head = counter._peek_next()
+            counter.next_ticket_id = head.id
+            counter.next_number = head.name if head else ''
+            counter.waiting_count = sum(counter.service_ids.mapped('waiting_count'))
 
-        On agrège les têtes de file des services desservis et on applique le même
-        tri (priorité, ancienneté) pour choisir entre files.
+    def _peek_next(self):
+        """Le prochain ticket à appeler parmi toutes les files du guichet.
+
+        On agrège les têtes de file des services desservis puis on les départage
+        avec la même clé d'ordonnancement (priorité, ancienneté, RDV échu).
         """
+        self.ensure_one()
+        candidates = self.service_ids.mapped(lambda s: s._get_next_waiting())
+        return candidates.sorted(key=lambda t: t._scheduling_key())[:1]
+
+    def action_call_next(self):
+        """Appelle le prochain client (waiting → called à ce guichet)."""
         self.ensure_one()
         if not self.service_ids:
             raise UserError(_("Ce guichet ne dessert aucune file."))
-
-        now = fields.Datetime.now()
-        candidates = self.service_ids.mapped(lambda s: s._get_next_waiting())
-
-        def sort_key(ticket):
-            weight = int(ticket.priority)
-            if (ticket.channel == 'appointment' and ticket.scheduled_time
-                    and ticket.scheduled_time <= now):
-                weight = max(weight, 2)
-            return (-weight, ticket.created_at or ticket.create_date)
-
-        ticket = candidates.sorted(key=sort_key)[:1]
+        if self.current_ticket_id and self.current_ticket_id.state in ('called', 'serving'):
+            raise UserError(_("Terminez d'abord le client en cours à ce guichet."))
+        ticket = self._peek_next()
         if not ticket:
             raise UserError(_("Aucun client en attente."))
-
         ticket.action_call(self)
         return True
+
+    # --- Raccourcis console : agissent sur le ticket en cours ----------------
+
+    def _require_current(self):
+        self.ensure_one()
+        if not self.current_ticket_id:
+            raise UserError(_("Aucun ticket en cours à ce guichet."))
+        return self.current_ticket_id
+
+    def action_start(self):
+        return self._require_current().action_start()
+
+    def action_done(self):
+        return self._require_current().action_done()
+
+    def action_no_show(self):
+        return self._require_current().action_no_show()
+
+    def action_recall(self):
+        return self._require_current().action_recall()

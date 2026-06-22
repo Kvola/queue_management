@@ -11,10 +11,55 @@
                 <field name="service_ids" widget="many2many_tags"/>
                 <field name="agent_id"/>
                 <field name="current_ticket_id"/>
+                <field name="waiting_count"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'free'"
                        decoration-warning="state == 'busy'"/>
             </list>
+        </field>
+    </record>
+
+    <!-- Console agent : une carte par guichet, gros n° en cours + actions. -->
+    <record id="view_queue_counter_kanban" model="ir.ui.view">
+        <field name="name">queue.counter.kanban</field>
+        <field name="model">queue.counter</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_dashboard" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <field name="name" class="fw-bold"/>
+                                <field name="state" widget="label_selection"
+                                       options="{'classes': {'free': 'success', 'busy': 'warning'}}"/>
+                            </div>
+                            <div class="text-center my-3">
+                                <div t-if="record.current_ticket_id.value"
+                                     style="font-size: 2.5rem; font-weight: 700; line-height: 1;">
+                                    <field name="current_ticket_id"/>
+                                </div>
+                                <div t-else="" class="text-muted" style="font-size: 1.5rem;">—</div>
+                                <div class="text-muted small mt-1">
+                                    Suivant : <field name="next_number"/>
+                                    · <field name="waiting_count"/> en attente
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1 flex-wrap justify-content-center">
+                                <button type="object" name="action_call_next"
+                                        class="btn btn-primary btn-sm">Appeler le suivant</button>
+                                <button type="object" name="action_start"
+                                        class="btn btn-secondary btn-sm">Démarrer</button>
+                                <button type="object" name="action_done"
+                                        class="btn btn-success btn-sm">Terminer</button>
+                                <button type="object" name="action_no_show"
+                                        class="btn btn-outline-danger btn-sm">Absent</button>
+                                <button type="object" name="action_recall"
+                                        class="btn btn-outline-secondary btn-sm">Rappeler</button>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
@@ -26,6 +71,14 @@
                 <header>
                     <button name="action_call_next" type="object"
                             string="Appeler le suivant" class="btn-primary"/>
+                    <button name="action_start" type="object" string="Démarrer"
+                            invisible="not current_ticket_id"/>
+                    <button name="action_done" type="object" string="Terminer"
+                            class="btn-success" invisible="not current_ticket_id"/>
+                    <button name="action_no_show" type="object" string="Absent"
+                            invisible="not current_ticket_id"/>
+                    <button name="action_recall" type="object" string="Rappeler"
+                            invisible="not current_ticket_id"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -39,6 +92,8 @@
                         </group>
                         <group>
                             <field name="current_ticket_id"/>
+                            <field name="next_number"/>
+                            <field name="waiting_count"/>
                             <field name="state"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
@@ -53,7 +108,7 @@
     <record id="action_queue_counter" model="ir.actions.act_window">
         <field name="name">Guichets</field>
         <field name="res_model">queue.counter</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
 
 </odoo>

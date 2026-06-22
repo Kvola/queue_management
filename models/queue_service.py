@@ -89,17 +89,8 @@ class QueueService(models.Model):
         l'ordonnancement (réutilisée par le calcul de position du ticket).
         """
         self.ensure_one()
-        now = fields.Datetime.now()
         waiting = self.ticket_ids.filtered(lambda t: t.state == 'waiting')
-
-        def sort_key(ticket):
-            weight = int(ticket.priority)
-            if (ticket.channel == 'appointment' and ticket.scheduled_time
-                    and ticket.scheduled_time <= now):
-                weight = max(weight, 2)
-            return (-weight, ticket.created_at or ticket.create_date)
-
-        return waiting.sorted(key=sort_key)
+        return waiting.sorted(key=lambda t: t._scheduling_key())
 
     def _get_next_waiting(self):
         """Le prochain ticket à appeler pour cette file (ou recordset vide)."""
