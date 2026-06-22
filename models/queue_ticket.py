@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
@@ -28,6 +30,7 @@ class QueueTicket(models.Model):
         ('appointment', "Rendez-vous"),
     ]
     STATE = [
+        ('scheduled', "Programmé"),
         ('waiting', "En attente"),
         ('called', "Appelé"),
         ('serving', "En cours"),
@@ -99,7 +102,10 @@ class QueueTicket(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            if vals.get('name', '/') == '/' and vals.get('service_id'):
+            # Un rendez-vous (state 'scheduled') ne reçoit son numéro qu'au
+            # check-in, quand il entre réellement dans la file du jour.
+            if (vals.get('name', '/') == '/' and vals.get('service_id')
+                    and vals.get('state', 'waiting') != 'scheduled'):
                 service = self.env['queue.service'].browse(vals['service_id'])
                 vals['name'] = service._next_number()
         return super().create(vals_list)
@@ -168,6 +174,37 @@ class QueueTicket(models.Model):
             if ticket.state != 'called':
                 raise UserError(_("Seul un ticket appelé peut être ré-annoncé."))
             ticket.called_at = fields.Datetime.now()
+        return True
+
+    def action_check_in(self):
+        """Enregistrement d'un rendez-vous à l'arrivée (scheduled → waiting).
+
+        Le numéro de file n'est attribué qu'ici : le rendez-vous rejoint la file
+        du jour et l'ordonnancement (remontée des RDV échus) prend le relais.
+        """
+        now = fields.Datetime.now()
+        for ticket in self:
+            if ticket.state != 'scheduled':
+                raise UserError(_("Seul un rendez-vous programmé peut être enregistré."))
+            if ticket.scheduled_time and now < ticket.scheduled_time - timedelta(hours=2):
+                raise UserError(_("Enregistrement trop en avance par rapport à l'heure du rendez-vous."))
+            vals = {'state': 'waiting'}
+            if not ticket.name or ticket.name == '/':
+                vals['name'] = ticket.service_id._next_number()
+            ticket.write(vals)
+            ticket.service_id._notify_upcoming()
+        return True
+
+    @api.model
+    def _cron_expire_appointments(self):
+        """Marque « absent » les rendez-vous non enregistrés bien après l'heure."""
+        deadline = fields.Datetime.now() - timedelta(minutes=60)
+        overdue = self.search([
+            ('state', '=', 'scheduled'),
+            ('scheduled_time', '<', deadline),
+        ])
+        for ticket in overdue:
+            ticket.write({'state': 'no_show', 'closed_at': fields.Datetime.now()})
         return True
 
     def action_start(self):

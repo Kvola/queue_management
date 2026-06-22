@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime, time, timedelta
+
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 
 class QueueService(models.Model):
@@ -44,6 +46,19 @@ class QueueService(models.Model):
     # d'un nouveau jour (cf. ``_next_number``).
     last_number = fields.Integer("Dernier n°", default=0, copy=False)
     last_number_date = fields.Date("Date du dernier n°", copy=False)
+
+    # --- Rendez-vous (Phase 4b) ---
+    # NB : les heures d'ouverture sont interprétées dans le fuseau du serveur
+    # (UTC). Pour un déploiement hors UTC, prévoir une conversion de fuseau.
+    appointment_enabled = fields.Boolean("Rendez-vous activés")
+    slot_duration = fields.Integer(
+        "Durée d'un créneau (min)", default=30,
+        help="Découpage des plages d'ouverture en créneaux de cette durée.")
+    slot_capacity = fields.Integer(
+        "Capacité par créneau", default=1,
+        help="Nombre de rendez-vous réservables sur un même créneau.")
+    opening_hour_ids = fields.One2many(
+        'queue.opening.hour', 'service_id', string="Plages d'ouverture")
 
     waiting_count = fields.Integer("En attente", compute='_compute_waiting_count')
 
@@ -96,6 +111,71 @@ class QueueService(models.Model):
         """Le prochain ticket à appeler pour cette file (ou recordset vide)."""
         self.ensure_one()
         return self._get_ordered_waiting()[:1]
+
+    # --- Rendez-vous : créneaux & réservation -------------------------------
+
+    @staticmethod
+    def _float_to_time(value):
+        hour = int(value)
+        minute = int(round((value - hour) * 60))
+        if minute == 60:
+            hour, minute = hour + 1, 0
+        return time(min(hour, 23), min(minute, 59))
+
+    def _slots_for_date(self, day):
+        """Créneaux d'une journée : liste ordonnée de (datetime, places libres).
+
+        Ne renvoie que les créneaux entiers contenus dans une plage d'ouverture.
+        ``day`` est une ``date``. Les datetimes renvoyés sont naïfs (UTC, comme
+        le stockage Odoo).
+        """
+        self.ensure_one()
+        if not self.appointment_enabled or self.slot_duration <= 0:
+            return []
+        hours = self.opening_hour_ids.filtered(
+            lambda h: h.dayofweek == str(day.weekday()))
+        if not hours:
+            return []
+
+        # Réservations déjà posées ce jour-là (toutes non clôturées).
+        day_start = datetime.combine(day, time.min)
+        day_end = datetime.combine(day, time.max)
+        booked = {}
+        for ticket in self.ticket_ids:
+            if (ticket.channel == 'appointment' and ticket.scheduled_time
+                    and ticket.state in ('scheduled', 'waiting', 'called', 'serving')
+                    and day_start <= ticket.scheduled_time <= day_end):
+                booked[ticket.scheduled_time] = booked.get(ticket.scheduled_time, 0) + 1
+
+        step = timedelta(minutes=self.slot_duration)
+        capacity = max(self.slot_capacity, 1)
+        slots = []
+        for window in hours.sorted(key=lambda h: h.hour_from):
+            cursor = datetime.combine(day, self._float_to_time(window.hour_from))
+            end = datetime.combine(day, self._float_to_time(window.hour_to))
+            while cursor + step <= end:
+                used = booked.get(cursor, 0)
+                slots.append((cursor, max(capacity - used, 0)))
+                cursor += step
+        return slots
+
+    def _book_appointment(self, partner, slot_dt):
+        """Réserve un créneau et renvoie le ticket de rendez-vous créé."""
+        self.ensure_one()
+        if not self.appointment_enabled:
+            raise UserError(_("Les rendez-vous ne sont pas activés pour cette file."))
+        available = dict(self._slots_for_date(slot_dt.date()))
+        if slot_dt not in available:
+            raise UserError(_("Ce créneau n'existe pas."))
+        if available[slot_dt] <= 0:
+            raise UserError(_("Ce créneau est complet."))
+        return self.env['queue.ticket'].create({
+            'service_id': self.id,
+            'partner_id': partner.id if partner else False,
+            'channel': 'appointment',
+            'scheduled_time': slot_dt,
+            'state': 'scheduled',
+        })
 
     def _notify_upcoming(self, threshold=2):
         """Prévient (push) les clients qui approchent de la tête de file.

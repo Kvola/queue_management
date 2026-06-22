@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from datetime import date, datetime, time, timedelta
+
+from odoo import fields
+from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
 
 
@@ -134,3 +138,62 @@ class TestQueue(TransactionCase):
         self.assertFalse(c._push("Titre", "Corps"))  # pas de fcm_token
         c.fcm_token = 'device-token'
         self.assertFalse(c._push("Titre", "Corps"))  # FCM non configuré → no-op
+
+    # --- Rendez-vous (Phase 4b) ----------------------------------------------
+
+    def _enable_appointments(self):
+        self.service.write({
+            'appointment_enabled': True,
+            'slot_duration': 30,
+            'slot_capacity': 2,
+        })
+        for day in range(7):  # ouvert tous les jours 08:00–10:00
+            self.env['queue.opening.hour'].create({
+                'service_id': self.service.id,
+                'dayofweek': str(day),
+                'hour_from': 8.0,
+                'hour_to': 10.0,
+            })
+
+    def test_slots_generation(self):
+        self._enable_appointments()
+        day = date.today() + timedelta(days=1)
+        slots = self.service._slots_for_date(day)
+        # 08:00, 08:30, 09:00, 09:30 → 4 créneaux entiers avant 10:00.
+        self.assertEqual(len(slots), 4)
+        self.assertTrue(all(avail == 2 for _, avail in slots))
+
+    def test_booking_respects_capacity(self):
+        self._enable_appointments()
+        day = date.today() + timedelta(days=1)
+        slot = datetime.combine(day, time(8, 0))
+        partners = [self.env['res.partner'].create({'name': n}) for n in 'ABC']
+        t1 = self.service._book_appointment(partners[0], slot)
+        self.assertEqual(t1.state, 'scheduled')
+        self.assertEqual(t1.channel, 'appointment')
+        self.service._book_appointment(partners[1], slot)
+        with self.assertRaises(UserError):
+            self.service._book_appointment(partners[2], slot)
+        self.assertEqual(dict(self.service._slots_for_date(day))[slot], 0)
+
+    def test_checkin_assigns_number(self):
+        ticket = self.env['queue.ticket'].create({
+            'service_id': self.service.id,
+            'channel': 'appointment',
+            'state': 'scheduled',
+            'scheduled_time': fields.Datetime.now(),
+        })
+        self.assertEqual(ticket.name, '/')  # pas de numéro tant que programmé
+        ticket.action_check_in()
+        self.assertEqual(ticket.state, 'waiting')
+        self.assertTrue(ticket.name.startswith('CAR'))
+
+    def test_cron_expires_overdue_appointment(self):
+        old = self.env['queue.ticket'].create({
+            'service_id': self.service.id,
+            'channel': 'appointment',
+            'state': 'scheduled',
+            'scheduled_time': fields.Datetime.now() - timedelta(hours=3),
+        })
+        self.env['queue.ticket']._cron_expire_appointments()
+        self.assertEqual(old.state, 'no_show')

@@ -39,6 +39,25 @@
                     </group>
                     <field name="counter_ids" widget="many2many_tags"
                            string="Guichets desservant la file"/>
+                    <notebook>
+                        <page string="Rendez-vous">
+                            <group>
+                                <field name="appointment_enabled"/>
+                                <field name="slot_duration"
+                                       invisible="not appointment_enabled"/>
+                                <field name="slot_capacity"
+                                       invisible="not appointment_enabled"/>
+                            </group>
+                            <field name="opening_hour_ids"
+                                   invisible="not appointment_enabled">
+                                <list editable="bottom">
+                                    <field name="dayofweek"/>
+                                    <field name="hour_from" widget="float_time"/>
+                                    <field name="hour_to" widget="float_time"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>

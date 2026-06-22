@@ -107,6 +107,44 @@ class TestQueueApi(HttpCase):
         res = self._call('/api/queue/ticket/create', {'service_id': self.service.id})
         self.assertEqual(res['status'], 'error')
 
+    def _enable_appointments(self):
+        self.service.write({
+            'appointment_enabled': True, 'slot_duration': 30, 'slot_capacity': 1})
+        for d in range(7):
+            self.env['queue.opening.hour'].create({
+                'service_id': self.service.id, 'dayofweek': str(d),
+                'hour_from': 8.0, 'hour_to': 9.0})
+
+    def test_appointment_booking_api(self):
+        from datetime import date, timedelta
+        self._enable_appointments()
+        day = (date.today() + timedelta(days=1)).strftime('%Y-%m-%d')
+        slots = self._call('/api/queue/slots',
+                           {'service_id': self.service.id, 'date': day})
+        self.assertEqual(slots['status'], 'ok')
+        self.assertTrue(slots['slots'])
+        slot = slots['slots'][0]['time']
+        book = self._call('/api/queue/appointment/book', {
+            'auth_token': 'TESTTOKEN123', 'service_id': self.service.id,
+            'slot': slot})
+        self.assertEqual(book['status'], 'ok')
+        self.assertEqual(book['ticket']['state'], 'scheduled')
+        # Le même créneau (capacité 1) n'est plus disponible.
+        slots2 = self._call('/api/queue/slots',
+                            {'service_id': self.service.id, 'date': day})
+        self.assertEqual(slots2['slots'][0]['available'], 0)
+
+    def test_appointment_checkin_api(self):
+        ticket = self.env['queue.ticket'].create({
+            'service_id': self.service.id,
+            'partner_id': self.customer.partner_id.id,
+            'channel': 'appointment', 'state': 'scheduled',
+            'scheduled_time': fields.Datetime.now()})
+        res = self._call('/api/queue/ticket/checkin', {
+            'auth_token': 'TESTTOKEN123', 'ticket_id': ticket.id})
+        self.assertEqual(res['status'], 'ok')
+        self.assertEqual(res['ticket']['state'], 'waiting')
+
     def test_cannot_touch_others_ticket(self):
         other = self.env['queue.customer'].create({
             'email': 'intrus@test.com', 'token': 'INTRUS'})

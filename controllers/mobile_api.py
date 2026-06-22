@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from odoo import http, fields
+from odoo.exceptions import UserError
 from odoo.http import request
 
 _logger = logging.getLogger(__name__)
@@ -41,13 +42,15 @@ class QueueMobileApi(http.Controller):
     def _ticket_data(ticket):
         return {
             'id': ticket.id,
-            'name': ticket.name,
+            'name': ticket.name if ticket.name != '/' else '',
             'state': ticket.state,
             'position': ticket.position,
             'service': ticket.service_id.name,
             'site': ticket.location_id.name,
             'counter': ticket.counter_id.name or '',
             'channel': ticket.channel,
+            'scheduled_time': fields.Datetime.to_string(ticket.scheduled_time)
+            if ticket.scheduled_time else '',
         }
 
     # --- Authentification par email (OTP) ------------------------------------
@@ -96,7 +99,8 @@ class QueueMobileApi(http.Controller):
         if not location:
             return self._err("Site introuvable.")
         services = [
-            {'id': s.id, 'name': s.name, 'code': s.code, 'waiting': s.waiting_count}
+            {'id': s.id, 'name': s.name, 'code': s.code, 'waiting': s.waiting_count,
+             'appointment': s.appointment_enabled}
             for s in location.service_ids.filtered('active')
         ]
         return self._ok(
@@ -152,7 +156,7 @@ class QueueMobileApi(http.Controller):
         ticket = request.env['queue.ticket'].sudo().browse(int(kw.get('ticket_id') or 0))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
             return self._err("Ticket introuvable.")
-        if ticket.state not in ('waiting', 'called'):
+        if ticket.state not in ('scheduled', 'waiting', 'called'):
             return self._err("Ce ticket ne peut plus être annulé.")
         ticket.action_cancel()
         return self._ok(ticket=self._ticket_data(ticket))
@@ -165,9 +169,70 @@ class QueueMobileApi(http.Controller):
             return self._err("Non authentifié.")
         tickets = request.env['queue.ticket'].sudo().search([
             ('partner_id', '=', customer.partner_id.id),
-            ('state', 'in', ('waiting', 'called', 'serving')),
+            ('state', 'in', ('scheduled', 'waiting', 'called', 'serving')),
         ])
         return self._ok(tickets=[self._ticket_data(t) for t in tickets])
+
+    # --- Rendez-vous ---------------------------------------------------------
+
+    @http.route('/api/queue/slots', type='jsonrpc', auth='public',
+                methods=['POST'], csrf=False)
+    def slots(self, **kw):
+        service = request.env['queue.service'].sudo().browse(
+            int(kw.get('service_id') or 0))
+        if not service.exists() or not service.appointment_enabled:
+            return self._err("Cette file ne propose pas de rendez-vous.")
+        try:
+            day = datetime.strptime(kw.get('date') or '', '%Y-%m-%d').date()
+        except ValueError:
+            return self._err("Date invalide (attendu AAAA-MM-JJ).")
+        now = fields.Datetime.now()
+        slots = []
+        for slot_dt, available in service._slots_for_date(day):
+            if slot_dt <= now:
+                continue  # on ne propose pas un créneau déjà passé
+            slots.append({
+                'time': fields.Datetime.to_string(slot_dt),
+                'label': slot_dt.strftime('%H:%M'),
+                'available': available,
+            })
+        return self._ok(date=kw.get('date'), slots=slots)
+
+    @http.route('/api/queue/appointment/book', type='jsonrpc', auth='public',
+                methods=['POST'], csrf=False)
+    def appointment_book(self, **kw):
+        customer = self._get_customer(kw)
+        if not customer:
+            return self._err("Non authentifié.")
+        service = request.env['queue.service'].sudo().browse(
+            int(kw.get('service_id') or 0))
+        if not service.exists():
+            return self._err("File invalide.")
+        try:
+            slot_dt = datetime.strptime(kw.get('slot') or '', '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return self._err("Créneau invalide.")
+        try:
+            ticket = service._book_appointment(customer.partner_id, slot_dt)
+        except UserError as exc:
+            return self._err(exc.args[0] if exc.args else "Réservation impossible.")
+        return self._ok(ticket=self._ticket_data(ticket))
+
+    @http.route('/api/queue/ticket/checkin', type='jsonrpc', auth='public',
+                methods=['POST'], csrf=False)
+    def ticket_checkin(self, **kw):
+        customer = self._get_customer(kw)
+        if not customer:
+            return self._err("Non authentifié.")
+        ticket = request.env['queue.ticket'].sudo().browse(
+            int(kw.get('ticket_id') or 0))
+        if not ticket.exists() or ticket.partner_id != customer.partner_id:
+            return self._err("Rendez-vous introuvable.")
+        try:
+            ticket.action_check_in()
+        except UserError as exc:
+            return self._err(exc.args[0] if exc.args else "Enregistrement impossible.")
+        return self._ok(ticket=self._ticket_data(ticket))
 
     # --- Notifications push (prépare la Phase 3) -----------------------------
 

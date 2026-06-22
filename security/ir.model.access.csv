@@ -9,3 +9,5 @@ access_queue_ticket_agent,queue.ticket.agent,model_queue_ticket,group_queue_agen
 access_queue_ticket_manager,queue.ticket.manager,model_queue_ticket,group_queue_manager,1,1,1,1
 access_queue_customer_agent,queue.customer.agent,model_queue_customer,group_queue_agent,1,0,0,0
 access_queue_customer_manager,queue.customer.manager,model_queue_customer,group_queue_manager,1,1,1,1
+access_queue_opening_hour_agent,queue.opening.hour.agent,model_queue_opening_hour,group_queue_agent,1,0,0,0
+access_queue_opening_hour_manager,queue.opening.hour.manager,model_queue_opening_hour,group_queue_manager,1,1,1,1
