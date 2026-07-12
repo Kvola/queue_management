@@ -47,6 +47,8 @@
                                        invisible="not appointment_enabled"/>
                                 <field name="slot_capacity"
                                        invisible="not appointment_enabled"/>
+                                <field name="appointment_max_per_customer"
+                                       invisible="not appointment_enabled"/>
                             </group>
                             <field name="opening_hour_ids"
                                    invisible="not appointment_enabled">

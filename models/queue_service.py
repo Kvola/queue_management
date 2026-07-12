@@ -57,6 +57,10 @@ class QueueService(models.Model):
     slot_capacity = fields.Integer(
         "Capacité par créneau", default=1,
         help="Nombre de rendez-vous réservables sur un même créneau.")
+    appointment_max_per_customer = fields.Integer(
+        "RDV actifs max par client", default=2,
+        help="Nombre de rendez-vous à venir qu'un même client peut détenir "
+             "sur cette file (anti-abus : empêche de bloquer tout un agenda).")
     opening_hour_ids = fields.One2many(
         'queue.opening.hour', 'service_id', string="Plages d'ouverture")
 
@@ -80,20 +84,39 @@ class QueueService(models.Model):
             if service.code and not service.code.strip():
                 raise ValidationError(_("Le préfixe ne peut pas être vide."))
 
+    def _lock_row(self):
+        """Verrouille la ligne de la file (``SELECT FOR UPDATE``).
+
+        Sérialise les transactions concurrentes (borne + mobile en même
+        temps) sur la numérotation et la capacité des créneaux. Le verrou est
+        libéré à la fin de la transaction HTTP.
+        """
+        self.ensure_one()
+        self.env.cr.execute(
+            "SELECT id FROM queue_service WHERE id = %s FOR UPDATE", (self.id,))
+
     def _next_number(self):
         """Retourne le prochain numéro de ticket (ex. « B-042 »).
 
-        Compteur réinitialisé chaque jour. Appelé sous le verrou de ligne pris
-        par l'écriture concurrente d'Odoo ; suffisant pour la Phase 0. Un passage
-        à ``ir.sequence`` avec verrou dédié sera fait si la charge l'exige.
+        Compteur réinitialisé chaque jour. Le compteur est relu en base sous
+        verrou de ligne : deux créations simultanées (borne + mobile) ne
+        peuvent plus produire le même numéro.
         """
         self.ensure_one()
+        # Les écritures ORM en attente doivent être visibles de la relecture
+        # SQL (plusieurs tickets créés dans la même transaction).
+        self.flush_recordset(['last_number', 'last_number_date'])
+        self.env.cr.execute(
+            "SELECT last_number, last_number_date FROM queue_service"
+            " WHERE id = %s FOR UPDATE",
+            (self.id,))
+        last_number, last_number_date = self.env.cr.fetchone()
         today = fields.Date.context_today(self)
-        if self.last_number_date != today:
-            self.last_number_date = today
-            self.last_number = 0
-        self.last_number += 1
-        return f"{(self.code or '?').strip().upper()}-{self.last_number:03d}"
+        next_number = 1 if last_number_date != today else (last_number or 0) + 1
+        # sudo : le compteur est de la plomberie interne — un agent (lecture
+        # seule sur la file) doit pouvoir créer un ticket au guichet.
+        self.sudo().write({'last_number': next_number, 'last_number_date': today})
+        return f"{(self.code or '?').strip().upper()}-{next_number:03d}"
 
     def _get_ordered_waiting(self):
         """Les tickets en attente de la file, triés dans l'ordre d'appel.
@@ -160,10 +183,42 @@ class QueueService(models.Model):
         return slots
 
     def _book_appointment(self, partner, slot_dt):
-        """Réserve un créneau et renvoie le ticket de rendez-vous créé."""
+        """Réserve un créneau et renvoie le ticket de rendez-vous créé.
+
+        Toute la vérification (créneau futur, quota client, capacité) se fait
+        sous verrou de ligne de la file : deux réservations simultanées du
+        dernier créneau ne peuvent plus passer toutes les deux.
+        """
         self.ensure_one()
         if not self.appointment_enabled:
             raise UserError(_("Les rendez-vous ne sont pas activés pour cette file."))
+        if slot_dt <= fields.Datetime.now():
+            # L'API ne propose que des créneaux futurs, mais rien n'empêchait
+            # d'en poster un passé directement.
+            raise UserError(_("Ce créneau est déjà passé."))
+        self._lock_row()
+        # Le verrou acquis, on repart d'une vision fraîche des réservations
+        # (une transaction concurrente a pu committer pendant l'attente).
+        self.invalidate_recordset(['ticket_ids'])
+        if partner:
+            Ticket = self.env['queue.ticket']
+            if Ticket.search_count([
+                    ('service_id', '=', self.id),
+                    ('partner_id', '=', partner.id),
+                    ('channel', '=', 'appointment'),
+                    ('state', '=', 'scheduled'),
+                    ('scheduled_time', '=', slot_dt)]):
+                raise UserError(_("Vous avez déjà un rendez-vous sur ce créneau."))
+            max_active = max(self.appointment_max_per_customer, 1)
+            active = Ticket.search_count([
+                ('service_id', '=', self.id),
+                ('partner_id', '=', partner.id),
+                ('channel', '=', 'appointment'),
+                ('state', '=', 'scheduled')])
+            if active >= max_active:
+                raise UserError(_(
+                    "Vous avez déjà %d rendez-vous à venir sur cette file. "
+                    "Annulez-en un avant d'en réserver un autre.", active))
         available = dict(self._slots_for_date(slot_dt.date()))
         if slot_dt not in available:
             raise UserError(_("Ce créneau n'existe pas."))

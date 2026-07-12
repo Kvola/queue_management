@@ -43,5 +43,18 @@
             <field name="global" eval="True"/>
         </record>
 
+        <!-- Le client mobile est GLOBAL (il peut visiter plusieurs
+             établissements) : pas de company_id sur le modèle. Un responsable
+             ne voit donc que les clients ayant au moins un ticket dans une de
+             ses sociétés — jamais le fichier clients des autres tenants.
+             (Les agents n'ont plus d'ACL du tout sur ce modèle ; l'API mobile
+             passe en sudo et n'est pas concernée.) -->
+        <record id="rule_queue_customer_manager" model="ir.rule">
+            <field name="name">Client mobile : visible si ticket dans mes sociétés</field>
+            <field name="model_id" ref="model_queue_customer"/>
+            <field name="domain_force">[('partner_id.queue_ticket_ids.company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('group_queue_manager'))]"/>
+        </record>
+
     </data>
 </odoo>

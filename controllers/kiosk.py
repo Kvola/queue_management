@@ -4,6 +4,8 @@ import json
 from odoo import http
 from odoo.http import request
 
+from .main import secure_public_page
+
 
 class QueueKioskController(http.Controller):
     """Borne tactile à l'entrée d'un site — page web publique, sans login.
@@ -31,11 +33,11 @@ class QueueKioskController(http.Controller):
         location = self._get_location(token)
         if not location:
             return request.not_found()
-        return request.render('queue_management.kiosk_page', {
+        return secure_public_page(request.render('queue_management.kiosk_page', {
             'token': token,
             'site_name': location.name,
             'services': self._services(location),
-        })
+        }))
 
     @http.route('/queue/kiosk/<string:token>/ticket', type='http', auth='public',
                 methods=['POST'], csrf=False, sitemap=False)
@@ -51,9 +53,9 @@ class QueueKioskController(http.Controller):
         service = location.service_ids.filtered(
             lambda s: s.id == service_id and s.active)
         if not service:
-            return request.make_response(
+            return secure_public_page(request.make_response(
                 json.dumps({'status': 'error', 'message': 'File invalide.'}),
-                headers=[('Content-Type', 'application/json; charset=utf-8')])
+                headers=[('Content-Type', 'application/json; charset=utf-8')]))
         ticket = request.env['queue.ticket'].sudo().create({
             'service_id': service.id,
             'channel': 'kiosk',
@@ -66,6 +68,6 @@ class QueueKioskController(http.Controller):
                 'position': ticket.position,
             },
         }
-        return request.make_response(
+        return secure_public_page(request.make_response(
             json.dumps(payload),
-            headers=[('Content-Type', 'application/json; charset=utf-8')])
+            headers=[('Content-Type', 'application/json; charset=utf-8')]))

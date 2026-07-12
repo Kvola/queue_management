@@ -43,6 +43,31 @@ class TestQueue(TransactionCase):
         self.assertEqual(t1.name, "CAR-001")
         self.assertEqual(t2.name, "CAR-002")
 
+    def test_numbering_batch_same_transaction(self):
+        """Deux tickets créés dans le même batch ont des numéros distincts
+        (le compteur relu en SQL sous verrou doit voir l'écriture ORM en
+        attente de la même transaction)."""
+        tickets = self.env['queue.ticket'].create([
+            {'service_id': self.service.id},
+            {'service_id': self.service.id},
+        ])
+        self.assertEqual(tickets.mapped('name'), ["CAR-001", "CAR-002"])
+
+    def test_numbering_as_readonly_agent(self):
+        """Un agent (lecture seule sur la file) peut créer un ticket : le
+        compteur interne s'écrit en sudo."""
+        agent = self.env['res.users'].create({
+            'name': 'Agent Guichet', 'login': 'agent_numbering',
+            'company_id': self.company.id,
+            'company_ids': [(6, 0, [self.company.id])],
+            'group_ids': [(6, 0, [
+                self.env.ref('base.group_user').id,
+                self.env.ref('queue_management.group_queue_agent').id])],
+        })
+        ticket = self.env['queue.ticket'].with_user(agent).create({
+            'service_id': self.service.id})
+        self.assertEqual(ticket.name, "CAR-001")
+
     def test_company_derived_from_location(self):
         """company_id remonte du site → alimente les record rules."""
         t = self._new_ticket()
@@ -176,6 +201,45 @@ class TestQueue(TransactionCase):
             self.service._book_appointment(partners[2], slot)
         self.assertEqual(dict(self.service._slots_for_date(day))[slot], 0)
 
+    def test_booking_rejects_past_slot(self):
+        """L'API n'affiche que des créneaux futurs, mais le modèle doit aussi
+        refuser un créneau passé posté directement."""
+        self._enable_appointments()
+        partner = self.env['res.partner'].create({'name': 'Retardataire'})
+        yesterday = datetime.combine(
+            date.today() - timedelta(days=1), time(8, 0))
+        with self.assertRaises(UserError):
+            self.service._book_appointment(partner, yesterday)
+
+    def test_booking_rejects_same_slot_twice(self):
+        """Même client + même créneau = doublon refusé (capacité 2 sinon)."""
+        self._enable_appointments()
+        day = date.today() + timedelta(days=1)
+        slot = datetime.combine(day, time(8, 0))
+        partner = self.env['res.partner'].create({'name': 'Doublon'})
+        self.service._book_appointment(partner, slot)
+        with self.assertRaises(UserError):
+            self.service._book_appointment(partner, slot)
+
+    def test_booking_quota_per_customer(self):
+        """Un client ne peut pas monopoliser l'agenda d'une file (2 RDV max
+        par défaut, configurable via appointment_max_per_customer)."""
+        self._enable_appointments()
+        day = date.today() + timedelta(days=1)
+        partner = self.env['res.partner'].create({'name': 'Accapareur'})
+        self.service._book_appointment(partner, datetime.combine(day, time(8, 0)))
+        self.service._book_appointment(partner, datetime.combine(day, time(8, 30)))
+        with self.assertRaises(UserError):
+            self.service._book_appointment(partner, datetime.combine(day, time(9, 0)))
+        # Un RDV annulé libère le quota.
+        first = self.env['queue.ticket'].search([
+            ('partner_id', '=', partner.id),
+            ('scheduled_time', '=', datetime.combine(day, time(8, 0)))])
+        first.action_cancel()
+        booked = self.service._book_appointment(
+            partner, datetime.combine(day, time(9, 0)))
+        self.assertEqual(booked.state, 'scheduled')
+
     def test_checkin_assigns_number(self):
         ticket = self.env['queue.ticket'].create({
             'service_id': self.service.id,
@@ -230,3 +294,23 @@ class TestQueue(TransactionCase):
         })
         self.env['queue.ticket']._cron_expire_appointments()
         self.assertEqual(old.state, 'no_show')
+
+    def test_cron_expiry_notifies_customer(self):
+        """Le client est prévenu (push) quand son RDV expire en no-show."""
+        from unittest.mock import patch
+        customer = self.env['queue.customer'].create({'email': 'rdv@test.com'})
+        customer._ensure_partner()
+        self.env['queue.ticket'].create({
+            'service_id': self.service.id,
+            'partner_id': customer.partner_id.id,
+            'channel': 'appointment',
+            'state': 'scheduled',
+            'scheduled_time': fields.Datetime.now() - timedelta(hours=3),
+        })
+        Customer = type(self.env['queue.customer'])
+        with patch.object(Customer, '_push', autospec=True,
+                          return_value=True) as mocked:
+            self.env['queue.ticket']._cron_expire_appointments()
+        self.assertEqual(mocked.call_count, 1)
+        title = mocked.call_args.args[1]
+        self.assertIn("expiré", title)

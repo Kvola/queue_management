@@ -4,6 +4,27 @@ import json
 from odoo import http
 from odoo.http import request
 
+# Défense en profondeur des pages publiques (borne, affichage) : elles sont
+# autonomes (styles/scripts inline, aucune ressource externe) — on interdit
+# donc tout chargement externe et tout embedding en iframe.
+PUBLIC_PAGE_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; "
+    "connect-src 'self'; img-src 'self' data:; base-uri 'none'; "
+    "frame-ancestors 'none'"
+)
+PUBLIC_PAGE_HEADERS = [
+    ('Content-Security-Policy', PUBLIC_PAGE_CSP),
+    ('X-Content-Type-Options', 'nosniff'),
+    ('Referrer-Policy', 'no-referrer'),
+]
+
+
+def secure_public_page(response):
+    """Pose les en-têtes de sécurité sur une réponse de page publique."""
+    for key, value in PUBLIC_PAGE_HEADERS:
+        response.headers[key] = value
+    return response
+
 
 class QueueDisplayController(http.Controller):
     """Écran d'affichage de salle d'attente — public, sans login.
@@ -54,16 +75,16 @@ class QueueDisplayController(http.Controller):
         location = self._get_location(token)
         if not location:
             return request.not_found()
-        return request.render('queue_management.display_page', {
+        return secure_public_page(request.render('queue_management.display_page', {
             'data': self._display_data(location),
-        })
+        }))
 
     @http.route('/queue/display/<string:token>/data', type='http', auth='public', sitemap=False)
     def display_data(self, token, **kw):
         location = self._get_location(token)
         if not location:
             return request.not_found()
-        return request.make_response(
+        return secure_public_page(request.make_response(
             json.dumps(self._display_data(location)),
             headers=[('Content-Type', 'application/json; charset=utf-8')],
-        )
+        ))

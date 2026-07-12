@@ -238,7 +238,11 @@ class QueueTicket(models.Model):
 
     @api.model
     def _cron_expire_appointments(self):
-        """Marque « absent » les rendez-vous non enregistrés bien après l'heure."""
+        """Marque « absent » les rendez-vous non enregistrés bien après l'heure.
+
+        Le client est prévenu par push (best-effort) : sans cela, son RDV
+        disparaît silencieusement et il l'apprend au guichet.
+        """
         deadline = fields.Datetime.now() - timedelta(minutes=60)
         overdue = self.search([
             ('state', '=', 'scheduled'),
@@ -246,6 +250,12 @@ class QueueTicket(models.Model):
         ])
         for ticket in overdue:
             ticket.write({'state': 'no_show', 'closed_at': fields.Datetime.now()})
+            ticket._notify(
+                "Rendez-vous expiré",
+                "Votre rendez-vous « %s » n'a pas été enregistré à temps et a "
+                "été annulé. Reprenez rendez-vous si besoin." % ticket.service_id.name,
+                {'type': 'expired', 'service': ticket.service_id.name},
+            )
         return True
 
     def action_start(self):
