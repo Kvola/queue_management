@@ -140,6 +140,26 @@ class TestQueue(TransactionCase):
         self.assertEqual(ticket.state, 'called')
         self.assertGreaterEqual(ticket.called_at, before)
 
+    def test_counter_onchange_prefills_services(self):
+        """Choisir le site pré-remplit les files desservies (actives)."""
+        counter = self.env['queue.counter'].new({'name': 'G2'})
+        counter.location_id = self.location
+        counter._onchange_location_id()
+        self.assertEqual(counter.service_ids._origin, self.service)
+
+    def test_counter_services_must_match_location(self):
+        """Un guichet ne peut pas desservir les files d'un autre site."""
+        from odoo.exceptions import ValidationError
+        other_location = self.env['queue.location'].create({
+            'name': 'Autre site', 'company_id': self.company.id})
+        other_service = self.env['queue.service'].create({
+            'name': 'Ailleurs', 'code': 'AIL',
+            'location_id': other_location.id})
+        with self.assertRaises(ValidationError):
+            self.env['queue.counter'].create({
+                'name': 'G3', 'location_id': self.location.id,
+                'service_ids': [(6, 0, other_service.ids)]})
+
     def test_counter_new_record_compute(self):
         """Régression : l'aperçu « prochain » d'un guichet EN COURS DE
         CRÉATION (onchange, service_ids vide) ne doit pas planter."""

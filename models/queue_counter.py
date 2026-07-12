@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 
 class QueueCounter(models.Model):
@@ -48,6 +48,34 @@ class QueueCounter(models.Model):
     next_number = fields.Char("N° suivant", compute='_compute_next')
     waiting_count = fields.Integer("En attente", compute='_compute_next')
 
+    @api.onchange('location_id')
+    def _onchange_location_id(self):
+        """À la saisie : garde les files du nouveau site, et si rien ne reste,
+        pré-remplit avec toutes les files actives du site (ajustable). Évite
+        le piège du guichet créé sans file desservie."""
+        for counter in self:
+            if not counter.location_id:
+                continue
+            counter.service_ids = counter.service_ids.filtered(
+                lambda s: s.location_id == counter.location_id)
+            if not counter.service_ids:
+                counter.service_ids = counter.location_id.service_ids.filtered(
+                    'active')
+
+    @api.constrains('service_ids', 'location_id')
+    def _check_services_same_location(self):
+        """Un guichet ne peut desservir que des files de SON site."""
+        for counter in self:
+            foreign = counter.service_ids.filtered(
+                lambda s: s.location_id != counter.location_id)
+            if foreign:
+                raise ValidationError(_(
+                    "Les files suivantes n'appartiennent pas au site de ce "
+                    "guichet (%(site)s) : %(files)s.",
+                    site=counter.location_id.display_name,
+                    files=", ".join(foreign.mapped('name')),
+                ))
+
     @api.depends('current_ticket_id', 'current_ticket_id.state')
     def _compute_state(self):
         for counter in self:
@@ -83,7 +111,9 @@ class QueueCounter(models.Model):
         """Appelle le prochain client (waiting → called à ce guichet)."""
         self.ensure_one()
         if not self.service_ids:
-            raise UserError(_("Ce guichet ne dessert aucune file."))
+            raise UserError(_(
+                "Ce guichet ne dessert aucune file. Ouvrez sa fiche et "
+                "ajoutez-en dans « Files desservies »."))
         if self.current_ticket_id and self.current_ticket_id.state in ('called', 'serving'):
             raise UserError(_("Terminez d'abord le client en cours à ce guichet."))
         ticket = self._peek_next()
