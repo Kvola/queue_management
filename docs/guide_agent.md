@@ -32,6 +32,14 @@ Cas particuliers, tant que le ticket est « appelé » :
 - **Rappeler** — ré-annonce le numéro (écran + notification) sans rien changer.
 - **Absent** — le client ne s'est pas présenté : le ticket est clos en
   « Absent » et vous pouvez appeler le suivant.
+- **Re-mettre en file** — le client marqué absent se présente finalement :
+  ouvrez son ticket (menu Tickets) → **Re-mettre en file**. Il reprend sa
+  place selon son heure d'arrivée d'origine (dans les 2 h qui suivent
+  l'appel ; au-delà, il reprend un ticket).
+
+À savoir : un ticket appelé resté **sans réponse** est automatiquement
+marqué absent au bout de quelques minutes (délai réglé par
+l'administrateur) — votre guichet ne reste jamais bloqué.
 
 ## Garde-fous (c'est normal si…)
 

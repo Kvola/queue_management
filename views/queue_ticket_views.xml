@@ -43,6 +43,10 @@
                             invisible="state != 'called'"/>
                     <button name="action_no_show" type="object" string="Absent"
                             invisible="state != 'called'"/>
+                    <button name="action_requeue" type="object"
+                            string="Re-mettre en file" class="btn-primary"
+                            invisible="state != 'no_show'"
+                            help="Le client s'est présenté après avoir été marqué absent : il reprend sa place selon son heure d'arrivée d'origine."/>
                     <button name="action_cancel" type="object" string="Annuler"
                             invisible="state in ('done','no_show','cancelled')"
                             confirm="Annuler ce ticket ?"/>

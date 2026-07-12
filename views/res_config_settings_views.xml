@@ -8,7 +8,7 @@
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
                 <app data-string="File d'attente" string="File d'attente"
-                     name="queue_management">
+                     name="queue_management" logo="/queue_management/static/description/icon.png">
                     <block title="Application mobile">
                         <setting string="URL du store"
                                  help="Si renseignée, la page publique /queue/app redirige vers le store — aucun QR imprimé à refaire.">
@@ -28,6 +28,10 @@
                         <setting string="Notification « bientôt votre tour »"
                                  help="Position dans la file à partir de laquelle le client est prévenu par notification.">
                             <field name="queue_soon_threshold" class="o_light_label"/>
+                        </setting>
+                        <setting string="Auto-absent des appelés (minutes)"
+                                 help="Ticket appelé sans réponse au-delà de ce délai → Absent, guichet libéré. 0 pour désactiver.">
+                            <field name="queue_auto_no_show_min" class="o_light_label"/>
                         </setting>
                         <setting string="Expiration des RDV (minutes)"
                                  help="Délai après l'heure du rendez-vous au bout duquel un RDV non enregistré passe en Absent.">

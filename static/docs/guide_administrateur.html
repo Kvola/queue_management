@@ -278,6 +278,11 @@ QR imprimé à refaire</strong>.</p>
 <td>60 min</td>
 <td>RDV non enregistré → Absent (client notifié)</td>
 </tr>
+<tr>
+<td>Auto-absent des appelés</td>
+<td>10 min</td>
+<td>Appelé sans réponse → Absent, guichet libéré (0 = off)</td>
+</tr>
 </tbody>
 </table>
 <h2 id="4-prérequis-techniques">4. Prérequis techniques</h2>
@@ -315,6 +320,11 @@ le HTTP en clair est refusé en release.</li>
 <td>Rendez-vous non honorés</td>
 <td>15 min</td>
 <td>RDV expirés → Absent + notification</td>
+</tr>
+<tr>
+<td>Appelés sans réponse</td>
+<td>2 min</td>
+<td>Auto-absent (délai configurable) — débloque les guichets</td>
 </tr>
 <tr>
 <td>Purge des comptes jamais vérifiés</td>

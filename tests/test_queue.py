@@ -140,6 +140,62 @@ class TestQueue(TransactionCase):
         self.assertEqual(ticket.state, 'called')
         self.assertGreaterEqual(ticket.called_at, before)
 
+    def test_transition_map_blocks_incoherent_paths(self):
+        """La machine à états refuse tout chemin non déclaré."""
+        ticket = self._new_ticket()
+        self.counter.action_call_next()
+        ticket.action_start()
+        ticket.action_done()
+        with self.assertRaises(UserError):
+            ticket._transition('serving')   # done → serving : interdit
+        with self.assertRaises(UserError):
+            ticket._transition('waiting')   # done → waiting : interdit
+
+    def test_requeue_no_show_keeps_seniority(self):
+        """Un absent re-mis en file reprend sa place d'origine (ancienneté)."""
+        early = self._new_ticket()
+        self.counter.action_call_next()      # appelle `early`
+        early.action_no_show()
+        late = self._new_ticket()            # arrivé après
+        early.action_requeue()
+        self.assertEqual(early.state, 'waiting')
+        self.assertFalse(early.counter_id)
+        self.assertFalse(early.closed_at)
+        # Son heure d'arrivée d'origine le replace DEVANT le suivant.
+        self.assertEqual(self.service._get_next_waiting(), early)
+        self.assertEqual(late.position, 2)
+
+    def test_requeue_guards(self):
+        """Re-mise en file : réservée aux absents, et fenêtre de 2 h max."""
+        waiting = self._new_ticket()
+        with self.assertRaises(UserError):
+            waiting.action_requeue()
+        self.counter.action_call_next()
+        waiting.action_no_show()
+        waiting.write({'closed_at': fields.Datetime.now() - timedelta(hours=3)})
+        with self.assertRaises(UserError):
+            waiting.action_requeue()
+
+    def test_cron_auto_no_show(self):
+        """Un appelé sans réponse au-delà du délai passe en Absent et libère
+        le guichet ; 0 désactive le mécanisme."""
+        ticket = self._new_ticket()
+        self.counter.action_call_next()
+        ticket.write({'called_at': fields.Datetime.now() - timedelta(minutes=15)})
+        self.env['queue.ticket']._cron_auto_no_show()   # défaut 10 min
+        self.assertEqual(ticket.state, 'no_show')
+        self.assertFalse(self.counter.current_ticket_id)
+        # Désactivé → un appelé ancien reste appelé.
+        self.env['ir.config_parameter'].sudo().set_param(
+            'queue_management.auto_no_show_min', '0')
+        ticket2 = self._new_ticket()
+        self.counter.action_call_next()
+        ticket2.write({'called_at': fields.Datetime.now() - timedelta(hours=1)})
+        self.env['queue.ticket']._cron_auto_no_show()
+        self.assertEqual(ticket2.state, 'called')
+        self.env['ir.config_parameter'].sudo().set_param(
+            'queue_management.auto_no_show_min', '10')
+
     def test_chatter_on_all_form_models(self):
         """Tous les modèles à formulaire portent le chatter (mail.thread)."""
         for model in ('queue.location', 'queue.service', 'queue.counter',

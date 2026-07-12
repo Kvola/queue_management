@@ -47,6 +47,7 @@ refaire**.
 | Durée de session mobile | 90 j | Reconnexion par code au-delà |
 | Notification « bientôt » | position 2 | Seuil du push « Bientôt votre tour » |
 | Expiration des RDV | 60 min | RDV non enregistré → Absent (client notifié) |
+| Auto-absent des appelés | 10 min | Appelé sans réponse → Absent, guichet libéré (0 = off) |
 
 ## 4. Prérequis techniques
 
@@ -69,6 +70,7 @@ refaire**.
 | Cron | Fréquence | Rôle |
 |---|---|---|
 | Rendez-vous non honorés | 15 min | RDV expirés → Absent + notification |
+| Appelés sans réponse | 2 min | Auto-absent (délai configurable) — débloque les guichets |
 | Purge des comptes jamais vérifiés | 1 j | Comptes email sans connexion > 30 j |
 | Purge des compteurs de rate-limit | 1 j | Nettoyage des compteurs anti-abus |
 

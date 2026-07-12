@@ -45,6 +45,12 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='queue_management.soon_threshold',
         help="Les clients dont la position atteint ce rang reçoivent la "
              "notification push « Bientôt votre tour ».")
+    queue_auto_no_show_min = fields.Integer(
+        "Auto-absent des appelés sans réponse (minutes)", default=10,
+        config_parameter='queue_management.auto_no_show_min',
+        help="Un ticket appelé resté sans réponse ce délai passe en Absent "
+             "(guichet libéré, client notifié, re-mise en file possible). "
+             "0 = désactivé.")
     queue_no_show_delay_min = fields.Integer(
         "Expiration des RDV non honorés (minutes)", default=60,
         config_parameter='queue_management.no_show_delay_min',

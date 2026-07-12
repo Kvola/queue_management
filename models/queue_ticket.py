@@ -39,6 +39,18 @@ class QueueTicket(models.Model):
         ('no_show', "Absent"),
         ('cancelled', "Annulé"),
     ]
+    # Machine à états — UNIQUE source de vérité des transitions autorisées.
+    # Toute action passe par _transition() : aucun chemin incohérent possible,
+    # y compris depuis un futur développement.
+    ALLOWED_TRANSITIONS = {
+        'scheduled': {'waiting', 'no_show', 'cancelled'},
+        'waiting': {'called', 'cancelled'},
+        'called': {'serving', 'done', 'no_show', 'cancelled'},
+        'serving': {'done', 'cancelled'},
+        'done': set(),
+        'no_show': {'waiting'},   # re-filer un absent qui se présente
+        'cancelled': set(),
+    }
 
     name = fields.Char("Numéro", required=True, copy=False, readonly=True, default="/")
 
@@ -185,13 +197,30 @@ class QueueTicket(models.Model):
 
     # --- Transitions d'état --------------------------------------------------
 
+    def _transition(self, new_state, vals=None):
+        """Passe les tickets à ``new_state`` en validant la machine à états.
+
+        Filet de sécurité générique : les actions gardent leurs messages
+        d'erreur métier explicites, mais aucune écriture d'état incohérente
+        ne peut passer par ici.
+        """
+        for ticket in self:
+            if new_state not in self.ALLOWED_TRANSITIONS.get(ticket.state, set()):
+                raise UserError(_(
+                    "Transition impossible : %(vieux)s → %(nouveau)s (ticket %(nom)s).",
+                    vieux=dict(self.STATE)[ticket.state],
+                    nouveau=dict(self.STATE)[new_state],
+                    nom=ticket.name,
+                ))
+        self.write(dict(vals or {}, state=new_state))
+        return True
+
     def action_call(self, counter=None):
         """Appeler le ticket (waiting → called) et l'affecter à un guichet."""
         for ticket in self:
             if ticket.state != 'waiting':
                 raise UserError(_("Seul un ticket en attente peut être appelé."))
-            ticket.write({
-                'state': 'called',
+            ticket._transition('called', {
                 'counter_id': counter.id if counter else ticket.counter_id.id,
                 'called_at': fields.Datetime.now(),
             })
@@ -230,10 +259,10 @@ class QueueTicket(models.Model):
                 raise UserError(_("Seul un rendez-vous programmé peut être enregistré."))
             if ticket.scheduled_time and now < ticket.scheduled_time - timedelta(hours=2):
                 raise UserError(_("Enregistrement trop en avance par rapport à l'heure du rendez-vous."))
-            vals = {'state': 'waiting'}
+            vals = {}
             if not ticket.name or ticket.name == '/':
                 vals['name'] = ticket.service_id._next_number()
-            ticket.write(vals)
+            ticket._transition('waiting', vals)
             ticket.service_id._notify_upcoming()
         return True
 
@@ -253,7 +282,7 @@ class QueueTicket(models.Model):
             ('scheduled_time', '<', deadline),
         ])
         for ticket in overdue:
-            ticket.write({'state': 'no_show', 'closed_at': fields.Datetime.now()})
+            ticket._transition('no_show', {'closed_at': fields.Datetime.now()})
             ticket._notify(
                 "Rendez-vous expiré",
                 "Votre rendez-vous « %s » n'a pas été enregistré à temps et a "
@@ -267,7 +296,7 @@ class QueueTicket(models.Model):
         for ticket in self:
             if ticket.state != 'called':
                 raise UserError(_("Seul un ticket appelé peut démarrer."))
-            ticket.write({'state': 'serving', 'served_at': fields.Datetime.now()})
+            ticket._transition('serving', {'served_at': fields.Datetime.now()})
         return True
 
     def action_done(self):
@@ -275,7 +304,7 @@ class QueueTicket(models.Model):
         for ticket in self:
             if ticket.state not in ('called', 'serving'):
                 raise UserError(_("Ce ticket ne peut pas être terminé."))
-            ticket.write({'state': 'done', 'closed_at': fields.Datetime.now()})
+            ticket._transition('done', {'closed_at': fields.Datetime.now()})
             ticket._release_counter()
             ticket.service_id._notify_upcoming()
         return True
@@ -285,7 +314,7 @@ class QueueTicket(models.Model):
         for ticket in self:
             if ticket.state != 'called':
                 raise UserError(_("Seul un ticket appelé peut être marqué absent."))
-            ticket.write({'state': 'no_show', 'closed_at': fields.Datetime.now()})
+            ticket._transition('no_show', {'closed_at': fields.Datetime.now()})
             ticket._release_counter()
             ticket.service_id._notify_upcoming()
         return True
@@ -295,8 +324,63 @@ class QueueTicket(models.Model):
         for ticket in self:
             if ticket.state in ('done', 'no_show', 'cancelled'):
                 raise UserError(_("Ce ticket est déjà clôturé."))
-            ticket.write({'state': 'cancelled', 'closed_at': fields.Datetime.now()})
+            ticket._transition('cancelled', {'closed_at': fields.Datetime.now()})
             ticket._release_counter()
+            ticket.service_id._notify_upcoming()
+        return True
+
+    REQUEUE_WINDOW_HOURS = 2
+
+    def action_requeue(self):
+        """Re-met en file un client marqué absent qui se présente (no_show →
+        waiting). Il conserve son numéro ET son heure d'arrivée d'origine
+        (son ancienneté le replace correctement dans la file). Fenêtre
+        limitée : au-delà, reprendre un ticket normalement."""
+        now = fields.Datetime.now()
+        for ticket in self:
+            if ticket.state != 'no_show':
+                raise UserError(_("Seul un ticket « Absent » peut être re-mis en file."))
+            reference = ticket.closed_at or ticket.called_at
+            if reference and now - reference > timedelta(hours=self.REQUEUE_WINDOW_HOURS):
+                raise UserError(_(
+                    "Absence trop ancienne (plus de %s h) : le client doit "
+                    "reprendre un ticket.", self.REQUEUE_WINDOW_HOURS))
+            ticket._transition('waiting', {
+                'closed_at': False,
+                'called_at': False,
+                'counter_id': False,
+                'soon_notified': False,
+            })
+            ticket._notify(
+                "Vous êtes de retour dans la file",
+                "Ticket %s — position %d." % (ticket.name, ticket.position),
+                {'type': 'requeued'},
+            )
+        return True
+
+    @api.model
+    def _cron_auto_no_show(self):
+        """Débloque les guichets : un ticket « appelé » resté sans réponse
+        au-delà du délai configuré passe en Absent (guichet libéré, suivant
+        notifié). Paramètres → File d'attente, défaut 10 min, 0 = désactivé."""
+        from .res_config_settings import int_param
+        delay = int_param(self.env, 'queue_management.auto_no_show_min', 10)
+        if delay <= 0:
+            return True
+        deadline = fields.Datetime.now() - timedelta(minutes=delay)
+        stuck = self.search([
+            ('state', '=', 'called'),
+            ('called_at', '<', deadline),
+        ])
+        for ticket in stuck:
+            ticket._transition('no_show', {'closed_at': fields.Datetime.now()})
+            ticket._release_counter()
+            ticket._notify(
+                "Vous avez été marqué absent",
+                "Le ticket %s a été appelé sans réponse. Présentez-vous au "
+                "guichet : l'agent peut vous re-mettre en file." % ticket.name,
+                {'type': 'auto_no_show'},
+            )
             ticket.service_id._notify_upcoming()
         return True
 
