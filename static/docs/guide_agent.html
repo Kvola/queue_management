@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guide de l'agent de guichet</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root { --accent: #2563eb; --muted: #64748b; --border: #e2e8f0; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+           color: #1e293b; line-height: 1.65; max-width: 46rem; margin: 0 auto;
+           padding: 2.5rem 1.5rem 4rem; }
+    header#title-block-header h1.title { font-size: 1.9rem; margin: 0 0 .25rem; }
+    h1 { font-size: 1.9rem; border-bottom: 3px solid var(--accent);
+         padding-bottom: .4rem; margin-top: 0; }
+    h2 { font-size: 1.35rem; margin-top: 2.2rem; border-bottom: 1px solid var(--border);
+         padding-bottom: .25rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; }
+    p > em:first-child { color: var(--muted); }
+    a { color: var(--accent); }
+    code { background: #f1f5f9; border-radius: 4px; padding: .1em .35em;
+           font-size: .9em; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .95rem; }
+    th, td { border: 1px solid var(--border); padding: .5rem .7rem; text-align: left;
+             vertical-align: top; }
+    th { background: #f8fafc; }
+    li { margin: .25rem 0; }
+    blockquote { border-left: 4px solid var(--accent); margin: 1rem 0;
+                 padding: .25rem 1rem; color: var(--muted); }
+    @media print {
+      body { max-width: none; padding: 0; font-size: 11pt; }
+      a { color: inherit; text-decoration: none; }
+      h2 { page-break-after: avoid; }
+      table, li { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Guide de l'agent de guichet</h1>
+</header>
+<h1 id="guide-de-lagent-de-guichet-ticket">Guide de l'agent de guichet
+🎫</h1>
+<p><em>Pour le personnel qui appelle et sert les clients. Groupe Odoo :
+« Agent de guichet ».</em></p>
+<h2 id="votre-poste-de-travail--le-tableau-de-bord">Votre poste de
+travail : le Tableau de bord</h2>
+<p>Menu <strong>File d'attente → Tableau de bord</strong>. Vous y voyez
+en direct (actualisation toutes les 5 secondes) :</p>
+<ul>
+<li>les <strong>KPIs du jour</strong> : en attente, servis, attente
+moyenne, taux d'absence ;</li>
+<li>les <strong>files</strong> : combien attendent, le prochain numéro,
+l'attente estimée — une file passe en <strong>orange puis rouge</strong>
+quand elle se charge ;</li>
+<li>les <strong>guichets</strong> avec leurs boutons d'action.</li>
+</ul>
+<p>Alternative : menu <strong>Guichets</strong> → vue kanban « console »
+(une grande carte par guichet, gros numéro en cours).</p>
+<h2 id="le-cycle-dun-client">Le cycle d'un client</h2>
+<p>Sur la carte de votre guichet :</p>
+<ol type="1">
+<li><strong>Appeler le suivant</strong> — le système choisit
+automatiquement le bon ticket (priorité, ordre d'arrivée, rendez-vous
+dont l'heure est passée remontés en tête). Le client est notifié sur son
+téléphone (« C'est à vous ! ») et l'écran de salle affiche son numéro en
+clignotant.</li>
+<li>Le client arrive → <strong>Démarrer</strong> (début de la prise en
+charge).</li>
+<li>Fin du service → <strong>Terminer</strong>.</li>
+</ol>
+<p>Cas particuliers, tant que le ticket est « appelé » :</p>
+<ul>
+<li><strong>Rappeler</strong> — ré-annonce le numéro (écran +
+notification) sans rien changer.</li>
+<li><strong>Absent</strong> — le client ne s'est pas présenté : le
+ticket est clos en « Absent » et vous pouvez appeler le suivant.</li>
+</ul>
+<h2 id="garde-fous-cest-normal-si">Garde-fous (c'est normal si…)</h2>
+<ul>
+<li><em>« Terminez d'abord le client en cours »</em> : un guichet ne
+traite qu'un client à la fois — terminez (ou marquez absent) avant de
+rappeler.</li>
+<li><em>« Aucun client en attente »</em> : la file est vide, le bouton
+se réactive dès qu'un ticket arrive.</li>
+<li><em>« Ce guichet ne dessert aucune file »</em> : la fiche du guichet
+n'a pas de « Files desservies » — voyez votre responsable.</li>
+</ul>
+<h2 id="bon-à-savoir">Bon à savoir</h2>
+<ul>
+<li>Un ticket <strong>sans client</strong> (pas de nom) vient de la
+<strong>borne</strong> : le client suit son tour sur l'écran de salle,
+pas sur un téléphone.</li>
+<li>Les tickets <strong>« À distance »</strong> ont été pris avant
+l'arrivée du client : s'il ne répond pas à l'appel, « Absent » puis au
+suivant — il pourra reprendre un ticket.</li>
+<li>Un <strong>rendez-vous</strong> enregistré à l'accueil entre dans la
+file avec une priorité au moins « haute » si son heure est passée.</li>
+<li>Vous pouvez aussi créer un ticket manuellement (menu Tickets →
+Nouveau) pour un client au comptoir : choisissez la file, le numéro est
+attribué automatiquement.</li>
+</ul>
+</body>
+</html>

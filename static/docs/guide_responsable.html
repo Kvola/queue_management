@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guide du responsable</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root { --accent: #2563eb; --muted: #64748b; --border: #e2e8f0; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+           color: #1e293b; line-height: 1.65; max-width: 46rem; margin: 0 auto;
+           padding: 2.5rem 1.5rem 4rem; }
+    header#title-block-header h1.title { font-size: 1.9rem; margin: 0 0 .25rem; }
+    h1 { font-size: 1.9rem; border-bottom: 3px solid var(--accent);
+         padding-bottom: .4rem; margin-top: 0; }
+    h2 { font-size: 1.35rem; margin-top: 2.2rem; border-bottom: 1px solid var(--border);
+         padding-bottom: .25rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; }
+    p > em:first-child { color: var(--muted); }
+    a { color: var(--accent); }
+    code { background: #f1f5f9; border-radius: 4px; padding: .1em .35em;
+           font-size: .9em; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .95rem; }
+    th, td { border: 1px solid var(--border); padding: .5rem .7rem; text-align: left;
+             vertical-align: top; }
+    th { background: #f8fafc; }
+    li { margin: .25rem 0; }
+    blockquote { border-left: 4px solid var(--accent); margin: 1rem 0;
+                 padding: .25rem 1rem; color: var(--muted); }
+    @media print {
+      body { max-width: none; padding: 0; font-size: 11pt; }
+      a { color: inherit; text-decoration: none; }
+      h2 { page-break-after: avoid; }
+      table, li { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Guide du responsable</h1>
+</header>
+<h1 id="guide-du-responsable-bar_chart">Guide du responsable 📊</h1>
+<p><em>Pour ceux qui configurent et supervisent un établissement. Groupe
+Odoo : « Responsable file d'attente » (inclut les droits d'agent). Vous
+ne voyez que VOS établissements — l'isolation entre abonnés est garantie
+par le système.</em></p>
+<h2 id="1-mettre-en-place-un-site">1. Mettre en place un site</h2>
+<p><strong>Configuration → Sites → Nouveau</strong> :</p>
+<ol type="1">
+<li>Nom, adresse — le site appartient à votre société.</li>
+<li>Onglet <strong>Files</strong> : créez vos files (nom + préfixe de
+numérotation, ex. « B » → B-001, B-002…). Par file, deux canaux
+optionnels :
+<ul>
+<li><strong>Tickets à distance</strong> : les clients déjà venus peuvent
+prendre un ticket sans être sur place ;</li>
+<li><strong>Rendez-vous</strong> : créneaux réservables (durée, capacité
+par créneau, quota de RDV actifs par client, plages d'ouverture par
+jour).</li>
+</ul></li>
+<li>Onglet <strong>Guichets</strong> : créez les postes. En choisissant
+le site, les files sont pré-remplies — ajustez qui dessert quoi,
+affectez un agent.</li>
+<li>Onglet <strong>QR d'entrée (à imprimer)</strong> : imprimez et
+affichez ce QR à l'entrée — c'est lui que les clients scannent <em>dans
+l'app</em> pour prendre leur ticket. <strong>Régénérer le QR</strong>
+invalide l'ancien (affiche perdue/volée).</li>
+</ol>
+<p>Depuis la fiche du site, deux écrans publics à mettre en plein écran
+:</p>
+<ul>
+<li><strong>Écran d'affichage</strong> : salle d'attente (numéros
+appelés, prochains) ;</li>
+<li><strong>Borne tactile</strong> : prise de ticket pour les clients
+sans smartphone.</li>
+</ul>
+<p>Les deux affichent automatiquement le QR « installez l'app » quand
+une version est publiée par l'administrateur.</p>
+<h2 id="2-superviser-au-quotidien">2. Superviser au quotidien</h2>
+<p><strong>Tableau de bord</strong> (actualisé toutes les 5 s) : KPIs du
+jour, état des files avec seuils visuels (orange ≥ 4 en attente ou ≥ 15
+min estimées, rouge ≥ 8 ou ≥ 30 min) et guichets actionnables — vous
+pouvez appeler ou clôturer vous-même en cas de coup de feu.</p>
+<p><strong>Statistiques</strong> : analyse pivot/graphique sur
+l'historique (attente réelle, durée de service, répartition par canal —
+sur place / à distance / borne / RDV — taux d'absence…).</p>
+<h2 id="3-suivre-les-clients-mobiles">3. Suivre les clients mobiles</h2>
+<p><strong>Configuration → Clients mobiles</strong> : vous voyez
+uniquement les clients ayant au moins un ticket chez vous, avec leur
+historique (bouton Tickets). <strong>Archiver</strong> un client bloque
+immédiatement sa session mobile (abus). Les clients s'inscrivent
+eux-mêmes dans l'app — vous n'avez rien à créer.</p>
+<h2 id="4-traçabilité">4. Traçabilité</h2>
+<p>Chaque fiche (site, file, guichet, client, ticket) porte un
+<strong>chatter</strong> : les changements sensibles y sont historisés
+automatiquement — qui a activé les tickets à distance, réaffecté un
+agent, régénéré un QR, et quand. Utilisez-le aussi pour vos notes
+internes.</p>
+<h2 id="réglages-transverses-via-ladministrateur">Réglages transverses
+(via l'administrateur)</h2>
+<p>Le plafond de tickets par client, la durée de session mobile, le
+seuil de notification « bientôt votre tour » et le délai d'expiration
+des RDV sont des réglages globaux de la plateforme : voyez
+l'administrateur (Configuration → Paramètres).</p>
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guide de l'administrateur</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root { --accent: #2563eb; --muted: #64748b; --border: #e2e8f0; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+           color: #1e293b; line-height: 1.65; max-width: 46rem; margin: 0 auto;
+           padding: 2.5rem 1.5rem 4rem; }
+    header#title-block-header h1.title { font-size: 1.9rem; margin: 0 0 .25rem; }
+    h1 { font-size: 1.9rem; border-bottom: 3px solid var(--accent);
+         padding-bottom: .4rem; margin-top: 0; }
+    h2 { font-size: 1.35rem; margin-top: 2.2rem; border-bottom: 1px solid var(--border);
+         padding-bottom: .25rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; }
+    p > em:first-child { color: var(--muted); }
+    a { color: var(--accent); }
+    code { background: #f1f5f9; border-radius: 4px; padding: .1em .35em;
+           font-size: .9em; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .95rem; }
+    th, td { border: 1px solid var(--border); padding: .5rem .7rem; text-align: left;
+             vertical-align: top; }
+    th { background: #f8fafc; }
+    li { margin: .25rem 0; }
+    blockquote { border-left: 4px solid var(--accent); margin: 1rem 0;
+                 padding: .25rem 1rem; color: var(--muted); }
+    @media print {
+      body { max-width: none; padding: 0; font-size: 11pt; }
+      a { color: inherit; text-decoration: none; }
+      h2 { page-break-after: avoid; }
+      table, li { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Guide de l'administrateur</h1>
+</header>
+<h1 id="guide-de-ladministrateur-gear">Guide de l'administrateur ⚙️</h1>
+<p><em>Pour l'opérateur de la plateforme SaaS : créer les établissements
+abonnés, distribuer l'app, régler la plateforme. Droits Odoo : «
+Administrateur » (base.group_system).</em></p>
+<h2 id="1-créer-un-établissement-abonné">1. Créer un établissement
+abonné</h2>
+<p><strong>Configuration → Nouvel établissement</strong> (assistant) :
+nom de l'établissement, premier site, ses files (avec canaux
+distant/RDV) et, en option, son responsable. L'assistant crée la
+société, le site (QR d'entrée inclus), les files, un premier guichet et
+l'utilisateur responsable <strong>limité à sa société</strong> — puis
+ouvre la fiche du site.</p>
+<p>Après l'assistant :</p>
+<ul>
+<li>fiche du responsable → définir son mot de passe ou lui envoyer une
+invitation ;</li>
+<li>créer les comptes <strong>agents</strong> (Paramètres → Utilisateurs
+: groupe « Agent de guichet » + société de l'établissement
+uniquement).</li>
+</ul>
+<p>⚠️ <strong>Isolation multi-abonnés</strong> : elle repose sur les
+sociétés autorisées de chaque utilisateur. Ne rattachez jamais un
+utilisateur d'un établissement à la société d'un autre.</p>
+<h2 id="2-distribuer-lapplication-mobile">2. Distribuer l'application
+mobile</h2>
+<p><strong>Configuration → App mobile</strong> : téléversez l'APK,
+renseignez la version, <strong>Publier</strong>. Effets immédiats :</p>
+<ul>
+<li>la page publique <code>/queue/app</code> sert cette version (bouton,
+taille, SHA-256) ;</li>
+<li>le QR « installez l'app » apparaît sur toutes les bornes et écrans
+de salle.</li>
+</ul>
+<p>Une seule version publiée à la fois ; le compteur de téléchargements
+est sur la fiche. Le jour du passage au Play Store : renseignez « URL du
+store » dans les Paramètres — la page publique redirige, <strong>aucun
+QR imprimé à refaire</strong>.</p>
+<h2 id="3-réglages-de-la-plateforme">3. Réglages de la plateforme</h2>
+<p><strong>Configuration → Paramètres</strong> :</p>
+<table>
+<thead>
+<tr>
+<th>Réglage</th>
+<th>Défaut</th>
+<th>Effet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>URL du store</td>
+<td>—</td>
+<td>Redirection de <code>/queue/app</code> vers le store</td>
+</tr>
+<tr>
+<td>Tickets actifs max par client</td>
+<td>5</td>
+<td>Plafond anti-abus global</td>
+</tr>
+<tr>
+<td>Durée de session mobile</td>
+<td>90 j</td>
+<td>Reconnexion par code au-delà</td>
+</tr>
+<tr>
+<td>Notification « bientôt »</td>
+<td>position 2</td>
+<td>Seuil du push « Bientôt votre tour »</td>
+</tr>
+<tr>
+<td>Expiration des RDV</td>
+<td>60 min</td>
+<td>RDV non enregistré → Absent (client notifié)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-prérequis-techniques">4. Prérequis techniques</h2>
+<ul>
+<li><strong>Email sortant (indispensable au login mobile)</strong> :
+configurez le serveur SMTP (Paramètres techniques → Serveurs de
+messagerie sortants) <strong>et</strong> le paramètre système
+<code>mail.default.from</code> (adresse cohérente avec le
+<code>from_filter</code> du serveur). Sans cela, l'API répond proprement
+« L'email n'a pas pu être envoyé » et personne ne peut se
+connecter.</li>
+<li><strong>URL de base</strong> : <code>web.base.url</code> doit être
+l'URL publique (HTTPS en production) — elle est encodée dans tous les
+QR. Figez-la avec <code>web.base.url.freeze = True</code>.</li>
+<li><strong>Notifications push</strong> : module
+<code>push_notification_hub</code> + compte de service Firebase
+(<code>fcm_credentials_path</code>). Sans FCM l'app fonctionne en mode
+sondage.</li>
+<li><strong>APK de production</strong> : build signé (keystore),
+pointant l'URL HTTPS via <code>--dart-define=QUEUE_BASE_URL=…</code> —
+le HTTP en clair est refusé en release.</li>
+</ul>
+<h2 id="5-mécanismes-automatiques-crons">5. Mécanismes automatiques
+(crons)</h2>
+<table>
+<thead>
+<tr>
+<th>Cron</th>
+<th>Fréquence</th>
+<th>Rôle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rendez-vous non honorés</td>
+<td>15 min</td>
+<td>RDV expirés → Absent + notification</td>
+</tr>
+<tr>
+<td>Purge des comptes jamais vérifiés</td>
+<td>1 j</td>
+<td>Comptes email sans connexion &gt; 30 j</td>
+</tr>
+<tr>
+<td>Purge des compteurs de rate-limit</td>
+<td>1 j</td>
+<td>Nettoyage des compteurs anti-abus</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-sécurité--ce-qui-est-déjà-en-place">6. Sécurité — ce qui est
+déjà en place</h2>
+<p>Jetons de session <strong>hachés</strong> (un dump de base ne donne
+aucune session), codes OTP hachés avec verrouillage après 5 échecs,
+<strong>rate-limit par IP</strong> (demandes de code, vérifications,
+téléchargements APK) fiable en multi-workers, en-têtes CSP sur toutes
+les pages publiques, preuve de présence (QR du site) exigée à la prise
+de ticket, quotas par client. Points de vigilance restants : servir la
+plateforme en HTTPS et surveiller la délivrabilité email.</p>
+</body>
+</html>
