@@ -6,6 +6,11 @@ from odoo.http import request
 
 from .main import QueueDisplayController, secure_public_page
 
+# Une borne = un appareil (une IP) pour tous les visiteurs : la limite doit
+# absorber une heure de pointe humaine (un ticket toutes les ~5 s) tout en
+# stoppant un script d'inondation.
+_RL_KIOSK_TICKET = dict(max_requests=12, window_seconds=60, block_seconds=60)
+
 
 class QueueKioskController(http.Controller):
     """Borne tactile à l'entrée d'un site — page web publique, sans login.
@@ -46,6 +51,16 @@ class QueueKioskController(http.Controller):
         location = self._get_location(token)
         if not location:
             return request.not_found()
+        ip = (request.httprequest.headers.get('X-Forwarded-For', '')
+              .split(',')[0].strip() or request.httprequest.remote_addr
+              or 'unknown')
+        limited, _retry = request.env['queue.rate.limit'].sudo(
+        ).check_and_record(f"queue_kiosk:{ip}", **_RL_KIOSK_TICKET)
+        if limited:
+            return secure_public_page(request.make_response(
+                json.dumps({'status': 'error',
+                            'message': "Un instant… la borne reprend son souffle."}),
+                headers=[('Content-Type', 'application/json; charset=utf-8')]))
         try:
             service_id = int(kw.get('service_id') or 0)
         except (TypeError, ValueError):

@@ -196,6 +196,51 @@ class TestQueue(TransactionCase):
         self.env['ir.config_parameter'].sudo().set_param(
             'queue_management.auto_no_show_min', '10')
 
+    def test_transfer_keeps_seniority_and_renumbers(self):
+        """Transfert : le client garde son ancienneté mais prend un numéro
+        de la file cible."""
+        radio = self.env['queue.service'].create({
+            'name': 'Radio', 'code': 'RAD', 'location_id': self.location.id})
+        # Un ticket déjà dans la file cible, arrivé il y a peu…
+        already_there = self.env['queue.ticket'].create({
+            'service_id': radio.id})
+        already_there.created_at = fields.Datetime.now()
+        # …et le transféré, qui attend depuis 30 minutes côté Cardiologie.
+        moved = self._new_ticket()
+        moved.created_at = fields.Datetime.now() - timedelta(minutes=30)
+        moved.action_transfer(radio)
+        self.assertEqual(moved.service_id, radio)
+        self.assertTrue(moved.name.startswith('RAD-'))
+        self.assertEqual(moved.state, 'waiting')
+        # Son ancienneté (30 min) le place DEVANT le ticket déjà en file.
+        self.assertEqual(radio._get_next_waiting(), moved)
+
+    def test_transfer_called_releases_counter(self):
+        radio = self.env['queue.service'].create({
+            'name': 'Radio2', 'code': 'RD2', 'location_id': self.location.id})
+        ticket = self._new_ticket()
+        self.counter.action_call_next()
+        self.assertEqual(self.counter.current_ticket_id, ticket)
+        ticket.action_transfer(radio)
+        self.assertEqual(ticket.state, 'waiting')
+        self.assertFalse(ticket.counter_id)
+        self.assertFalse(self.counter.current_ticket_id)
+
+    def test_transfer_guards(self):
+        other_loc = self.env['queue.location'].create({
+            'name': 'Ailleurs', 'company_id': self.company.id})
+        far_service = self.env['queue.service'].create({
+            'name': 'Loin', 'code': 'LN', 'location_id': other_loc.id})
+        ticket = self._new_ticket()
+        with self.assertRaises(UserError):
+            ticket.action_transfer(ticket.service_id)   # même file
+        with self.assertRaises(UserError):
+            ticket.action_transfer(far_service)         # autre site
+        self.counter.action_call_next()
+        ticket.action_start()
+        with self.assertRaises(UserError):
+            ticket.action_transfer(far_service)         # en cours de service
+
     def test_chatter_on_all_form_models(self):
         """Tous les modèles à formulaire portent le chatter (mail.thread)."""
         for model in ('queue.location', 'queue.service', 'queue.counter',

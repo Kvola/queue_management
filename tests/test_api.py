@@ -415,5 +415,23 @@ class TestQueueKiosk(HttpCase):
             data={'service_id': 999999})
         self.assertEqual(resp.json()['status'], 'error')
 
+    def test_kiosk_ticket_rate_limited(self):
+        """La borne encaisse un rythme humain mais bloque l'inondation."""
+        from odoo.addons.queue_management.controllers import kiosk as kiosk_ctl
+        self.env['queue.rate.limit'].reset_key('queue_kiosk:127.0.0.1')
+        with patch.dict(kiosk_ctl._RL_KIOSK_TICKET,
+                        {'max_requests': 2, 'window_seconds': 60,
+                         'block_seconds': 60}):
+            for _ in range(2):
+                resp = self.url_open(
+                    '/queue/kiosk/%s/ticket' % self.location.qr_token,
+                    data={'service_id': self.service.id})
+                self.assertEqual(resp.json()['status'], 'ok')
+            resp = self.url_open(
+                '/queue/kiosk/%s/ticket' % self.location.qr_token,
+                data={'service_id': self.service.id})
+            self.assertEqual(resp.json()['status'], 'error')
+        self.env['queue.rate.limit'].reset_key('queue_kiosk:127.0.0.1')
+
     def test_kiosk_bad_token_404(self):
         self.assertEqual(self.url_open('/queue/kiosk/nope').status_code, 404)

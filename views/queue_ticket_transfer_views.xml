@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_queue_ticket_transfer_form" model="ir.ui.view">
+        <field name="name">queue.ticket.transfer.wizard.form</field>
+        <field name="model">queue.ticket.transfer.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Transférer le ticket">
+                <p class="text-muted">
+                    Le client garde son heure d'arrivée (il ne refait pas la
+                    queue) mais reçoit un numéro de la file de destination.
+                    S'il était appelé, le guichet est libéré.
+                </p>
+                <group>
+                    <field name="ticket_id" readonly="1"/>
+                    <field name="current_service_id"/>
+                    <field name="location_id" invisible="1"/>
+                    <field name="new_service_id"/>
+                </group>
+                <footer>
+                    <button name="action_transfer" type="object"
+                            string="Transférer" class="btn-primary"/>
+                    <button string="Annuler" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_queue_ticket_transfer" model="ir.actions.act_window">
+        <field name="name">Transférer le ticket</field>
+        <field name="res_model">queue.ticket.transfer.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_queue_ticket"/>
+    </record>
+
+</odoo>

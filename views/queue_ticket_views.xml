@@ -43,6 +43,10 @@
                             invisible="state != 'called'"/>
                     <button name="action_no_show" type="object" string="Absent"
                             invisible="state != 'called'"/>
+                    <button name="%(action_queue_ticket_transfer)d" type="action"
+                            string="Transférer"
+                            invisible="state not in ('waiting', 'called')"
+                            help="Réoriente le client vers une autre file du site, sans lui faire refaire la queue."/>
                     <button name="action_requeue" type="object"
                             string="Re-mettre en file" class="btn-primary"
                             invisible="state != 'no_show'"

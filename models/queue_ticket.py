@@ -45,7 +45,9 @@ class QueueTicket(models.Model):
     ALLOWED_TRANSITIONS = {
         'scheduled': {'waiting', 'no_show', 'cancelled'},
         'waiting': {'called', 'cancelled'},
-        'called': {'serving', 'done', 'no_show', 'cancelled'},
+        # called → waiting : transfert vers une autre file (le client
+        # redevient « en attente » ailleurs, le guichet est libéré).
+        'called': {'serving', 'done', 'no_show', 'cancelled', 'waiting'},
         'serving': {'done', 'cancelled'},
         'done': set(),
         'no_show': {'waiting'},   # re-filer un absent qui se présente
@@ -327,6 +329,51 @@ class QueueTicket(models.Model):
             ticket._transition('cancelled', {'closed_at': fields.Datetime.now()})
             ticket._release_counter()
             ticket.service_id._notify_upcoming()
+        return True
+
+    def action_transfer(self, new_service):
+        """Transfère le ticket vers une autre file du MÊME site (le client
+        s'est trompé de file, ou l'agent le réoriente à l'appel).
+
+        Il conserve son heure d'arrivée (ancienneté → il ne refait pas la
+        queue) mais reçoit un numéro de la file cible (son ancien numéro
+        porterait le mauvais préfixe). S'il était appelé, le guichet est
+        libéré et il redevient « en attente »."""
+        self.ensure_one()
+        if self.state not in ('waiting', 'called'):
+            raise UserError(_(
+                "Seul un ticket en attente ou appelé peut être transféré."))
+        if new_service == self.service_id:
+            raise UserError(_("Le ticket est déjà dans cette file."))
+        if new_service.location_id != self.location_id:
+            raise UserError(_(
+                "Transfert impossible vers une file d'un autre site "
+                "(le client est physiquement sur place)."))
+        if not new_service.active:
+            raise UserError(_("La file cible est archivée."))
+        old_service, old_name = self.service_id, self.name
+        vals = {
+            'service_id': new_service.id,
+            'name': new_service._next_number(),
+            'soon_notified': False,
+        }
+        if self.state == 'called':
+            self._release_counter()
+            vals.update(counter_id=False, called_at=False)
+            self._transition('waiting', vals)
+        else:
+            self.write(vals)
+        self.message_post(body=_(
+            "Transféré : %(vieux)s (%(file_vieille)s) → %(nouveau)s (%(file_neuve)s).",
+            vieux=old_name, file_vieille=old_service.name,
+            nouveau=self.name, file_neuve=new_service.name))
+        self._notify(
+            "Changement de file",
+            "Votre ticket %s devient %s dans la file %s (position %d)." % (
+                old_name, self.name, new_service.name, self.position),
+            {'type': 'transferred'},
+        )
+        old_service._notify_upcoming()
         return True
 
     REQUEUE_WINDOW_HOURS = 2

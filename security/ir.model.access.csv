@@ -15,3 +15,4 @@ access_queue_app_release_manager,queue.app.release.manager,model_queue_app_relea
 access_queue_app_release_system,queue.app.release.system,model_queue_app_release,base.group_system,1,1,1,1
 access_queue_setup_wizard_system,queue.setup.wizard.system,model_queue_setup_wizard,base.group_system,1,1,1,1
 access_queue_setup_wizard_line_system,queue.setup.wizard.line.system,model_queue_setup_wizard_line,base.group_system,1,1,1,1
+access_queue_ticket_transfer_agent,queue.ticket.transfer.agent,model_queue_ticket_transfer_wizard,group_queue_agent,1,1,1,1

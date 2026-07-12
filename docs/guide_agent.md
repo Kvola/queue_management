@@ -32,6 +32,10 @@ Cas particuliers, tant que le ticket est « appelé » :
 - **Rappeler** — ré-annonce le numéro (écran + notification) sans rien changer.
 - **Absent** — le client ne s'est pas présenté : le ticket est clos en
   « Absent » et vous pouvez appeler le suivant.
+- **Transférer** — le client s'est trompé de file (ou vous le
+  réorientez) : ouvrez son ticket → **Transférer** → choisissez la file de
+  destination du site. Il garde son heure d'arrivée (pas de queue à
+  refaire) et reçoit un numéro de la nouvelle file ; il est notifié.
 - **Re-mettre en file** — le client marqué absent se présente finalement :
   ouvrez son ticket (menu Tickets) → **Re-mettre en file**. Il reprend sa
   place selon son heure d'arrivée d'origine (dans les 2 h qui suivent
