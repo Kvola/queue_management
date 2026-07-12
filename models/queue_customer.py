@@ -122,6 +122,19 @@ class QueueCustomer(models.Model):
                         'last_otp_sent': False})
             raise
 
+    def _otp_email_from(self):
+        """Expéditeur des emails OTP, déterministe.
+
+        Sans ``email_from`` explicite, Odoo exige le couple
+        ``mail.catchall.domain`` + ``mail.default.from`` et échoue sinon
+        (constaté sur base neuve). On force donc : paramètre
+        ``mail.default.from`` s'il existe, sinon l'email de la société.
+        """
+        icp = self.env['ir.config_parameter'].sudo()
+        return (icp.get_param('mail.default.from')
+                or self.env.company.sudo().email_formatted
+                or False)
+
     def _send_otp_email(self, code):
         self.ensure_one()
         body = (
@@ -133,6 +146,7 @@ class QueueCustomer(models.Model):
         ) % (code, self.OTP_TTL_MINUTES)
         mail = self.env['mail.mail'].sudo().create({
             'subject': "Votre code de connexion",
+            'email_from': self._otp_email_from(),
             'email_to': self.email,
             'body_html': body,
             'auto_delete': True,
