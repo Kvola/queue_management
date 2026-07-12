@@ -26,6 +26,11 @@
                     .overlay .num { font-size: 7rem; font-weight: 800; color: #22c55e; line-height: 1.1; margin: 1rem 0; }
                     .overlay .info { font-size: 1.4rem; }
                     .overlay .hint { margin-top: 2.5rem; color: #64748b; font-size: 1.1rem; }
+                    .appbar { display: flex; align-items: center; justify-content: center;
+                              gap: 1rem; margin-top: 2rem; color: #94a3b8; }
+                    .appbar img { width: 88px; height: 88px; background: #fff; padding: 5px;
+                                  border-radius: .5rem; }
+                    .appbar b { color: #cbd5e1; }
                 </style>
             </head>
             <body>
@@ -41,6 +46,14 @@
                     <t t-if="not services">
                         <div class="sub">Aucune file ouverte pour le moment.</div>
                     </t>
+                </div>
+
+                <div t-if="app_qr" class="appbar">
+                    <img t-att-src="app_qr" alt="QR installation de l'app"/>
+                    <div>
+                        <b>📱 Suivez votre file depuis votre téléphone</b><br/>
+                        Scannez ce code pour installer l'application.
+                    </div>
                 </div>
 
                 <div class="overlay" id="overlay">

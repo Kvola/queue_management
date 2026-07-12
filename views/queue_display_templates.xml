@@ -33,6 +33,12 @@
                                border-bottom: 1px solid #334155; font-size: 1.3rem; font-weight: 600; }
                     aside li span { color: #94a3b8; font-weight: 400; font-size: 1rem; }
                     aside li.empty { color: #64748b; font-weight: 400; justify-content: center; }
+                    .appbar { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem;
+                              background: #1e293b; border-radius: 1rem; padding: .9rem 1.25rem; }
+                    .appbar img { width: 96px; height: 96px; background: #fff; padding: 5px;
+                                  border-radius: .5rem; }
+                    .appbar b { font-size: 1.15rem; }
+                    .appbar .sub { color: #94a3b8; margin-top: .25rem; }
                 </style>
             </head>
             <body>
@@ -59,6 +65,14 @@
                             <li t-if="not data['upcoming']" class="empty">Aucun en attente</li>
                         </ul>
                     </aside>
+                </div>
+                <div t-if="app_qr" class="appbar">
+                    <img t-att-src="app_qr" alt="QR installation de l'app"/>
+                    <div>
+                        <b>📱 Suivez votre file depuis votre téléphone</b>
+                        <div class="sub">Scannez ce code pour installer l'application
+                            et être prévenu quand c'est votre tour.</div>
+                    </div>
                 </div>
                 <script><![CDATA[
                     function h(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){

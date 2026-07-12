@@ -1,0 +1,88 @@
+.o_queue_dash {
+    padding: 16px 24px;
+    overflow-y: auto;
+    height: 100%;
+
+    .o_queue_dash_header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+
+        h2 { margin: 0; }
+        .o_queue_dash_controls {
+            display: flex;
+            align-items: center;
+            .form-select { min-width: 220px; }
+        }
+    }
+
+    .o_queue_dash_empty {
+        color: $text-muted;
+        padding: 48px 0;
+        text-align: center;
+    }
+
+    .o_queue_dash_kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .o_queue_dash_kpi {
+        background: var(--o-view-background-color, #fff);
+        border: 1px solid $border-color;
+        border-radius: 10px;
+        padding: 14px 18px;
+
+        .o_queue_dash_kpi_value {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.1;
+            small { font-size: 1rem; font-weight: 500; }
+        }
+        .o_queue_dash_kpi_label { color: $text-muted; }
+    }
+
+    .o_queue_dash_columns {
+        display: grid;
+        grid-template-columns: 3fr 2fr;
+        gap: 16px;
+        @media (max-width: 992px) { grid-template-columns: 1fr; }
+    }
+
+    .o_queue_dash_panel {
+        background: var(--o-view-background-color, #fff);
+        border: 1px solid $border-color;
+        border-radius: 10px;
+        padding: 14px 18px;
+        h5 { margin-bottom: 12px; }
+    }
+
+    .o_queue_dash_counters {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .o_queue_dash_counter {
+        border: 1px solid $border-color;
+        border-radius: 8px;
+        padding: 10px 14px;
+
+        &.o_busy { border-color: $success; }
+
+        .o_queue_dash_counter_head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .o_queue_dash_counter_ticket .o_num {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .o_queue_dash_counter_agent { margin-top: 2px; font-size: 0.85rem; }
+    }
+}

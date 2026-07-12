@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="queue_management.QueueDashboard">
+        <div class="o_queue_dash">
+            <div class="o_queue_dash_header">
+                <h2>Supervision de la file d'attente</h2>
+                <div class="o_queue_dash_controls">
+                    <span t-if="state.error" class="badge text-bg-warning me-2"
+                          title="Dernière actualisation en échec — nouvel essai automatique">
+                        Hors ligne
+                    </span>
+                    <select t-if="state.locations.length > 1" class="form-select"
+                            t-on-change="onSelectLocation">
+                        <option t-foreach="state.locations" t-as="loc" t-key="loc.id"
+                                t-att-value="loc.id"
+                                t-att-selected="loc.id === state.locationId ? 'selected' : undefined">
+                            <t t-out="loc.name"/>
+                        </option>
+                    </select>
+                </div>
+            </div>
+
+            <div t-if="state.loading" class="o_queue_dash_empty">
+                Chargement…
+            </div>
+            <div t-elif="!state.locationId" class="o_queue_dash_empty">
+                Aucun site configuré. Créez d'abord un site dans
+                Configuration → Sites.
+            </div>
+            <t t-else="">
+                <div class="o_queue_dash_kpis">
+                    <div class="o_queue_dash_kpi">
+                        <div class="o_queue_dash_kpi_value text-primary"
+                             t-out="state.kpis.waiting"/>
+                        <div class="o_queue_dash_kpi_label">En attente</div>
+                    </div>
+                    <div class="o_queue_dash_kpi">
+                        <div class="o_queue_dash_kpi_value text-success"
+                             t-out="state.kpis.done_today"/>
+                        <div class="o_queue_dash_kpi_label">Servis aujourd'hui</div>
+                    </div>
+                    <div class="o_queue_dash_kpi">
+                        <div class="o_queue_dash_kpi_value">
+                            <t t-out="state.kpis.avg_wait_today"/><small> min</small>
+                        </div>
+                        <div class="o_queue_dash_kpi_label">Attente moyenne réelle</div>
+                    </div>
+                    <div class="o_queue_dash_kpi">
+                        <div class="o_queue_dash_kpi_value text-danger">
+                            <t t-out="state.kpis.no_show_rate"/><small> %</small>
+                        </div>
+                        <div class="o_queue_dash_kpi_label">Taux d'absence</div>
+                    </div>
+                </div>
+
+                <div class="o_queue_dash_columns">
+                    <div class="o_queue_dash_panel">
+                        <h5>Files</h5>
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>File</th>
+                                    <th class="text-end">En attente</th>
+                                    <th>Prochain</th>
+                                    <th class="text-end">Attente estimée</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="state.services" t-as="svc" t-key="svc.id">
+                                    <td>
+                                        <b t-out="svc.name"/>
+                                        <span t-if="svc.appointment"
+                                              class="badge text-bg-light ms-1">RDV</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-attf-class="badge {{ svc.waiting ? 'text-bg-primary' : 'text-bg-light' }}"
+                                              t-out="svc.waiting"/>
+                                    </td>
+                                    <td><t t-out="svc.next_number or '—'"/></td>
+                                    <td class="text-end">
+                                        <t t-if="svc.eta_next">~<t t-out="svc.eta_next"/> min</t>
+                                        <t t-else="">—</t>
+                                    </td>
+                                </tr>
+                                <tr t-if="!state.services.length">
+                                    <td colspan="4" class="text-muted text-center">
+                                        Aucune file active sur ce site.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="o_queue_dash_panel">
+                        <h5>Guichets</h5>
+                        <div class="o_queue_dash_counters">
+                            <div t-foreach="state.counters" t-as="c" t-key="c.id"
+                                 t-attf-class="o_queue_dash_counter {{ c.busy ? 'o_busy' : '' }}">
+                                <div class="o_queue_dash_counter_head">
+                                    <b t-out="c.name"/>
+                                    <span t-attf-class="badge {{ c.busy ? 'text-bg-success' : 'text-bg-light' }}">
+                                        <t t-out="c.busy ? 'Occupé' : 'Libre'"/>
+                                    </span>
+                                </div>
+                                <div t-if="c.busy" class="o_queue_dash_counter_ticket">
+                                    <span class="o_num" t-out="c.ticket"/>
+                                    <span class="text-muted"> · <t t-out="c.service"/></span>
+                                    <span t-if="c.ticket_state === 'called'"
+                                          class="badge text-bg-warning ms-1">Appelé</span>
+                                </div>
+                                <div t-else="" class="text-muted">En attente d'appel</div>
+                                <div t-if="c.agent" class="o_queue_dash_counter_agent text-muted">
+                                    <i class="fa fa-user me-1"/><t t-out="c.agent"/>
+                                </div>
+                            </div>
+                            <div t-if="!state.counters.length" class="text-muted">
+                                Aucun guichet actif sur ce site.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>

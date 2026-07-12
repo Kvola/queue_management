@@ -4,7 +4,7 @@ import json
 from odoo import http
 from odoo.http import request
 
-from .main import secure_public_page
+from .main import QueueDisplayController, secure_public_page
 
 
 class QueueKioskController(http.Controller):
@@ -37,6 +37,7 @@ class QueueKioskController(http.Controller):
             'token': token,
             'site_name': location.name,
             'services': self._services(location),
+            'app_qr': QueueDisplayController._app_qr_src(),
         }))
 
     @http.route('/queue/kiosk/<string:token>/ticket', type='http', auth='public',

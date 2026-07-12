@@ -70,6 +70,12 @@ class QueueDisplayController(http.Controller):
             'upcoming': upcoming,
         }
 
+    @staticmethod
+    def _app_qr_src():
+        """Src de l'image QR « installez l'app », ou False si rien à servir."""
+        Release = request.env['queue.app.release'].sudo()
+        return Release._landing_available() and Release._qr_src(size=220)
+
     @http.route('/queue/display/<string:token>', type='http', auth='public', sitemap=False)
     def display(self, token, **kw):
         location = self._get_location(token)
@@ -77,6 +83,7 @@ class QueueDisplayController(http.Controller):
             return request.not_found()
         return secure_public_page(request.render('queue_management.display_page', {
             'data': self._display_data(location),
+            'app_qr': self._app_qr_src(),
         }))
 
     @http.route('/queue/display/<string:token>/data', type='http', auth='public', sitemap=False)

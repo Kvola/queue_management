@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="app_landing_page" name="Installation de l'app mobile">
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>File d'attente — Application mobile</title>
+                <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                           background: #0f172a; color: #f1f5f9; min-height: 100vh;
+                           display: flex; align-items: center; justify-content: center; padding: 6vw; }
+                    .card { background: #1e293b; border: 1px solid #334155; border-radius: 1.25rem;
+                            max-width: 440px; width: 100%; padding: 2rem; text-align: center; }
+                    .icon { font-size: 3rem; }
+                    h1 { font-size: 1.5rem; margin: .75rem 0 .25rem; }
+                    .ver { color: #94a3b8; margin-bottom: 1.25rem; }
+                    .btn { display: block; background: #2563eb; color: #fff; text-decoration: none;
+                           font-size: 1.15rem; font-weight: 700; padding: 1rem; border-radius: .9rem;
+                           margin: 1rem 0; }
+                    .btn:active { background: #1d4ed8; }
+                    .notes { text-align: left; background: #0f172a; border-radius: .75rem;
+                             padding: .9rem 1rem; color: #cbd5e1; font-size: .95rem;
+                             white-space: pre-line; margin-bottom: 1rem; }
+                    .hint { color: #94a3b8; font-size: .9rem; line-height: 1.5; }
+                    .sha { margin-top: 1.25rem; color: #64748b; font-size: .7rem;
+                           font-family: ui-monospace, monospace; word-break: break-all; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="icon">📱</div>
+                    <h1>File d'attente</h1>
+                    <div class="ver">
+                        Version <t t-out="release.version"/>
+                        · <t t-out="release.apk_size_mb"/> Mo
+                    </div>
+                    <a class="btn" href="/queue/app/download">Télécharger l'application</a>
+                    <div t-if="release.release_notes" class="notes"><t t-out="release.release_notes"/></div>
+                    <div class="hint">
+                        Prenez votre ticket, suivez votre position dans la file et
+                        soyez prévenu quand c'est votre tour.<br/><br/>
+                        Android : si l'installation est bloquée, autorisez
+                        « Installer des applications inconnues » pour votre navigateur
+                        (Paramètres → Applications).
+                    </div>
+                    <div class="sha">SHA-256 : <t t-out="release.apk_sha256"/></div>
+                </div>
+            </body>
+        </html>
+    </template>
+</odoo>
