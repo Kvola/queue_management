@@ -69,9 +69,14 @@ class QueueCounter(models.Model):
 
         On agrège les têtes de file des services desservis puis on les départage
         avec la même clé d'ordonnancement (priorité, ancienneté, RDV échu).
+        Itération explicite (pas de ``mapped(lambda)``) : sur un guichet en
+        cours de création (onchange), ``service_ids`` est vide et Odoo 19
+        passerait le recordset vide à la lambda → ``ensure_one()`` planterait.
         """
         self.ensure_one()
-        candidates = self.service_ids.mapped(lambda s: s._get_next_waiting())
+        candidates = self.env['queue.ticket']
+        for service in self.service_ids:
+            candidates |= service._get_next_waiting()
         return candidates.sorted(key=lambda t: t._scheduling_key())[:1]
 
     def action_call_next(self):

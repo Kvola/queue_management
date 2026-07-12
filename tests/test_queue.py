@@ -140,6 +140,26 @@ class TestQueue(TransactionCase):
         self.assertEqual(ticket.state, 'called')
         self.assertGreaterEqual(ticket.called_at, before)
 
+    def test_counter_new_record_compute(self):
+        """Régression : l'aperçu « prochain » d'un guichet EN COURS DE
+        CRÉATION (onchange, service_ids vide) ne doit pas planter."""
+        counter = self.env['queue.counter'].new({
+            'location_id': self.location.id})
+        self.assertEqual(counter.next_number, '')
+        self.assertEqual(counter.waiting_count, 0)
+        self.assertFalse(counter.next_ticket_id)
+
+    def test_counter_multi_service_preview(self):
+        """L'aperçu départage correctement les têtes de PLUSIEURS files."""
+        service2 = self.env['queue.service'].create({
+            'name': 'Radio', 'code': 'RAD', 'location_id': self.location.id})
+        self.counter.write({'service_ids': [(4, service2.id)]})
+        self._new_ticket()  # CAR, normal, arrivé en premier
+        urgent2 = self.env['queue.ticket'].create({
+            'service_id': service2.id, 'priority': '2'})
+        self.assertEqual(self.counter.next_ticket_id, urgent2)
+        self.assertEqual(self.counter.waiting_count, 2)
+
     def test_counter_next_preview(self):
         """L'aperçu du guichet annonce le bon prochain numéro et le compte."""
         self._new_ticket(priority='0')
