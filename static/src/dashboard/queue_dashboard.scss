@@ -84,5 +84,12 @@
             font-weight: 700;
         }
         .o_queue_dash_counter_agent { margin-top: 2px; font-size: 0.85rem; }
+
+        .o_queue_dash_counter_actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
     }
 }

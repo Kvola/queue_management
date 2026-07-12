@@ -143,6 +143,10 @@ class QueueAppRelease(models.Model):
         others = self.search([('is_active', '=', True), ('id', '!=', self.id)])
         if others:
             others.write({'is_active': False})
+            # Flush AVANT d'activer : l'ordre des UPDATE au flush n'est pas
+            # garanti et l'index partiel unique (une seule release active)
+            # exploserait si le True partait avant le False.
+            others.flush_recordset(['is_active'])
         self.write({'is_active': True})
         return {
             'type': 'ir.actions.client',

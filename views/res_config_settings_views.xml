@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.queue</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="File d'attente" string="File d'attente"
+                     name="queue_management">
+                    <block title="Application mobile">
+                        <setting string="URL du store"
+                                 help="Si renseignée, la page publique /queue/app redirige vers le store — aucun QR imprimé à refaire.">
+                            <field name="queue_app_store_url"
+                                   placeholder="https://play.google.com/store/apps/details?id=…"/>
+                        </setting>
+                        <setting string="Durée de session (jours)"
+                                 help="Au-delà, l'app redemande une connexion par code email.">
+                            <field name="queue_token_ttl_days" class="o_light_label"/>
+                        </setting>
+                    </block>
+                    <block title="Files et quotas">
+                        <setting string="Tickets actifs max par client"
+                                 help="Plafond global (files + rendez-vous, tous établissements confondus) — garde anti-abus.">
+                            <field name="queue_max_active_tickets" class="o_light_label"/>
+                        </setting>
+                        <setting string="Notification « bientôt votre tour »"
+                                 help="Position dans la file à partir de laquelle le client est prévenu par notification.">
+                            <field name="queue_soon_threshold" class="o_light_label"/>
+                        </setting>
+                        <setting string="Expiration des RDV (minutes)"
+                                 help="Délai après l'heure du rendez-vous au bout duquel un RDV non enregistré passe en Absent.">
+                            <field name="queue_no_show_delay_min" class="o_light_label"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_queue_settings" model="ir.actions.act_window">
+        <field name="name">Paramètres</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'queue_management', 'bin_size': False}</field>
+    </record>
+
+    <!-- Réservé à l'administrateur : l'enregistrement des paramètres système
+         exige les droits techniques. -->
+    <menuitem id="menu_queue_settings" name="Paramètres"
+              parent="menu_queue_config" action="action_queue_settings"
+              sequence="90" groups="base.group_system"/>
+
+</odoo>

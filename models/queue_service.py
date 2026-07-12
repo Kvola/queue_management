@@ -25,6 +25,13 @@ class QueueService(models.Model):
     )
     sequence = fields.Integer("Séquence", default=10)
     active = fields.Boolean("Active", default=True)
+    remote_enabled = fields.Boolean(
+        "Tickets à distance", default=False,
+        help="Autorise un client ayant déjà scanné le QR du site à prendre "
+             "un ticket depuis l'application sans être sur place (modèle "
+             "« waitlist » : il arrive quand son tour approche). Les tickets "
+             "pris ainsi portent le canal « À distance » dans les "
+             "statistiques.")
 
     location_id = fields.Many2one(
         'queue.location', string="Site", required=True, index=True,
@@ -248,12 +255,16 @@ class QueueService(models.Model):
             return 0.0
         return sum(done.mapped('service_real_minutes')) / len(done)
 
-    def _notify_upcoming(self, threshold=2):
+    def _notify_upcoming(self, threshold=None):
         """Prévient (push) les clients qui approchent de la tête de file.
 
         Une seule fois par ticket (flag ``soon_notified``) pour ne pas spammer.
         Appelé après chaque mouvement de file (appel, fin, absence, annulation).
+        Seuil configurable (Paramètres → File d'attente), défaut 2.
         """
+        from .res_config_settings import int_param
+        if threshold is None:
+            threshold = int_param(self.env, 'queue_management.soon_threshold', 2)
         for service in self:
             for idx, ticket in enumerate(service._get_ordered_waiting(), start=1):
                 if idx > threshold:

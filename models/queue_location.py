@@ -35,6 +35,13 @@ class QueueLocation(models.Model):
         default=lambda self: secrets.token_urlsafe(16),
         help="Identifiant encodé dans le QR code du site. Régénérable.",
     )
+    qr_html = fields.Html(
+        "QR d'entrée", compute='_compute_qr_html',
+        sanitize=False, sanitize_attributes=False,
+        help="À imprimer et afficher à l'entrée du site. Les clients le "
+             "scannent DEPUIS l'application (Prendre un ticket → scan) pour "
+             "voir les files de ce site.",
+    )
 
     service_ids = fields.One2many('queue.service', 'location_id', string="Files")
     counter_ids = fields.One2many('queue.counter', 'location_id', string="Guichets")
@@ -51,6 +58,25 @@ class QueueLocation(models.Model):
         for location in self:
             location.service_count = len(location.service_ids)
             location.counter_count = len(location.counter_ids)
+
+    @api.depends('qr_token', 'name')
+    def _compute_qr_html(self):
+        # Le QR encode le jeton brut : c'est ce que l'app attend (elle accepte
+        # aussi une URL finissant par le jeton, cf. ScanScreen._extractToken).
+        for location in self:
+            if not location.qr_token:
+                location.qr_html = False
+                continue
+            src = ('/report/barcode/?barcode_type=QR&value=%s&width=320&height=320'
+                   % location.qr_token)
+            location.qr_html = (
+                '<div style="display:inline-block;text-align:center;padding:12px;'
+                'background:#fff;border:1px solid #dee2e6;border-radius:8px;">'
+                '<img src="%s" alt="QR du site" '
+                'style="width:280px;height:280px;display:block;"/>'
+                '<div style="margin-top:6px;font-weight:bold;">%s</div>'
+                '</div>'
+            ) % (src, location.name or '')
 
     def action_regenerate_qr_token(self):
         """Invalide le QR précédent (en cas de fuite ou d'affiche remplacée)."""
@@ -135,6 +161,9 @@ class QueueLocation(models.Model):
                 'ticket': ticket.name if busy else '',
                 'ticket_state': ticket.state if busy else '',
                 'service': ticket.service_id.name if busy else '',
+                # Nombre en attente sur les files desservies par CE guichet :
+                # pilote le bouton « Appeler le suivant » du tableau de bord.
+                'waiting': counter.waiting_count,
             })
 
         result.update({

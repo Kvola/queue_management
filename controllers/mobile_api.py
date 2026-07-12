@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from odoo import http, fields
+from odoo import _, http, fields
 from odoo.exceptions import UserError
 from odoo.http import request
 from odoo.tools import email_normalize
@@ -68,9 +68,9 @@ class QueueMobileApi(http.Controller):
             max_requests, window_seconds, block_seconds,
         )
         if limited:
-            return self._err(
-                "Trop de tentatives. Réessayez dans %d minute(s)."
-                % max(retry_after // 60, 1))
+            return self._err(_(
+                "Trop de tentatives. Réessayez dans %s minute(s).",
+                max(retry_after // 60, 1)))
         return None
 
     def _get_customer(self, kw):
@@ -114,7 +114,7 @@ class QueueMobileApi(http.Controller):
             return limited
         email = email_normalize(kw.get('email') or '')
         if not email:
-            return self._err("Adresse email invalide.")
+            return self._err(_("Adresse email invalide."))
         Customer = request.env['queue.customer'].sudo()
         customer = Customer.search([('email', '=', email)], limit=1)
         if not customer:
@@ -124,15 +124,15 @@ class QueueMobileApi(http.Controller):
         if customer.last_otp_sent and (
                 fields.Datetime.now() - customer.last_otp_sent
                 < timedelta(seconds=_OTP_RESEND_SECONDS)):
-            return self._err("Un code vient d'être envoyé. Patientez un instant.")
+            return self._err(_("Un code vient d'être envoyé. Patientez un instant."))
         try:
             customer.send_otp()
         except Exception as exc:  # noqa: BLE001 — tout échec = code non délivré
             _logger.warning("queue_management : échec d'envoi OTP à %s : %s",
                             email, exc)
             return self._err(
-                "L'email n'a pas pu être envoyé. Réessayez dans un instant.")
-        return self._ok(message="Un code de connexion a été envoyé par email.")
+                _("L'email n'a pas pu être envoyé. Réessayez dans un instant."))
+        return self._ok(message=_("Un code de connexion a été envoyé par email."))
 
     @http.route('/api/queue/auth/verify_otp', type='jsonrpc', auth='public',
                 methods=['POST'], csrf=False)
@@ -145,10 +145,10 @@ class QueueMobileApi(http.Controller):
         customer = request.env['queue.customer'].sudo().search(
             [('email', '=', email)], limit=1)
         if not customer:
-            return self._err("Demandez d'abord un code de connexion.")
+            return self._err(_("Demandez d'abord un code de connexion."))
         token = customer.verify_otp(code)
         if not token:
-            return self._err("Code invalide ou expiré.")
+            return self._err(_("Code invalide ou expiré."))
         return self._ok(
             auth_token=token,
             customer={'id': customer.id, 'email': customer.email, 'name': customer.name or ''},
@@ -174,10 +174,10 @@ class QueueMobileApi(http.Controller):
         location = request.env['queue.location'].sudo().search(
             [('qr_token', '=', kw.get('qr_token')), ('active', '=', True)], limit=1)
         if not location:
-            return self._err("Site introuvable.")
+            return self._err(_("Site introuvable."))
         services = [
             {'id': s.id, 'name': s.name, 'code': s.code, 'waiting': s.waiting_count,
-             'appointment': s.appointment_enabled}
+             'appointment': s.appointment_enabled, 'remote': s.remote_enabled}
             for s in location.service_ids.filtered('active')
         ]
         return self._ok(
@@ -190,12 +190,18 @@ class QueueMobileApi(http.Controller):
 
     @staticmethod
     def _active_quota_reached(partner):
-        """Garde anti-flood : plafonne les tickets actifs d'un même client."""
+        """Garde anti-flood : plafonne les tickets actifs d'un même client.
+
+        Plafond configurable (Paramètres → File d'attente), défaut 5.
+        """
+        from odoo.addons.queue_management.models.res_config_settings import int_param
+        limit = max(int_param(request.env, 'queue_management.max_active_tickets',
+                              _MAX_ACTIVE_TICKETS), 1)
         count = request.env['queue.ticket'].sudo().search_count([
             ('partner_id', '=', partner.id),
             ('state', 'in', ('scheduled', 'waiting', 'called', 'serving')),
         ])
-        return count >= _MAX_ACTIVE_TICKETS
+        return count >= limit
 
     # --- Tickets -------------------------------------------------------------
 
@@ -204,16 +210,22 @@ class QueueMobileApi(http.Controller):
     def ticket_create(self, **kw):
         customer = self._get_customer(kw)
         if not customer:
-            return self._err("Non authentifié.", code='auth_required')
+            return self._err(_("Non authentifié."), code='auth_required')
         service = request.env['queue.service'].sudo().browse(
             int(kw.get('service_id') or 0))
         if not service.exists() or not service.active:
-            return self._err("File invalide.")
-        # Preuve de présence : le service_id (entier énumérable) ne suffit pas,
-        # il faut le jeton du QR affiché sur place. Empêche de spammer les
-        # files de n'importe quel établissement depuis son canapé.
+            return self._err(_("File invalide."))
+        # Le jeton du QR reste exigé : il prouve que le client a scanné le
+        # site au moins une fois (anti-énumération du service_id). Le mode
+        # « à distance » (jeton mémorisé, client pas sur place) n'est permis
+        # que si la file l'autorise, et se distingue dans les stats.
         if kw.get('qr_token') != service.location_id.qr_token:
-            return self._err("Scannez le QR code du site pour prendre un ticket.")
+            return self._err(_("Scannez le QR code du site pour prendre un ticket."))
+        remote = bool(kw.get('remote'))
+        if remote and not service.remote_enabled:
+            return self._err(_(
+                "Cette file n'accepte pas les tickets à distance. "
+                "Rendez-vous sur place pour prendre votre ticket."))
         # Filet de sécurité : un compte créé en backoffice peut ne pas encore
         # avoir de partenaire miroir (créé normalement au premier verify_otp).
         customer._ensure_partner()
@@ -225,14 +237,15 @@ class QueueMobileApi(http.Controller):
         ], limit=1)
         if existing:
             return self._ok(ticket=self._ticket_data(existing),
-                            message="Vous avez déjà un ticket pour cette file.")
+                            message=_("Vous avez déjà un ticket pour cette file."))
         if self._active_quota_reached(customer.partner_id):
-            return self._err("Vous avez trop de tickets en cours. "
-                             "Terminez ou annulez-en avant d'en prendre un autre.")
+            return self._err(_(
+                "Vous avez trop de tickets en cours. "
+                "Terminez ou annulez-en avant d'en prendre un autre."))
         ticket = request.env['queue.ticket'].sudo().create({
             'service_id': service.id,
             'partner_id': customer.partner_id.id,
-            'channel': 'mobile',
+            'channel': 'remote' if remote else 'mobile',
         })
         return self._ok(ticket=self._ticket_data(ticket))
 
@@ -241,10 +254,10 @@ class QueueMobileApi(http.Controller):
     def ticket_status(self, **kw):
         customer = self._get_customer(kw)
         if not customer:
-            return self._err("Non authentifié.", code='auth_required')
+            return self._err(_("Non authentifié."), code='auth_required')
         ticket = request.env['queue.ticket'].sudo().browse(int(kw.get('ticket_id') or 0))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
-            return self._err("Ticket introuvable.")
+            return self._err(_("Ticket introuvable."))
         return self._ok(ticket=self._ticket_data(ticket))
 
     @http.route('/api/queue/ticket/cancel', type='jsonrpc', auth='public',
@@ -252,12 +265,12 @@ class QueueMobileApi(http.Controller):
     def ticket_cancel(self, **kw):
         customer = self._get_customer(kw)
         if not customer:
-            return self._err("Non authentifié.", code='auth_required')
+            return self._err(_("Non authentifié."), code='auth_required')
         ticket = request.env['queue.ticket'].sudo().browse(int(kw.get('ticket_id') or 0))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
-            return self._err("Ticket introuvable.")
+            return self._err(_("Ticket introuvable."))
         if ticket.state not in ('scheduled', 'waiting', 'called'):
-            return self._err("Ce ticket ne peut plus être annulé.")
+            return self._err(_("Ce ticket ne peut plus être annulé."))
         ticket.action_cancel()
         return self._ok(ticket=self._ticket_data(ticket))
 
@@ -266,7 +279,7 @@ class QueueMobileApi(http.Controller):
     def my_tickets(self, **kw):
         customer = self._get_customer(kw)
         if not customer:
-            return self._err("Non authentifié.", code='auth_required')
+            return self._err(_("Non authentifié."), code='auth_required')
         tickets = request.env['queue.ticket'].sudo().search([
             ('partner_id', '=', customer.partner_id.id),
             ('state', 'in', ('scheduled', 'waiting', 'called', 'serving')),
@@ -281,11 +294,11 @@ class QueueMobileApi(http.Controller):
         service = request.env['queue.service'].sudo().browse(
             int(kw.get('service_id') or 0))
         if not service.exists() or not service.appointment_enabled:
-            return self._err("Cette file ne propose pas de rendez-vous.")
+            return self._err(_("Cette file ne propose pas de rendez-vous."))
         try:
             day = datetime.strptime(kw.get('date') or '', '%Y-%m-%d').date()
         except ValueError:
-            return self._err("Date invalide (attendu AAAA-MM-JJ).")
+            return self._err(_("Date invalide (attendu AAAA-MM-JJ)."))
         now = fields.Datetime.now()
         slots = []
         for slot_dt, available in service._slots_for_date(day):
@@ -303,23 +316,24 @@ class QueueMobileApi(http.Controller):
     def appointment_book(self, **kw):
         customer = self._get_customer(kw)
         if not customer:
-            return self._err("Non authentifié.", code='auth_required')
+            return self._err(_("Non authentifié."), code='auth_required')
         service = request.env['queue.service'].sudo().browse(
             int(kw.get('service_id') or 0))
         if not service.exists():
-            return self._err("File invalide.")
+            return self._err(_("File invalide."))
         try:
             slot_dt = datetime.strptime(kw.get('slot') or '', '%Y-%m-%d %H:%M:%S')
         except ValueError:
-            return self._err("Créneau invalide.")
+            return self._err(_("Créneau invalide."))
         customer._ensure_partner()
         if self._active_quota_reached(customer.partner_id):
-            return self._err("Vous avez trop de tickets ou rendez-vous en cours. "
-                             "Annulez-en avant d'en réserver un autre.")
+            return self._err(_(
+                "Vous avez trop de tickets ou rendez-vous en cours. "
+                "Annulez-en avant d'en réserver un autre."))
         try:
             ticket = service._book_appointment(customer.partner_id, slot_dt)
         except UserError as exc:
-            return self._err(exc.args[0] if exc.args else "Réservation impossible.")
+            return self._err(exc.args[0] if exc.args else _("Réservation impossible."))
         return self._ok(ticket=self._ticket_data(ticket))
 
     @http.route('/api/queue/ticket/checkin', type='jsonrpc', auth='public',
@@ -327,15 +341,15 @@ class QueueMobileApi(http.Controller):
     def ticket_checkin(self, **kw):
         customer = self._get_customer(kw)
         if not customer:
-            return self._err("Non authentifié.", code='auth_required')
+            return self._err(_("Non authentifié."), code='auth_required')
         ticket = request.env['queue.ticket'].sudo().browse(
             int(kw.get('ticket_id') or 0))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
-            return self._err("Rendez-vous introuvable.")
+            return self._err(_("Rendez-vous introuvable."))
         try:
             ticket.action_check_in()
         except UserError as exc:
-            return self._err(exc.args[0] if exc.args else "Enregistrement impossible.")
+            return self._err(exc.args[0] if exc.args else _("Enregistrement impossible."))
         return self._ok(ticket=self._ticket_data(ticket))
 
     # --- Notifications push ---------------------------------------------------
@@ -345,6 +359,6 @@ class QueueMobileApi(http.Controller):
     def fcm_register(self, **kw):
         customer = self._get_customer(kw)
         if not customer:
-            return self._err("Non authentifié.", code='auth_required')
+            return self._err(_("Non authentifié."), code='auth_required')
         customer._register_fcm(kw.get('fcm_token'))
         return self._ok()

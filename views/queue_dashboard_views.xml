@@ -6,8 +6,11 @@
         <field name="tag">queue_management.dashboard</field>
     </record>
 
+    <!-- Ouvert aux agents (les responsables héritent du groupe agent) :
+         c'est aussi leur poste de travail — appeler/servir depuis les cartes
+         guichets. La configuration reste réservée aux responsables. -->
     <menuitem id="menu_queue_dashboard" name="Tableau de bord"
               parent="menu_queue_root" action="action_queue_dashboard"
-              sequence="5" groups="queue_management.group_queue_manager"/>
+              sequence="5" groups="queue_management.group_queue_agent"/>
 
 </odoo>

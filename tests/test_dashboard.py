@@ -67,6 +67,30 @@ class TestDashboard(TransactionCase):
         self.assertEqual(svc['waiting'], 2)
         self.assertEqual(svc['next_number'], first.name)
 
+    def test_agent_can_work_from_dashboard(self):
+        """Un agent (lecture seule sur la config) peut consulter le dashboard
+        ET actionner son guichet (appeler/servir) — c'est son poste de
+        travail depuis la Phase H."""
+        agent = self.env['res.users'].create({
+            'name': 'Agent Dash', 'login': 'queue_dash_agent',
+            'company_id': self.company_a.id,
+            'company_ids': [(6, 0, [self.company_a.id])],
+            'group_ids': [(6, 0, [
+                self.env.ref('base.group_user').id,
+                self.env.ref('queue_management.group_queue_agent').id])],
+        })
+        ticket = self._ticket()
+        data = self.env['queue.location'].with_user(agent).get_dashboard_data(
+            self.loc_a.id)
+        self.assertEqual(data['location_id'], self.loc_a.id)
+        self.assertEqual(data['counters'][0]['waiting'], 1)
+        # Action depuis la carte guichet, en tant qu'agent.
+        self.counter_a.with_user(agent).action_call_next()
+        self.assertEqual(ticket.state, 'called')
+        self.counter_a.with_user(agent).action_start()
+        self.counter_a.with_user(agent).action_done()
+        self.assertEqual(ticket.state, 'done')
+
     def test_manager_only_sees_his_locations(self):
         Location = self.env['queue.location'].with_user(self.manager_a)
         data = Location.get_dashboard_data()

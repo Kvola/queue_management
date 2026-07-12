@@ -26,6 +26,7 @@ class QueueTicket(models.Model):
     ]
     CHANNEL = [
         ('mobile', "Mobile"),
+        ('remote', "À distance"),
         ('kiosk', "Borne"),
         ('appointment', "Rendez-vous"),
     ]
@@ -241,9 +242,12 @@ class QueueTicket(models.Model):
         """Marque « absent » les rendez-vous non enregistrés bien après l'heure.
 
         Le client est prévenu par push (best-effort) : sans cela, son RDV
-        disparaît silencieusement et il l'apprend au guichet.
+        disparaît silencieusement et il l'apprend au guichet. Délai
+        configurable (Paramètres → File d'attente), défaut 60 min.
         """
-        deadline = fields.Datetime.now() - timedelta(minutes=60)
+        from .res_config_settings import int_param
+        delay = int_param(self.env, 'queue_management.no_show_delay_min', 60)
+        deadline = fields.Datetime.now() - timedelta(minutes=max(delay, 1))
         overdue = self.search([
             ('state', '=', 'scheduled'),
             ('scheduled_time', '<', deadline),

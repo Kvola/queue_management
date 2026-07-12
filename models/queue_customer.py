@@ -172,10 +172,13 @@ class QueueCustomer(models.Model):
         if self._hash(code) != self.otp_hash:
             self.otp_attempts += 1
             return False
+        from .res_config_settings import int_param
+        ttl_days = int_param(self.env, 'queue_management.token_ttl_days',
+                             self.TOKEN_TTL_DAYS)
         token = secrets.token_hex(32)
         self.write({
             'token': self._hash(token),
-            'token_expiry': fields.Datetime.now() + timedelta(days=self.TOKEN_TTL_DAYS),
+            'token_expiry': fields.Datetime.now() + timedelta(days=max(ttl_days, 1)),
             'otp_hash': False,
             'otp_expiry': False,
             'otp_attempts': 0,

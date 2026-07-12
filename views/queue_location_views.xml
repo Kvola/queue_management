@@ -66,6 +66,17 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="QR d'entrée (à imprimer)">
+                            <p class="text-muted">
+                                Imprimez ce QR et affichez-le à l'entrée du site.
+                                Les clients le scannent <b>depuis l'application</b>
+                                (Prendre un ticket → scanner) pour voir les files
+                                et prendre leur ticket. En cas de fuite ou de
+                                remplacement d'affiche, utilisez « Régénérer le QR »
+                                (l'ancien cesse de fonctionner).
+                            </p>
+                            <field name="qr_html" nolabel="1"/>
+                        </page>
                     </notebook>
                 </sheet>
             </form>

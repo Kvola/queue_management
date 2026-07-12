@@ -67,7 +67,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr t-foreach="state.services" t-as="svc" t-key="svc.id">
+                                <tr t-foreach="state.services" t-as="svc" t-key="svc.id"
+                                    t-att-class="serviceAlertClass(svc)">
                                     <td>
                                         <b t-out="svc.name"/>
                                         <span t-if="svc.appointment"
@@ -112,6 +113,38 @@
                                 <div t-else="" class="text-muted">En attente d'appel</div>
                                 <div t-if="c.agent" class="o_queue_dash_counter_agent text-muted">
                                     <i class="fa fa-user me-1"/><t t-out="c.agent"/>
+                                </div>
+                                <div class="o_queue_dash_counter_actions">
+                                    <button t-if="!c.busy" class="btn btn-primary btn-sm"
+                                            t-att-disabled="state.acting || !c.waiting"
+                                            t-on-click="() => this.counterAction(c.id, 'action_call_next')">
+                                        <i class="fa fa-bullhorn me-1"/>Appeler le suivant
+                                        <span t-if="c.waiting" class="badge text-bg-light ms-1"
+                                              t-out="c.waiting"/>
+                                    </button>
+                                    <t t-if="c.busy and c.ticket_state === 'called'">
+                                        <button class="btn btn-success btn-sm"
+                                                t-att-disabled="state.acting"
+                                                t-on-click="() => this.counterAction(c.id, 'action_start')">
+                                            <i class="fa fa-play me-1"/>Démarrer
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                t-att-disabled="state.acting"
+                                                t-on-click="() => this.counterAction(c.id, 'action_recall')">
+                                            <i class="fa fa-volume-up me-1"/>Rappeler
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-sm"
+                                                t-att-disabled="state.acting"
+                                                t-on-click="() => this.counterAction(c.id, 'action_no_show')">
+                                            <i class="fa fa-user-times me-1"/>Absent
+                                        </button>
+                                    </t>
+                                    <button t-if="c.busy and c.ticket_state === 'serving'"
+                                            class="btn btn-success btn-sm"
+                                            t-att-disabled="state.acting"
+                                            t-on-click="() => this.counterAction(c.id, 'action_done')">
+                                        <i class="fa fa-check me-1"/>Terminer
+                                    </button>
                                 </div>
                             </div>
                             <div t-if="!state.counters.length" class="text-muted">

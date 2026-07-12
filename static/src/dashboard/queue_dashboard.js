@@ -4,11 +4,17 @@ import { useService } from "@web/core/utils/hooks";
 
 const REFRESH_MS = 5000;
 
+// Seuils d'alerte visuels sur les files (rendus configurables en Phase I).
+const WAITING_WARN = 4;
+const WAITING_DANGER = 8;
+const ETA_WARN = 15; // minutes
+const ETA_DANGER = 30;
+
 /**
- * Tableau de bord de supervision temps réel d'un site :
- * KPIs du jour, état des files (prochain numéro, ETA) et des guichets.
- * Les données viennent de queue.location.get_dashboard_data (sans sudo :
- * un responsable ne voit que ses établissements), re-sondées toutes les 5 s.
+ * Tableau de bord temps réel d'un site — et poste de travail : les cartes
+ * guichets portent les actions (appeler / démarrer / terminer / absent).
+ * Données via queue.location.get_dashboard_data (sans sudo : les record
+ * rules multi-société s'appliquent), re-sondées toutes les 5 s.
  */
 export class QueueDashboard extends Component {
     static template = "queue_management.QueueDashboard";
@@ -16,9 +22,11 @@ export class QueueDashboard extends Component {
 
     setup() {
         this.orm = useService("orm");
+        this.notification = useService("notification");
         this.state = useState({
             loading: true,
             error: false,
+            acting: false,
             locationId: false,
             locations: [],
             kpis: null,
@@ -56,6 +64,38 @@ export class QueueDashboard extends Component {
         this.state.locationId = parseInt(ev.target.value, 10) || false;
         this.state.loading = true;
         this.load();
+    }
+
+    /** Classe d'alerte d'une file selon l'affluence et l'attente estimée. */
+    serviceAlertClass(svc) {
+        if (svc.waiting >= WAITING_DANGER || svc.eta_next >= ETA_DANGER) {
+            return "table-danger";
+        }
+        if (svc.waiting >= WAITING_WARN || svc.eta_next >= ETA_WARN) {
+            return "table-warning";
+        }
+        return "";
+    }
+
+    /** Exécute une action de guichet puis rafraîchit immédiatement. */
+    async counterAction(counterId, method) {
+        if (this.state.acting) {
+            return;
+        }
+        this.state.acting = true;
+        try {
+            await this.orm.call("queue.counter", method, [[counterId]]);
+            await this.load();
+        } catch (error) {
+            // UserError métier (« Aucun client en attente »…) : notification
+            // native, le dashboard reste en place.
+            this.notification.add(
+                error.data?.message || error.message || "Action impossible.",
+                { type: "warning" }
+            );
+        } finally {
+            this.state.acting = false;
+        }
     }
 }
 

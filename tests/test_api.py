@@ -223,6 +223,35 @@ class TestQueueApi(HttpCase):
             'qr_token': 'faux-jeton'})
         self.assertEqual(res2['status'], 'error')
 
+    def test_remote_ticket_flow(self):
+        """Ticket à distance : refusé si la file ne l'autorise pas, canal
+        « remote » sinon (le qr_token mémorisé reste exigé)."""
+        # Par défaut la file refuse le distant.
+        res = self._call('/api/queue/ticket/create', {
+            'auth_token': self.TOKEN, 'service_id': self.service.id,
+            'qr_token': self.location.qr_token, 'remote': True})
+        self.assertEqual(res['status'], 'error')
+        self.assertIn('distance', res['message'])
+        # File ouverte au distant → ticket créé avec le bon canal.
+        self.service.write({'remote_enabled': True})
+        res2 = self._call('/api/queue/ticket/create', {
+            'auth_token': self.TOKEN, 'service_id': self.service.id,
+            'qr_token': self.location.qr_token, 'remote': True})
+        self.assertEqual(res2['status'], 'ok')
+        self.assertEqual(res2['ticket']['channel'], 'remote')
+        # Sans qr_token, même à distance : refus (anti-énumération).
+        res3 = self._call('/api/queue/ticket/create', {
+            'auth_token': self.TOKEN, 'service_id': self.service.id,
+            'remote': True})
+        self.assertEqual(res3['status'], 'error')
+        # Le drapeau est exposé par la découverte de site.
+        site = self._call('/api/queue/site', {'qr_token': self.location.qr_token})
+        self.assertTrue(site['services'][0]['remote'])
+        # Nettoyage pour les autres tests.
+        self._call('/api/queue/ticket/cancel', {
+            'auth_token': self.TOKEN, 'ticket_id': res2['ticket']['id']})
+        self.service.write({'remote_enabled': False})
+
     def test_active_tickets_quota(self):
         """Plafond global de tickets actifs par client (anti-flood)."""
         from odoo.addons.queue_management.controllers import mobile_api

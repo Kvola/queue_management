@@ -19,6 +19,7 @@
         <field name="code">CAR</field>
         <field name="location_id" ref="location_hopital_main"/>
         <field name="sequence">10</field>
+        <field name="remote_enabled" eval="True"/>
     </record>
 
     <record id="service_radio" model="queue.service">
@@ -50,6 +51,7 @@
         <field name="code">EC</field>
         <field name="location_id" ref="location_mairie_main"/>
         <field name="sequence">10</field>
+        <field name="remote_enabled" eval="True"/>
     </record>
 
     <record id="counter_mairie_1" model="queue.counter">
