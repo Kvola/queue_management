@@ -12,10 +12,12 @@ class QueueCounter(models.Model):
 
     _name = 'queue.counter'
     _description = "Guichet"
+    _inherit = ['mail.thread']
     _order = 'company_id, location_id, name'
 
-    name = fields.Char("Nom du guichet", required=True, translate=True)
-    active = fields.Boolean("Actif", default=True)
+    name = fields.Char("Nom du guichet", required=True, translate=True,
+                       tracking=True)
+    active = fields.Boolean("Actif", default=True, tracking=True)
 
     location_id = fields.Many2one(
         'queue.location', string="Site", required=True, index=True,
@@ -30,12 +32,16 @@ class QueueCounter(models.Model):
         'queue.service', 'queue_counter_service_rel', 'counter_id', 'service_id',
         string="Files desservies",
     )
-    agent_id = fields.Many2one('res.users', string="Agent affecté")
+    agent_id = fields.Many2one('res.users', string="Agent affecté",
+                               tracking=True)
 
     current_ticket_id = fields.Many2one(
         'queue.ticket', string="Ticket en cours", copy=False,
         help="Ticket actuellement appelé ou en cours de traitement à ce guichet.",
     )
+    current_ticket_state = fields.Selection(
+        related='current_ticket_id.state', string="État du ticket en cours",
+        help="Pilote la visibilité des boutons d'action du formulaire.")
     state = fields.Selection(
         [('free', "Libre"), ('busy', "Occupé")],
         string="État", compute='_compute_state',

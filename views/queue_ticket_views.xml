@@ -38,37 +38,64 @@
                     <button name="action_start" type="object" string="Démarrer"
                             class="btn-primary" invisible="state != 'called'"/>
                     <button name="action_done" type="object" string="Terminer"
-                            class="btn-primary" invisible="state not in ('called','serving')"/>
+                            class="btn-success" invisible="state not in ('called','serving')"/>
+                    <button name="action_recall" type="object" string="Rappeler"
+                            invisible="state != 'called'"/>
                     <button name="action_no_show" type="object" string="Absent"
                             invisible="state != 'called'"/>
                     <button name="action_cancel" type="object" string="Annuler"
-                            invisible="state in ('done','no_show','cancelled')"/>
+                            invisible="state in ('done','no_show','cancelled')"
+                            confirm="Annuler ce ticket ?"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="scheduled,waiting,called,serving,done"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Annulé" bg_color="text-bg-danger"
+                            invisible="state != 'cancelled'"/>
+                    <widget name="web_ribbon" title="Absent" bg_color="text-bg-warning"
+                            invisible="state != 'no_show'"/>
+                    <widget name="web_ribbon" title="Terminé" bg_color="text-bg-success"
+                            invisible="state != 'done'"/>
                     <div class="oe_title">
-                        <h1><field name="name"/></h1>
+                        <h1>
+                            <field name="priority" widget="priority" class="me-2"/>
+                            <field name="name"/>
+                        </h1>
                     </div>
                     <group>
-                        <group>
-                            <field name="service_id"/>
-                            <field name="partner_id"/>
+                        <group string="Client &amp; canal">
+                            <field name="partner_id"
+                                   placeholder="Vide = ticket anonyme (borne)"/>
                             <field name="channel"/>
-                            <field name="priority"/>
                             <field name="scheduled_time"
-                                   invisible="channel != 'appointment'"/>
+                                   invisible="channel != 'appointment'"
+                                   required="channel == 'appointment'"/>
                         </group>
-                        <group>
-                            <field name="counter_id"/>
-                            <field name="position"/>
-                            <field name="eta_minutes"/>
-                            <field name="created_at"/>
-                            <field name="called_at"/>
-                            <field name="served_at"/>
-                            <field name="closed_at"/>
+                        <group string="File &amp; guichet">
+                            <field name="service_id"
+                                   readonly="state not in ('scheduled', 'waiting')"/>
+                            <field name="location_id"/>
+                            <field name="counter_id" readonly="1"/>
+                            <field name="position" invisible="state != 'waiting'"/>
+                            <field name="eta_minutes" invisible="state != 'waiting'"/>
                         </group>
                     </group>
+                    <notebook>
+                        <page string="Horodatages &amp; durées" name="times">
+                            <group>
+                                <group string="Horodatages">
+                                    <field name="created_at" readonly="1"/>
+                                    <field name="called_at" readonly="1"/>
+                                    <field name="served_at" readonly="1"/>
+                                    <field name="closed_at" readonly="1"/>
+                                </group>
+                                <group string="Durées réelles">
+                                    <field name="wait_real_minutes"/>
+                                    <field name="service_real_minutes"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
                 </sheet>
                 <chatter/>
             </form>

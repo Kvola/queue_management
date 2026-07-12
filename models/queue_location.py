@@ -15,14 +15,16 @@ class QueueLocation(models.Model):
 
     _name = 'queue.location'
     _description = "Site (file d'attente)"
+    _inherit = ['mail.thread']
     _order = 'company_id, name'
 
-    name = fields.Char("Nom du site", required=True, translate=True)
+    name = fields.Char("Nom du site", required=True, translate=True,
+                       tracking=True)
     company_id = fields.Many2one(
         'res.company', string="Établissement", required=True, index=True,
-        default=lambda self: self.env.company,
+        default=lambda self: self.env.company, tracking=True,
     )
-    active = fields.Boolean("Actif", default=True)
+    active = fields.Boolean("Actif", default=True, tracking=True)
 
     street = fields.Char("Adresse")
     city = fields.Char("Ville")
@@ -47,6 +49,7 @@ class QueueLocation(models.Model):
     counter_ids = fields.One2many('queue.counter', 'location_id', string="Guichets")
     service_count = fields.Integer("Nb de files", compute='_compute_counts')
     counter_count = fields.Integer("Nb de guichets", compute='_compute_counts')
+    ticket_count = fields.Integer("Nb de tickets", compute='_compute_counts')
 
     _qr_token_uniq = models.Constraint(
         'UNIQUE(qr_token)',
@@ -55,9 +58,40 @@ class QueueLocation(models.Model):
 
     @api.depends('service_ids', 'counter_ids')
     def _compute_counts(self):
+        counts = dict(self.env['queue.ticket']._read_group(
+            [('location_id', 'in', self.ids)], ['location_id'], ['__count']))
         for location in self:
             location.service_count = len(location.service_ids)
             location.counter_count = len(location.counter_ids)
+            location.ticket_count = counts.get(location, 0)
+
+    def _open_related(self, name, model, domain, context=None):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': name,
+            'res_model': model,
+            'view_mode': 'list,form',
+            'domain': domain,
+            'context': context or {},
+        }
+
+    def action_view_services(self):
+        return self._open_related(
+            _("Files"), 'queue.service',
+            [('location_id', '=', self.id)],
+            {'default_location_id': self.id})
+
+    def action_view_counters(self):
+        return self._open_related(
+            _("Guichets"), 'queue.counter',
+            [('location_id', '=', self.id)],
+            {'default_location_id': self.id})
+
+    def action_view_tickets(self):
+        return self._open_related(
+            _("Tickets"), 'queue.ticket',
+            [('location_id', '=', self.id)])
 
     @api.depends('qr_token', 'name')
     def _compute_qr_html(self):

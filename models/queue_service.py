@@ -16,17 +16,19 @@ class QueueService(models.Model):
 
     _name = 'queue.service'
     _description = "File d'attente"
+    _inherit = ['mail.thread']
     _order = 'company_id, sequence, name'
 
-    name = fields.Char("Nom de la file", required=True, translate=True)
+    name = fields.Char("Nom de la file", required=True, translate=True,
+                       tracking=True)
     code = fields.Char(
         "Préfixe", required=True, size=4,
         help="Préfixe du numéro de ticket, ex. « B » → tickets B-001, B-002…",
     )
     sequence = fields.Integer("Séquence", default=10)
-    active = fields.Boolean("Active", default=True)
+    active = fields.Boolean("Active", default=True, tracking=True)
     remote_enabled = fields.Boolean(
-        "Tickets à distance", default=False,
+        "Tickets à distance", default=False, tracking=True,
         help="Autorise un client ayant déjà scanné le QR du site à prendre "
              "un ticket depuis l'application sans être sur place (modèle "
              "« waitlist » : il arrive quand son tour approche). Les tickets "
@@ -57,7 +59,7 @@ class QueueService(models.Model):
     # --- Rendez-vous (Phase 4b) ---
     # NB : les heures d'ouverture sont interprétées dans le fuseau du serveur
     # (UTC). Pour un déploiement hors UTC, prévoir une conversion de fuseau.
-    appointment_enabled = fields.Boolean("Rendez-vous activés")
+    appointment_enabled = fields.Boolean("Rendez-vous activés", tracking=True)
     slot_duration = fields.Integer(
         "Durée d'un créneau (min)", default=30,
         help="Découpage des plages d'ouverture en créneaux de cette durée.")
@@ -72,6 +74,7 @@ class QueueService(models.Model):
         'queue.opening.hour', 'service_id', string="Plages d'ouverture")
 
     waiting_count = fields.Integer("En attente", compute='_compute_waiting_count')
+    ticket_count = fields.Integer("Nb de tickets", compute='_compute_ticket_count')
 
     _code_uniq_per_location = models.Constraint(
         'UNIQUE(code, location_id)',
@@ -84,6 +87,21 @@ class QueueService(models.Model):
             service.waiting_count = len(
                 service.ticket_ids.filtered(lambda t: t.state == 'waiting')
             )
+
+    @api.depends('ticket_ids')
+    def _compute_ticket_count(self):
+        for service in self:
+            service.ticket_count = len(service.ticket_ids)
+
+    def action_view_tickets(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Tickets"),
+            'res_model': 'queue.ticket',
+            'view_mode': 'list,form',
+            'domain': [('service_id', '=', self.id)],
+        }
 
     @api.constrains('code')
     def _check_code(self):

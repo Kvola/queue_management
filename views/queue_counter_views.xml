@@ -69,38 +69,56 @@
         <field name="arch" type="xml">
             <form string="Guichet">
                 <header>
+                    <!-- Les boutons suivent l'état réel du ticket en cours :
+                         impossible de cliquer une action invalide. -->
                     <button name="action_call_next" type="object"
-                            string="Appeler le suivant" class="btn-primary"/>
+                            string="Appeler le suivant" class="btn-primary"
+                            invisible="current_ticket_state in ('called', 'serving')"/>
                     <button name="action_start" type="object" string="Démarrer"
-                            invisible="not current_ticket_id"/>
+                            class="btn-primary"
+                            invisible="current_ticket_state != 'called'"/>
                     <button name="action_done" type="object" string="Terminer"
-                            class="btn-success" invisible="not current_ticket_id"/>
-                    <button name="action_no_show" type="object" string="Absent"
-                            invisible="not current_ticket_id"/>
+                            class="btn-success"
+                            invisible="current_ticket_state not in ('called', 'serving')"/>
                     <button name="action_recall" type="object" string="Rappeler"
-                            invisible="not current_ticket_id"/>
+                            invisible="current_ticket_state != 'called'"/>
+                    <button name="action_no_show" type="object" string="Absent"
+                            invisible="current_ticket_state != 'called'"/>
+                    <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger"
+                            invisible="active"/>
                     <div class="oe_title">
+                        <label for="name"/>
                         <h1><field name="name" placeholder="Ex. Guichet 3"/></h1>
                     </div>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="service_ids">
+                        Ce guichet ne dessert encore aucune file : choisissez un
+                        site puis ajoutez ses files ci-dessous, sinon
+                        « Appeler le suivant » n'aura personne à appeler.
+                    </div>
                     <group>
-                        <group>
+                        <group string="Affectation">
                             <field name="location_id"/>
-                            <field name="agent_id"/>
-                            <field name="active"/>
+                            <field name="agent_id"
+                                   placeholder="Agent travaillant à ce guichet"/>
+                            <field name="active" invisible="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
                         </group>
-                        <group>
-                            <field name="current_ticket_id"/>
+                        <group string="Au guichet">
+                            <field name="current_ticket_id" readonly="1"/>
+                            <field name="current_ticket_state" invisible="1"/>
                             <field name="next_number"/>
                             <field name="waiting_count"/>
-                            <field name="state"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                     </group>
                     <field name="service_ids" widget="many2many_tags"
-                           string="Files desservies"/>
+                           string="Files desservies"
+                           domain="[('location_id', '=', location_id)]"/>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>

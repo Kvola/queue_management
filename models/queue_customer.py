@@ -23,6 +23,7 @@ class QueueCustomer(models.Model):
 
     _name = 'queue.customer'
     _description = "Client mobile (file d'attente)"
+    _inherit = ['mail.thread']
     _order = 'create_date desc'
 
     OTP_TTL_MINUTES = 10
@@ -31,10 +32,27 @@ class QueueCustomer(models.Model):
     # l'expiration ; évite qu'un jeton fuité soit valable à vie.
     TOKEN_TTL_DAYS = 90
 
-    name = fields.Char("Nom")
-    email = fields.Char("Email", required=True, index=True)
+    name = fields.Char("Nom", tracking=True)
+    email = fields.Char("Email", required=True, index=True, tracking=True)
     partner_id = fields.Many2one('res.partner', string="Partenaire", ondelete='set null')
-    active = fields.Boolean("Actif", default=True)
+    active = fields.Boolean("Actif", default=True, tracking=True)
+    ticket_count = fields.Integer("Nb de tickets", compute='_compute_ticket_count')
+
+    def _compute_ticket_count(self):
+        for customer in self:
+            customer.ticket_count = (
+                len(customer.partner_id.queue_ticket_ids)
+                if customer.partner_id else 0)
+
+    def action_view_tickets(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Tickets"),
+            'res_model': 'queue.ticket',
+            'view_mode': 'list,form',
+            'domain': [('partner_id', '=', self.partner_id.id)],
+        }
 
     # Session — jetons secrets : illisibles hors administrateur système
     # (les agents n'en ont pas besoin ; l'API mobile y accède en sudo).

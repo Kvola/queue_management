@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <list string="Sites">
                 <field name="name"/>
-                <field name="city"/>
+                <field name="city" optional="show"/>
                 <field name="service_count"/>
                 <field name="counter_count"/>
                 <field name="company_id" groups="base.group_multi_company"/>
@@ -22,41 +22,61 @@
             <form string="Site">
                 <header>
                     <button name="action_open_display" type="object"
-                            string="Écran d'affichage" class="btn-primary"/>
+                            string="Écran d'affichage" class="btn-primary"
+                            help="Écran public de salle d'attente (plein écran)."/>
                     <button name="action_open_kiosk" type="object"
-                            string="Borne tactile" class="btn-secondary"/>
+                            string="Borne tactile"
+                            help="Borne publique de prise de ticket (plein écran)."/>
                     <button name="action_regenerate_qr_token" type="object"
-                            string="Régénérer le QR" class="btn-secondary"
-                            confirm="L'ancien QR code affiché à l'entrée ne fonctionnera plus. Continuer ?"/>
+                            string="Régénérer le QR"
+                            confirm="L'ancien QR code affiché à l'entrée ne fonctionnera plus (affiches à réimprimer). Continuer ?"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_services" type="object"
+                                class="oe_stat_button" icon="fa-list">
+                            <field name="service_count" widget="statinfo" string="Files"/>
+                        </button>
+                        <button name="action_view_counters" type="object"
+                                class="oe_stat_button" icon="fa-desktop">
+                            <field name="counter_count" widget="statinfo" string="Guichets"/>
+                        </button>
+                        <button name="action_view_tickets" type="object"
+                                class="oe_stat_button" icon="fa-ticket">
+                            <field name="ticket_count" widget="statinfo" string="Tickets"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
+                        <label for="name"/>
                         <h1><field name="name" placeholder="Ex. Hôpital Central — Site principal"/></h1>
                     </div>
                     <group>
-                        <group>
+                        <group string="Établissement">
                             <field name="company_id" groups="base.group_multi_company"/>
-                            <field name="active"/>
+                            <field name="active" invisible="1"/>
                         </group>
-                        <group>
-                            <field name="street"/>
-                            <field name="city"/>
-                            <field name="qr_token"/>
+                        <group string="Localisation">
+                            <field name="street" placeholder="Rue, quartier…"/>
+                            <field name="city" placeholder="Ville"/>
                         </group>
                     </group>
                     <notebook>
-                        <page string="Files">
+                        <page string="Files" name="services">
                             <field name="service_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="code"/>
                                     <field name="name"/>
                                     <field name="waiting_count"/>
-                                    <field name="active"/>
+                                    <field name="remote_enabled" optional="show"/>
+                                    <field name="appointment_enabled" optional="show"/>
+                                    <field name="active" optional="hide"/>
                                 </list>
                             </field>
                         </page>
-                        <page string="Guichets">
+                        <page string="Guichets" name="counters">
                             <field name="counter_ids">
                                 <list editable="bottom">
                                     <field name="name"/>
@@ -66,7 +86,7 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="QR d'entrée (à imprimer)">
+                        <page string="QR d'entrée (à imprimer)" name="qr">
                             <p class="text-muted">
                                 Imprimez ce QR et affichez-le à l'entrée du site.
                                 Les clients le scannent <b>depuis l'application</b>
@@ -76,9 +96,13 @@
                                 (l'ancien cesse de fonctionner).
                             </p>
                             <field name="qr_html" nolabel="1"/>
+                            <group>
+                                <field name="qr_token" readonly="1"/>
+                            </group>
                         </page>
                     </notebook>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>
@@ -87,6 +111,12 @@
         <field name="name">Sites</field>
         <field name="res_model">queue.location</field>
         <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Créez votre premier site</p>
+            <p>Un site = un lieu physique avec son QR d'entrée, ses files et
+               ses guichets. L'écran d'affichage et la borne se lancent depuis
+               sa fiche.</p>
+        </field>
     </record>
 
 </odoo>

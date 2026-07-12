@@ -11,8 +11,10 @@
                 <field name="name"/>
                 <field name="location_id"/>
                 <field name="waiting_count"/>
-                <field name="active"/>
-                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="remote_enabled" optional="show"/>
+                <field name="appointment_enabled" optional="show"/>
+                <field name="active" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
             </list>
         </field>
     </record>
@@ -23,45 +25,71 @@
         <field name="arch" type="xml">
             <form string="File">
                 <sheet>
+                    <widget name="web_ribbon" title="Archivée" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_tickets" type="object"
+                                class="oe_stat_button" icon="fa-hourglass-half">
+                            <field name="waiting_count" widget="statinfo"
+                                   string="En attente"/>
+                        </button>
+                        <button name="action_view_tickets" type="object"
+                                class="oe_stat_button" icon="fa-ticket">
+                            <field name="ticket_count" widget="statinfo" string="Tickets"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
+                        <label for="name"/>
                         <h1><field name="name" placeholder="Ex. Cardiologie"/></h1>
                     </div>
                     <group>
-                        <group>
-                            <field name="code" placeholder="B"/>
+                        <group string="Identification">
+                            <field name="code" placeholder="Ex. B"
+                                   help="Préfixe des numéros de ticket : B → B-001, B-002…"/>
                             <field name="location_id"/>
-                            <field name="active"/>
-                            <field name="remote_enabled"/>
-                        </group>
-                        <group>
-                            <field name="waiting_count"/>
+                            <field name="active" invisible="1"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
+                        <group string="Canaux">
+                            <field name="remote_enabled"/>
+                            <field name="appointment_enabled"/>
+                        </group>
                     </group>
+                    <div class="alert alert-info" role="alert"
+                         invisible="not remote_enabled">
+                        Les clients ayant déjà scanné le QR de ce site pourront
+                        prendre un ticket dans cette file <b>sans être sur place</b>
+                        (canal « À distance » dans les statistiques).
+                    </div>
                     <field name="counter_ids" widget="many2many_tags"
                            string="Guichets desservant la file"/>
                     <notebook>
-                        <page string="Rendez-vous">
+                        <page string="Rendez-vous" name="appointments"
+                              invisible="not appointment_enabled">
                             <group>
-                                <field name="appointment_enabled"/>
-                                <field name="slot_duration"
-                                       invisible="not appointment_enabled"/>
-                                <field name="slot_capacity"
-                                       invisible="not appointment_enabled"/>
-                                <field name="appointment_max_per_customer"
-                                       invisible="not appointment_enabled"/>
+                                <group string="Créneaux">
+                                    <field name="slot_duration"/>
+                                    <field name="slot_capacity"/>
+                                    <field name="appointment_max_per_customer"/>
+                                </group>
                             </group>
-                            <field name="opening_hour_ids"
-                                   invisible="not appointment_enabled">
+                            <separator string="Plages d'ouverture"/>
+                            <field name="opening_hour_ids">
                                 <list editable="bottom">
                                     <field name="dayofweek"/>
                                     <field name="hour_from" widget="float_time"/>
                                     <field name="hour_to" widget="float_time"/>
                                 </list>
                             </field>
+                            <p class="text-muted">
+                                Les créneaux réservables sont générés en découpant
+                                ces plages selon la durée configurée. Heures
+                                interprétées en heure serveur (UTC).
+                            </p>
                         </page>
                     </notebook>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>
@@ -70,6 +98,12 @@
         <field name="name">Files</field>
         <field name="res_model">queue.service</field>
         <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Créez votre première file</p>
+            <p>Une file = un service rendu (« Cardiologie », « État civil »)
+               avec son préfixe de numérotation, ses canaux (sur place,
+               à distance, rendez-vous) et ses guichets.</p>
+        </field>
     </record>
 
 </odoo>

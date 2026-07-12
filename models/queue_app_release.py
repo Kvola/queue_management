@@ -22,18 +22,19 @@ from odoo.exceptions import UserError
 class QueueAppRelease(models.Model):
     _name = 'queue.app.release'
     _description = "Version APK de l'app mobile (file d'attente)"
+    _inherit = ['mail.thread']
     _order = 'released_date desc, id desc'
 
     name = fields.Char(compute='_compute_name', store=True, string="Désignation")
     version = fields.Char(
-        "Version", required=True,
+        "Version", required=True, tracking=True,
         help="Numéro de version sémantique, ex. 1.0.0.")
     build_number = fields.Integer("Build", default=1, required=True)
     release_notes = fields.Text("Notes de version")
     released_date = fields.Datetime(
         "Date de publication", default=fields.Datetime.now, required=True)
     is_active = fields.Boolean(
-        "Version publiée", index=True,
+        "Version publiée", index=True, tracking=True,
         help="Une seule version publiée à la fois — celle servie sur la page "
              "d'installation publique et reflétée dans les QR codes.")
 

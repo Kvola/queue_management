@@ -140,6 +140,31 @@ class TestQueue(TransactionCase):
         self.assertEqual(ticket.state, 'called')
         self.assertGreaterEqual(ticket.called_at, before)
 
+    def test_chatter_on_all_form_models(self):
+        """Tous les modèles à formulaire portent le chatter (mail.thread)."""
+        for model in ('queue.location', 'queue.service', 'queue.counter',
+                      'queue.customer', 'queue.app.release', 'queue.ticket'):
+            self.assertIn('message_ids', self.env[model]._fields, model)
+
+    def test_sensitive_fields_are_tracked(self):
+        """Les champs sensibles sont déclarés suivis : leurs modifications
+        laissent une trace dans le chatter. (Le postage effectif du message
+        est du ressort du cœur Odoo — vérifié manuellement en réel ; sous le
+        curseur de test, la finalisation du tracking suit une autre
+        sémantique de flush.)"""
+        tracked = {
+            'queue.service': {'remote_enabled', 'appointment_enabled', 'active'},
+            'queue.location': {'name', 'company_id', 'active'},
+            'queue.counter': {'agent_id', 'active'},
+            'queue.customer': {'email', 'active'},
+            'queue.app.release': {'is_active', 'version'},
+            'queue.ticket': {'state'},
+        }
+        for model, fields_expected in tracked.items():
+            self.assertTrue(
+                fields_expected <= self.env[model]._track_get_fields(),
+                "%s : champs suivis manquants" % model)
+
     def test_counter_onchange_prefills_services(self):
         """Choisir le site pré-remplit les files desservies (actives)."""
         counter = self.env['queue.counter'].new({'name': 'G2'})
