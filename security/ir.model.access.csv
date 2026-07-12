@@ -13,3 +13,5 @@ access_queue_opening_hour_manager,queue.opening.hour.manager,model_queue_opening
 access_queue_rate_limit_system,queue.rate.limit.system,model_queue_rate_limit,base.group_system,1,1,1,1
 access_queue_app_release_manager,queue.app.release.manager,model_queue_app_release,group_queue_manager,1,0,0,0
 access_queue_app_release_system,queue.app.release.system,model_queue_app_release,base.group_system,1,1,1,1
+access_queue_setup_wizard_system,queue.setup.wizard.system,model_queue_setup_wizard,base.group_system,1,1,1,1
+access_queue_setup_wizard_line_system,queue.setup.wizard.line.system,model_queue_setup_wizard_line,base.group_system,1,1,1,1

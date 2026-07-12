@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Démo : DEUX établissements distincts pour illustrer l'isolation SaaS.
-         Un agent de l'Hôpital ne doit jamais voir les files de la Mairie. -->
+         Un agent de l'Hôpital ne doit jamais voir les files de la Mairie.
+         Les tickets couvrent tous les états (attente, appelé, servi, absent,
+         RDV programmé) avec des horodatages réalistes : les statistiques,
+         l'attente estimée (ETA) et le tableau de bord ont des données dès
+         l'installation. -->
 
     <!-- ========== Établissement A : Hôpital Central ========== -->
     <record id="company_hopital" model="res.company">
@@ -11,6 +15,7 @@
     <record id="location_hopital_main" model="queue.location">
         <field name="name">Hôpital Central — Site principal</field>
         <field name="company_id" ref="company_hopital"/>
+        <field name="street">Boulevard de la République</field>
         <field name="city">Abidjan</field>
     </record>
 
@@ -20,6 +25,9 @@
         <field name="location_id" ref="location_hopital_main"/>
         <field name="sequence">10</field>
         <field name="remote_enabled" eval="True"/>
+        <field name="appointment_enabled" eval="True"/>
+        <field name="slot_duration">30</field>
+        <field name="slot_capacity">2</field>
     </record>
 
     <record id="service_radio" model="queue.service">
@@ -29,10 +37,48 @@
         <field name="sequence">20</field>
     </record>
 
+    <!-- Cardiologie ouverte aux RDV du lundi au vendredi, 08:00–12:00 -->
+    <record id="hour_cardio_0" model="queue.opening.hour">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="dayofweek">0</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">12.0</field>
+    </record>
+    <record id="hour_cardio_1" model="queue.opening.hour">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="dayofweek">1</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">12.0</field>
+    </record>
+    <record id="hour_cardio_2" model="queue.opening.hour">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="dayofweek">2</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">12.0</field>
+    </record>
+    <record id="hour_cardio_3" model="queue.opening.hour">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="dayofweek">3</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">12.0</field>
+    </record>
+    <record id="hour_cardio_4" model="queue.opening.hour">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="dayofweek">4</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">12.0</field>
+    </record>
+
     <record id="counter_hopital_1" model="queue.counter">
         <field name="name">Guichet 1</field>
         <field name="location_id" ref="location_hopital_main"/>
         <field name="service_ids" eval="[(6, 0, [ref('service_cardio'), ref('service_radio')])]"/>
+    </record>
+
+    <record id="counter_hopital_2" model="queue.counter">
+        <field name="name">Guichet 2</field>
+        <field name="location_id" ref="location_hopital_main"/>
+        <field name="service_ids" eval="[(6, 0, [ref('service_radio')])]"/>
     </record>
 
     <!-- ========== Établissement B : Mairie de Cocody ========== -->
@@ -60,30 +106,102 @@
         <field name="service_ids" eval="[(6, 0, [ref('service_etat_civil')])]"/>
     </record>
 
-    <!-- ========== Quelques tickets en attente (Hôpital) ========== -->
-    <record id="ticket_demo_1" model="queue.ticket">
+    <!-- ========== Client mobile de démo (avec partenaire miroir) ========== -->
+    <record id="partner_demo_awa" model="res.partner">
+        <field name="name">Awa Koné</field>
+        <field name="email">awa.kone@exemple.ci</field>
+    </record>
+    <record id="customer_demo_awa" model="queue.customer">
+        <field name="name">Awa Koné</field>
+        <field name="email">awa.kone@exemple.ci</field>
+        <field name="partner_id" ref="partner_demo_awa"/>
+    </record>
+
+    <!-- ========== Historique du jour (stats, ETA, tableau de bord) ==========
+         3 passages terminés (~6 min de service) + 1 absent. -->
+    <record id="ticket_demo_done_1" model="queue.ticket">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="channel">kiosk</field>
+        <field name="state">done</field>
+        <field name="created_at" eval="(DateTime.now() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="called_at" eval="(DateTime.now() - timedelta(hours=3, minutes=-8)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="served_at" eval="(DateTime.now() - timedelta(hours=3, minutes=-9)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="closed_at" eval="(DateTime.now() - timedelta(hours=3, minutes=-15)).strftime('%Y-%m-%d %H:%M:%S')"/>
+    </record>
+    <record id="ticket_demo_done_2" model="queue.ticket">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="channel">mobile</field>
+        <field name="partner_id" ref="partner_demo_awa"/>
+        <field name="state">done</field>
+        <field name="created_at" eval="(DateTime.now() - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="called_at" eval="(DateTime.now() - timedelta(hours=2, minutes=-10)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="served_at" eval="(DateTime.now() - timedelta(hours=2, minutes=-11)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="closed_at" eval="(DateTime.now() - timedelta(hours=2, minutes=-17)).strftime('%Y-%m-%d %H:%M:%S')"/>
+    </record>
+    <record id="ticket_demo_done_3" model="queue.ticket">
+        <field name="service_id" ref="service_radio"/>
+        <field name="channel">remote</field>
+        <field name="state">done</field>
+        <field name="created_at" eval="(DateTime.now() - timedelta(hours=1, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="called_at" eval="(DateTime.now() - timedelta(hours=1, minutes=18)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="served_at" eval="(DateTime.now() - timedelta(hours=1, minutes=17)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="closed_at" eval="(DateTime.now() - timedelta(hours=1, minutes=11)).strftime('%Y-%m-%d %H:%M:%S')"/>
+    </record>
+    <record id="ticket_demo_noshow" model="queue.ticket">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="channel">kiosk</field>
+        <field name="state">no_show</field>
+        <field name="created_at" eval="(DateTime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="called_at" eval="(DateTime.now() - timedelta(minutes=50)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="closed_at" eval="(DateTime.now() - timedelta(minutes=47)).strftime('%Y-%m-%d %H:%M:%S')"/>
+    </record>
+
+    <!-- ========== File vivante : 1 appelé au guichet + 3 en attente ========== -->
+    <record id="ticket_demo_called" model="queue.ticket">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="channel">mobile</field>
+        <field name="state">called</field>
+        <field name="counter_id" ref="counter_hopital_1"/>
+        <field name="created_at" eval="(DateTime.now() - timedelta(minutes=25)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="called_at" eval="(DateTime.now() - timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+    </record>
+    <record id="counter_hopital_1" model="queue.counter">
+        <field name="current_ticket_id" ref="ticket_demo_called"/>
+    </record>
+
+    <record id="ticket_demo_waiting_1" model="queue.ticket">
         <field name="service_id" ref="service_cardio"/>
         <field name="channel">kiosk</field>
         <field name="priority">0</field>
+        <field name="created_at" eval="(DateTime.now() - timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
     </record>
-
-    <record id="ticket_demo_2" model="queue.ticket">
+    <record id="ticket_demo_waiting_urgent" model="queue.ticket">
         <field name="service_id" ref="service_cardio"/>
         <field name="channel">mobile</field>
         <field name="priority">2</field>
+        <field name="created_at" eval="(DateTime.now() - timedelta(minutes=8)).strftime('%Y-%m-%d %H:%M:%S')"/>
     </record>
-
-    <record id="ticket_demo_3" model="queue.ticket">
+    <record id="ticket_demo_waiting_remote" model="queue.ticket">
         <field name="service_id" ref="service_radio"/>
-        <field name="channel">mobile</field>
-        <field name="priority">0</field>
+        <field name="channel">remote</field>
+        <field name="partner_id" ref="partner_demo_awa"/>
+        <field name="created_at" eval="(DateTime.now() - timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')"/>
     </record>
 
-    <!-- Tickets pour la Mairie -->
-    <record id="ticket_demo_4" model="queue.ticket">
+    <!-- ========== RDV programmé demain matin (check-in à tester) ========== -->
+    <record id="ticket_demo_rdv" model="queue.ticket">
+        <field name="service_id" ref="service_cardio"/>
+        <field name="channel">appointment</field>
+        <field name="state">scheduled</field>
+        <field name="partner_id" ref="partner_demo_awa"/>
+        <field name="scheduled_time" eval="((DateTime.now() + timedelta(days=1)).replace(hour=9, minute=0, second=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+    </record>
+
+    <!-- Ticket pour la Mairie (isolation : invisible côté Hôpital) -->
+    <record id="ticket_demo_mairie" model="queue.ticket">
         <field name="service_id" ref="service_etat_civil"/>
         <field name="channel">kiosk</field>
-        <field name="priority">0</field>
+        <field name="created_at" eval="(DateTime.now() - timedelta(minutes=12)).strftime('%Y-%m-%d %H:%M:%S')"/>
     </record>
 
 </odoo>

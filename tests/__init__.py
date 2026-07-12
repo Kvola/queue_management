@@ -5,3 +5,4 @@ from . import test_customer_token_acl
 from . import test_app_release
 from . import test_dashboard
 from . import test_settings
+from . import test_setup_wizard

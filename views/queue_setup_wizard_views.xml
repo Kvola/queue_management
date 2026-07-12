@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_queue_setup_wizard_form" model="ir.ui.view">
+        <field name="name">queue.setup.wizard.form</field>
+        <field name="model">queue.setup.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Nouvel établissement">
+                <p class="text-muted">
+                    Crée en une fois : l'établissement (société), son premier
+                    site avec QR d'entrée, ses files, un guichet les desservant
+                    et — en option — son responsable. Tout reste modifiable
+                    ensuite.
+                </p>
+                <group>
+                    <group string="Établissement">
+                        <field name="company_name"
+                               placeholder="Ex. Clinique des Palmiers"/>
+                        <field name="site_name"
+                               placeholder="Défaut : nom de l'établissement"/>
+                        <field name="street" placeholder="Rue, quartier…"/>
+                        <field name="city" placeholder="Ville"/>
+                    </group>
+                    <group string="Responsable (optionnel)">
+                        <field name="manager_name" placeholder="Prénom Nom"/>
+                        <field name="manager_email"
+                               placeholder="responsable@exemple.com"/>
+                    </group>
+                </group>
+                <separator string="Files d'attente"/>
+                <field name="line_ids">
+                    <list editable="bottom">
+                        <field name="name"/>
+                        <field name="code"/>
+                        <field name="remote_enabled"/>
+                        <field name="appointment_enabled"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_create" type="object"
+                            string="Créer l'établissement" class="btn-primary"
+                            data-hotkey="q"/>
+                    <button string="Annuler" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_queue_setup_wizard" model="ir.actions.act_window">
+        <field name="name">Nouvel établissement</field>
+        <field name="res_model">queue.setup.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Créer une société et son utilisateur exige les droits d'administration. -->
+    <menuitem id="menu_queue_setup_wizard" name="Nouvel établissement"
+              parent="menu_queue_config" action="action_queue_setup_wizard"
+              sequence="5" groups="base.group_system"/>
+
+</odoo>
