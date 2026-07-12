@@ -25,6 +25,12 @@ class QueueLocation(models.Model):
         default=lambda self: self.env.company, tracking=True,
     )
     active = fields.Boolean("Actif", default=True, tracking=True)
+    remote_enabled = fields.Boolean(
+        "Tickets à distance (site)", default=True, tracking=True,
+        help="Interrupteur général du site : décoché, AUCUNE file de ce site "
+             "n'accepte de ticket à distance, quels que soient les réglages "
+             "des files. Coché, chaque file décide (son propre réglage "
+             "« Tickets à distance »).")
 
     street = fields.Char("Adresse")
     city = fields.Char("Ville")

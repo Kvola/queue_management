@@ -52,9 +52,16 @@
                         <label for="name"/>
                         <h1><field name="name" placeholder="Ex. Hôpital Central — Site principal"/></h1>
                     </div>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="remote_enabled">
+                        Tickets à distance coupés pour tout le site : les
+                        réglages « À distance » des files ci-dessous sont
+                        ignorés tant que cet interrupteur est décoché.
+                    </div>
                     <group>
                         <group string="Établissement">
                             <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="remote_enabled"/>
                             <field name="active" invisible="1"/>
                         </group>
                         <group string="Localisation">

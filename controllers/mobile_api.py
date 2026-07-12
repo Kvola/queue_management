@@ -177,7 +177,7 @@ class QueueMobileApi(http.Controller):
             return self._err(_("Site introuvable."))
         services = [
             {'id': s.id, 'name': s.name, 'code': s.code, 'waiting': s.waiting_count,
-             'appointment': s.appointment_enabled, 'remote': s.remote_enabled}
+             'appointment': s.appointment_enabled, 'remote': s._remote_available()}
             for s in location.service_ids.filtered('active')
         ]
         return self._ok(
@@ -222,7 +222,7 @@ class QueueMobileApi(http.Controller):
         if kw.get('qr_token') != service.location_id.qr_token:
             return self._err(_("Scannez le QR code du site pour prendre un ticket."))
         remote = bool(kw.get('remote'))
-        if remote and not service.remote_enabled:
+        if remote and not service._remote_available():
             return self._err(_(
                 "Cette file n'accepte pas les tickets à distance. "
                 "Rendez-vous sur place pour prendre votre ticket."))

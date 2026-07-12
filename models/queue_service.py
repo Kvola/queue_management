@@ -143,6 +143,12 @@ class QueueService(models.Model):
         self.sudo().write({'last_number': next_number, 'last_number_date': today})
         return f"{(self.code or '?').strip().upper()}-{next_number:03d}"
 
+    def _remote_available(self):
+        """Le distant est-il réellement ouvert ? Hiérarchie : l'interrupteur
+        du SITE prime, puis le réglage de la file."""
+        self.ensure_one()
+        return self.remote_enabled and self.location_id.remote_enabled
+
     def _get_ordered_waiting(self):
         """Les tickets en attente de la file, triés dans l'ordre d'appel.
 

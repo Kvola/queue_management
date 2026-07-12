@@ -252,6 +252,29 @@ class TestQueueApi(HttpCase):
             'auth_token': self.TOKEN, 'ticket_id': res2['ticket']['id']})
         self.service.write({'remote_enabled': False})
 
+    def test_site_remote_switch_overrides_services(self):
+        """L'interrupteur « Tickets à distance » du SITE prime : coupé, les
+        réglages des files sont ignorés (API + création)."""
+        self.service.write({'remote_enabled': True})
+        self.location.write({'remote_enabled': False})
+        site = self._call('/api/queue/site', {'qr_token': self.location.qr_token})
+        self.assertFalse(site['services'][0]['remote'])
+        res = self._call('/api/queue/ticket/create', {
+            'auth_token': self.TOKEN, 'service_id': self.service.id,
+            'qr_token': self.location.qr_token, 'remote': True})
+        self.assertEqual(res['status'], 'error')
+        # Site rouvert → le réglage de la file reprend la main.
+        self.location.write({'remote_enabled': True})
+        site2 = self._call('/api/queue/site', {'qr_token': self.location.qr_token})
+        self.assertTrue(site2['services'][0]['remote'])
+        res2 = self._call('/api/queue/ticket/create', {
+            'auth_token': self.TOKEN, 'service_id': self.service.id,
+            'qr_token': self.location.qr_token, 'remote': True})
+        self.assertEqual(res2['status'], 'ok')
+        self._call('/api/queue/ticket/cancel', {
+            'auth_token': self.TOKEN, 'ticket_id': res2['ticket']['id']})
+        self.service.write({'remote_enabled': False})
+
     def test_active_tickets_quota(self):
         """Plafond global de tickets actifs par client (anti-flood)."""
         from odoo.addons.queue_management.controllers import mobile_api

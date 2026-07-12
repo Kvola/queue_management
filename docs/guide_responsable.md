@@ -13,7 +13,9 @@ système.*
 2. Onglet **Files** : créez vos files (nom + préfixe de numérotation, ex.
    « B » → B-001, B-002…). Par file, deux canaux optionnels :
    - **Tickets à distance** : les clients déjà venus peuvent prendre un
-     ticket sans être sur place ;
+     ticket sans être sur place. Deux niveaux : l'interrupteur **du site**
+     (fiche du site, coupe tout d'un coup) puis le réglage **de chaque
+     file** — le distant n'est ouvert que si les deux le permettent ;
    - **Rendez-vous** : créneaux réservables (durée, capacité par créneau,
      quota de RDV actifs par client, plages d'ouverture par jour).
 3. Onglet **Guichets** : créez les postes. En choisissant le site, les
