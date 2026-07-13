@@ -26,23 +26,28 @@ depuis son téléphone.*
 1. **Prendre un ticket** → l'écran de scan s'ouvre.
 2. Scannez le **QR d'entrée du site** (affiché à l'accueil) — ou saisissez
    le **code du site** dans le champ du bas si la caméra est indisponible.
-3. Choisissez votre file → **Prendre un ticket**. Votre numéro, votre
-   position et l'attente estimée s'affichent.
+3. **Choisissez votre service** dans la liste (affluence et « RDV possible »
+   indiqués sur chaque carte).
+4. L'écran du service s'ouvre : nombre de personnes en attente, puis les
+   deux actions — **Prendre un ticket** (tout de suite) ou **Prendre
+   rendez-vous** (si le service le propose). Après le ticket : votre numéro,
+   votre position et l'attente estimée s'affichent et se mettent à jour.
 
 ## 4. Reprendre un ticket sans re-scanner — et à distance
 
 Chaque site scanné apparaît ensuite sur l'accueil, section **« Mes sites »** :
 
-- Touchez un site pour revoir ses files directement.
-- Si la file l'autorise (bannière « Mode à distance »), vous pouvez prendre
+- Touchez un site pour revoir ses services directement.
+- Si le service l'autorise (bannière « Mode à distance »), vous pouvez prendre
   votre ticket **avant d'arriver** : l'attente estimée vous dit quand partir.
-  Les files marquées « Ticket sur place uniquement » exigent d'être sur place.
+  Les services marqués « sur place uniquement » exigent d'être sur place.
 - Appui long sur un site pour l'oublier.
 
 ## 5. Rendez-vous
 
-1. Sur une file proposant le bouton **Rendez-vous** : choisissez un jour
-   (14 prochains jours) puis un créneau libre.
+1. Sur l'écran d'un service proposant **Prendre rendez-vous** : choisissez
+   un jour (14 prochains jours) puis un créneau libre — les créneaux
+   complets sont grisés.
 2. Le jour J, une fois sur place, ouvrez votre rendez-vous et touchez
    **« Je suis arrivé(e) — m'enregistrer »** : vous recevez votre numéro et
    entrez dans la file (prioritaire si votre heure est passée).
@@ -52,8 +57,7 @@ Chaque site scanné apparaît ensuite sur l'accueil, section **« Mes sites »**
 ## 6. Suivre son tour
 
 - L'écran du ticket se met à jour tout seul (position, attente estimée).
-- Notifications : **« Bientôt votre tour »** quand vous approchez de la tête
-  de file, puis **« C'est à vous ! »** avec le numéro du guichet — le
+- Notifications : **« Bientôt votre tour »** quand vous approchez de votre tour, puis **« C'est à vous ! »** avec le numéro du guichet — le
   téléphone **vibre et sonne** à ce moment. Toucher la notification ouvre
   votre ticket.
 - **Annuler** est possible tant que vous n'êtes pas en cours de service.

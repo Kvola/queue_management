@@ -65,7 +65,16 @@ refaire**.
 - **APK de production** : build signé (keystore), pointant l'URL HTTPS via
   `--dart-define=QUEUE_BASE_URL=…` — le HTTP en clair est refusé en release.
 
-## 5. Mécanismes automatiques (crons)
+## 5. Données de démonstration
+
+Installé avec la démo, le module crée deux établissements complets (Hôpital
+Central, Mairie de Cocody) : services avec canaux variés (distant, RDV),
+guichets, historique du jour, clients mobiles (Awa Koné, Moussa Traoré),
+rendez-vous à venir et un compte agent — **aya.brou@hopital.demo** — déjà
+connecté au Guichet 1 (définissez son mot de passe pour tester « Ma
+console »).
+
+## 6. Mécanismes automatiques (crons)
 
 | Cron | Fréquence | Rôle |
 |---|---|---|
@@ -74,7 +83,7 @@ refaire**.
 | Purge des comptes jamais vérifiés | 1 j | Comptes email sans connexion > 30 j |
 | Purge des compteurs de rate-limit | 1 j | Nettoyage des compteurs anti-abus |
 
-## 6. Sécurité — ce qui est déjà en place
+## 7. Sécurité — ce qui est déjà en place
 
 Jetons de session **hachés** (un dump de base ne donne aucune session),
 codes OTP hachés avec verrouillage après 5 échecs, **rate-limit par IP**

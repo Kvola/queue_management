@@ -57,7 +57,7 @@ class QueueTicket(models.Model):
     name = fields.Char("Numéro", required=True, copy=False, readonly=True, default="/")
 
     service_id = fields.Many2one(
-        'queue.service', string="File", required=True, index=True,
+        'queue.service', string="Service", required=True, index=True,
         ondelete='restrict',
     )
     # Dérivés du service → cohérence garantie + alimentent les record rules.

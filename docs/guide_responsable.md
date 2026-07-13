@@ -10,16 +10,20 @@ système.*
 **Configuration → Sites → Nouveau** :
 
 1. Nom, adresse — le site appartient à votre société.
-2. Onglet **Files** : créez vos files (nom + préfixe de numérotation, ex.
-   « B » → B-001, B-002…). Par file, deux canaux optionnels :
+2. Onglet **Services** : créez vos services (nom + préfixe de numérotation,
+   ex. « B » → B-001, B-002…). Par service, deux canaux optionnels :
    - **Tickets à distance** : les clients déjà venus peuvent prendre un
      ticket sans être sur place. Deux niveaux : l'interrupteur **du site**
      (fiche du site, coupe tout d'un coup) puis le réglage **de chaque
-     file** — le distant n'est ouvert que si les deux le permettent ;
+     service** — le distant n'est ouvert que si les deux le permettent ;
    - **Rendez-vous** : créneaux réservables (durée, capacité par créneau,
      quota de RDV actifs par client, plages d'ouverture par jour).
 3. Onglet **Guichets** : créez les postes. En choisissant le site, les
-   files sont pré-remplies — ajustez qui dessert quoi, affectez un agent.
+   services sont pré-remplis — ajustez qui dessert quoi. L'« agent
+   titulaire » est l'affectation par défaut ; la présence réelle se voit en
+   temps réel : les agents **se connectent** à leur guichet depuis « Ma
+   console » (plusieurs agents possibles par guichet), et le tableau de
+   bord affiche qui est connecté où.
 4. Onglet **QR d'entrée (à imprimer)** : imprimez et affichez ce QR à
    l'entrée — c'est lui que les clients scannent *dans l'app* pour prendre
    leur ticket. **Régénérer le QR** invalide l'ancien (affiche perdue/volée).
@@ -35,7 +39,7 @@ version est publiée par l'administrateur.
 ## 2. Superviser au quotidien
 
 **Tableau de bord** (actualisé toutes les 5 s) : KPIs du jour, état des
-files avec seuils visuels (orange ≥ 4 en attente ou ≥ 15 min estimées,
+services avec seuils visuels (orange ≥ 4 en attente ou ≥ 15 min estimées,
 rouge ≥ 8 ou ≥ 30 min) et guichets actionnables — vous pouvez appeler ou
 clôturer vous-même en cas de coup de feu.
 

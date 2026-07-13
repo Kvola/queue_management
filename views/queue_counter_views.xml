@@ -95,8 +95,8 @@
                     </div>
                     <div class="alert alert-warning" role="alert"
                          invisible="service_ids">
-                        Ce guichet ne dessert encore aucune file : choisissez un
-                        site puis ajoutez ses files ci-dessous, sinon
+                        Ce guichet ne dessert encore aucun service : choisissez un
+                        site puis ajoutez les siens ci-dessous, sinon
                         « Appeler le suivant » n'aura personne à appeler.
                     </div>
                     <group>
@@ -115,7 +115,7 @@
                         </group>
                     </group>
                     <field name="service_ids" widget="many2many_tags"
-                           string="Files desservies"
+                           string="Services desservis"
                            domain="[('location_id', '=', location_id)]"/>
                 </sheet>
                 <chatter/>

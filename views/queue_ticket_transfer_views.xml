@@ -8,7 +8,7 @@
             <form string="Transférer le ticket">
                 <p class="text-muted">
                     Le client garde son heure d'arrivée (il ne refait pas la
-                    queue) mais reçoit un numéro de la file de destination.
+                    queue) mais reçoit un numéro du service de destination.
                     S'il était appelé, le guichet est libéré.
                 </p>
                 <group>

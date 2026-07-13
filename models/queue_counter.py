@@ -30,10 +30,19 @@ class QueueCounter(models.Model):
 
     service_ids = fields.Many2many(
         'queue.service', 'queue_counter_service_rel', 'counter_id', 'service_id',
-        string="Files desservies",
+        string="Services desservis",
     )
-    agent_id = fields.Many2one('res.users', string="Agent affecté",
-                               tracking=True)
+    agent_id = fields.Many2one('res.users', string="Agent titulaire",
+                               tracking=True,
+                               help="Affectation par défaut (organisation). "
+                                    "La présence réelle passe par « Agents "
+                                    "connectés » (console).")
+    agent_ids = fields.Many2many(
+        'res.users', 'queue_counter_agent_rel', 'counter_id', 'user_id',
+        string="Agents connectés",
+        help="Agents actuellement connectés à ce guichet via leur console. "
+             "Plusieurs agents peuvent partager un guichet (binôme, "
+             "formation).")
 
     current_ticket_id = fields.Many2one(
         'queue.ticket', string="Ticket en cours", copy=False,
@@ -113,13 +122,76 @@ class QueueCounter(models.Model):
             candidates |= service._get_next_waiting()
         return candidates.sorted(key=lambda t: t._scheduling_key())[:1]
 
+    # ------------------------------------------------------------------
+    # Console agent (client action Owl) : présence + données temps réel
+    # ------------------------------------------------------------------
+
+    def action_join(self):
+        """L'utilisateur courant se connecte à CE guichet (et quitte
+        automatiquement tout autre guichet — on ne tient qu'un poste à la
+        fois)."""
+        self.ensure_one()
+        others = self.search([('agent_ids', 'in', self.env.uid),
+                              ('id', '!=', self.id)])
+        if others:
+            others.write({'agent_ids': [(3, self.env.uid)]})
+        if self.env.user not in self.agent_ids:
+            self.write({'agent_ids': [(4, self.env.uid)]})
+            self.message_post(body=_(
+                "%s s'est connecté(e) au guichet.", self.env.user.name))
+        return True
+
+    def action_leave(self):
+        """L'utilisateur courant quitte le guichet."""
+        for counter in self:
+            if self.env.user in counter.agent_ids:
+                counter.write({'agent_ids': [(3, self.env.uid)]})
+                counter.message_post(body=_(
+                    "%s a quitté le guichet.", self.env.user.name))
+        return True
+
+    @api.model
+    def get_console_data(self, counter_id=None):
+        """Données de la console agent. Sans sudo : record rules appliquées
+        (un agent ne voit que les guichets de ses établissements)."""
+        counters = self.search([('active', '=', True)])
+        mine = counters.filtered(lambda c: self.env.user in c.agent_ids)
+        counter = (counters.filtered(lambda c: c.id == counter_id)
+                   or mine or counters)[:1]
+        data = {
+            'counters': [{
+                'id': c.id,
+                'name': c.display_name,
+                'location': c.location_id.name,
+                'joined': self.env.user in c.agent_ids,
+            } for c in counters],
+            'counter_id': counter.id if counter else False,
+        }
+        if counter:
+            ticket = counter.current_ticket_id
+            data.update({
+                'name': counter.name,
+                'location': counter.location_id.name,
+                'joined': self.env.user in counter.agent_ids,
+                'agents': counter.agent_ids.mapped('name'),
+                'services': counter.service_ids.mapped('name'),
+                'busy': counter.state == 'busy',
+                'ticket': ticket.name if ticket else '',
+                'ticket_state': ticket.state if ticket else '',
+                'ticket_service': ticket.service_id.name if ticket else '',
+                'ticket_partner': ticket.partner_id.name if ticket else '',
+                'next_number': counter.next_number or '',
+                'waiting': counter.waiting_count,
+            })
+        return data
+
     def action_call_next(self):
         """Appelle le prochain client (waiting → called à ce guichet)."""
         self.ensure_one()
         if not self.service_ids:
             raise UserError(_(
-                "Ce guichet ne dessert aucune file. Ouvrez sa fiche et "
-                "ajoutez-en dans « Files desservies »."))
+                "Ce guichet ne dessert aucun service. Ouvrez sa fiche et "
+                "ajoutez-en dans « Services desservis »."))
         if self.current_ticket_id and self.current_ticket_id.state in ('called', 'serving'):
             raise UserError(_("Terminez d'abord le client en cours à ce guichet."))
         ticket = self._peek_next()

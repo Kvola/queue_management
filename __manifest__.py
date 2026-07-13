@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': "Gestionnaire de file d'attente",
-    'version': '19.0.1.14.0',
+    'version': '19.0.1.15.0',
     'category': 'Services',
     'summary': "File d'attente virtuelle multi-établissements (hôpitaux, services, administrations)",
     'description': """
@@ -62,11 +62,13 @@ d'attente & statistiques (Phase 5).
         'views/res_config_settings_views.xml',
         'views/queue_setup_wizard_views.xml',
         'views/queue_help_menus.xml',
+        'views/queue_console_views.xml',
         'data/queue_cron.xml',
     ],
     'assets': {
         'web.assets_backend': [
             'queue_management/static/src/dashboard/**/*',
+            'queue_management/static/src/console/**/*',
         ],
     },
     'demo': [

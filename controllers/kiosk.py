@@ -70,7 +70,7 @@ class QueueKioskController(http.Controller):
             lambda s: s.id == service_id and s.active)
         if not service:
             return secure_public_page(request.make_response(
-                json.dumps({'status': 'error', 'message': 'File invalide.'}),
+                json.dumps({'status': 'error', 'message': 'Service invalide.'}),
                 headers=[('Content-Type', 'application/json; charset=utf-8')]))
         ticket = request.env['queue.ticket'].sudo().create({
             'service_id': service.id,

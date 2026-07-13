@@ -13,9 +13,9 @@ class QueueTicketTransferWizard(models.TransientModel):
         default=lambda self: self.env.context.get('active_id'))
     location_id = fields.Many2one(related='ticket_id.location_id')
     current_service_id = fields.Many2one(
-        related='ticket_id.service_id', string="File actuelle")
+        related='ticket_id.service_id', string="Service actuel")
     new_service_id = fields.Many2one(
-        'queue.service', string="File de destination", required=True,
+        'queue.service', string="Service de destination", required=True,
         domain="[('location_id', '=', location_id),"
                " ('id', '!=', current_service_id), ('active', '=', True)]")
 

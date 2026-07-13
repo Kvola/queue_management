@@ -5,7 +5,7 @@
         <field name="name">queue.service.list</field>
         <field name="model">queue.service</field>
         <field name="arch" type="xml">
-            <list string="Files">
+            <list string="Services">
                 <field name="sequence" widget="handle"/>
                 <field name="code"/>
                 <field name="name"/>
@@ -23,7 +23,7 @@
         <field name="name">queue.service.form</field>
         <field name="model">queue.service</field>
         <field name="arch" type="xml">
-            <form string="File">
+            <form string="Service">
                 <sheet>
                     <widget name="web_ribbon" title="Archivée" bg_color="text-bg-danger"
                             invisible="active"/>
@@ -58,11 +58,11 @@
                     <div class="alert alert-info" role="alert"
                          invisible="not remote_enabled">
                         Les clients ayant déjà scanné le QR de ce site pourront
-                        prendre un ticket dans cette file <b>sans être sur place</b>
+                        prendre un ticket pour ce service <b>sans être sur place</b>
                         (canal « À distance » dans les statistiques).
                     </div>
                     <field name="counter_ids" widget="many2many_tags"
-                           string="Guichets desservant la file"/>
+                           string="Guichets desservant le service"/>
                     <notebook>
                         <page string="Rendez-vous" name="appointments"
                               invisible="not appointment_enabled">
@@ -95,12 +95,12 @@
     </record>
 
     <record id="action_queue_service" model="ir.actions.act_window">
-        <field name="name">Files</field>
+        <field name="name">Services</field>
         <field name="res_model">queue.service</field>
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">Créez votre première file</p>
-            <p>Une file = un service rendu (« Cardiologie », « État civil »)
+            <p class="o_view_nocontent_smiling_face">Créez votre premier service</p>
+            <p>Un service = une prestation (« Cardiologie », « État civil »)
                avec son préfixe de numérotation, ses canaux (sur place,
                à distance, rendez-vous) et ses guichets.</p>
         </field>

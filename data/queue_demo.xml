@@ -81,6 +81,17 @@
         <field name="service_ids" eval="[(6, 0, [ref('service_radio')])]"/>
     </record>
 
+    <!-- Agent de démonstration (console) : connecté au Guichet 1.
+         Mot de passe à définir par l'admin (pas d'email d'invitation). -->
+    <record id="user_demo_agent" model="res.users" context="{'no_reset_password': True}">
+        <field name="name">Aya Brou (agent démo)</field>
+        <field name="login">aya.brou@hopital.demo</field>
+        <field name="email">aya.brou@hopital.demo</field>
+        <field name="company_id" ref="company_hopital"/>
+        <field name="company_ids" eval="[(6, 0, [ref('company_hopital')])]"/>
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_user'), ref('queue_management.group_queue_agent')])]"/>
+    </record>
+
     <!-- ========== Établissement B : Mairie de Cocody ========== -->
     <record id="company_mairie" model="res.company">
         <field name="name">Mairie de Cocody (démo)</field>
@@ -98,6 +109,28 @@
         <field name="location_id" ref="location_mairie_main"/>
         <field name="sequence">10</field>
         <field name="remote_enabled" eval="True"/>
+        <field name="appointment_enabled" eval="True"/>
+        <field name="slot_duration">20</field>
+        <field name="slot_capacity">1</field>
+    </record>
+
+    <record id="hour_ec_0" model="queue.opening.hour">
+        <field name="service_id" ref="service_etat_civil"/>
+        <field name="dayofweek">0</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">14.0</field>
+    </record>
+    <record id="hour_ec_2" model="queue.opening.hour">
+        <field name="service_id" ref="service_etat_civil"/>
+        <field name="dayofweek">2</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">14.0</field>
+    </record>
+    <record id="hour_ec_4" model="queue.opening.hour">
+        <field name="service_id" ref="service_etat_civil"/>
+        <field name="dayofweek">4</field>
+        <field name="hour_from">8.0</field>
+        <field name="hour_to">14.0</field>
     </record>
 
     <record id="counter_mairie_1" model="queue.counter">
@@ -167,6 +200,7 @@
     </record>
     <record id="counter_hopital_1" model="queue.counter">
         <field name="current_ticket_id" ref="ticket_demo_called"/>
+        <field name="agent_ids" eval="[(6, 0, [ref('user_demo_agent')])]"/>
     </record>
 
     <record id="ticket_demo_waiting_1" model="queue.ticket">
@@ -195,6 +229,22 @@
         <field name="state">scheduled</field>
         <field name="partner_id" ref="partner_demo_awa"/>
         <field name="scheduled_time" eval="((DateTime.now() + timedelta(days=1)).replace(hour=9, minute=0, second=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+    </record>
+
+    <record id="partner_demo_moussa" model="res.partner">
+        <field name="name">Moussa Traoré</field>
+        <field name="email">moussa.traore@exemple.ci</field>
+    </record>
+    <record id="customer_demo_moussa" model="queue.customer">
+        <field name="name">Moussa Traoré</field>
+        <field name="email">moussa.traore@exemple.ci</field>
+        <field name="partner_id" ref="partner_demo_moussa"/>
+    </record>
+    <record id="ticket_demo_mairie_moussa" model="queue.ticket">
+        <field name="service_id" ref="service_etat_civil"/>
+        <field name="channel">remote</field>
+        <field name="partner_id" ref="partner_demo_moussa"/>
+        <field name="created_at" eval="(DateTime.now() - timedelta(minutes=20)).strftime('%Y-%m-%d %H:%M:%S')"/>
     </record>
 
     <!-- Ticket pour la Mairie (isolation : invisible côté Hôpital) -->

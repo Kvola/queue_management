@@ -21,7 +21,7 @@ class QueueSetupWizard(models.TransientModel):
     city = fields.Char("Ville")
 
     line_ids = fields.One2many(
-        'queue.setup.wizard.line', 'wizard_id', string="Files",
+        'queue.setup.wizard.line', 'wizard_id', string="Services",
         default=lambda self: [(0, 0, {'name': "Accueil", 'code': "A"})])
 
     manager_name = fields.Char("Nom du responsable")
@@ -85,7 +85,7 @@ class QueueSetupWizardLine(models.TransientModel):
 
     wizard_id = fields.Many2one('queue.setup.wizard', required=True,
                                 ondelete='cascade')
-    name = fields.Char("Nom de la file", required=True)
+    name = fields.Char("Nom du service", required=True)
     code = fields.Char("Préfixe", required=True, size=4)
     remote_enabled = fields.Boolean("À distance")
     appointment_enabled = fields.Boolean("Rendez-vous")

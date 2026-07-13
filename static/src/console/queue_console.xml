@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="queue_management.QueueConsole">
+        <div class="o_queue_console">
+            <div class="o_queue_console_top">
+                <div>
+                    <select class="form-select form-select-lg"
+                            t-on-change="onSelectCounter">
+                        <option t-foreach="state.counters" t-as="c" t-key="c.id"
+                                t-att-value="c.id"
+                                t-att-selected="c.id === state.counterId ? 'selected' : undefined">
+                            <t t-out="c.name"/> — <t t-out="c.location"/>
+                        </option>
+                    </select>
+                </div>
+                <div class="o_queue_console_presence">
+                    <span t-if="state.data.agents and state.data.agents.length"
+                          class="text-muted me-2">
+                        <i class="fa fa-users me-1"/><t t-out="state.data.agents.join(', ')"/>
+                    </span>
+                    <button t-if="!state.data.joined" class="btn btn-primary"
+                            t-att-disabled="state.acting"
+                            t-on-click="() => this.act('action_join')">
+                        <i class="fa fa-sign-in me-1"/>Rejoindre ce guichet
+                    </button>
+                    <button t-else="" class="btn btn-outline-secondary"
+                            t-att-disabled="state.acting"
+                            t-on-click="() => this.act('action_leave')">
+                        <i class="fa fa-sign-out me-1"/>Quitter
+                    </button>
+                </div>
+            </div>
+
+            <div t-if="state.loading" class="o_queue_console_center text-muted">
+                Chargement…
+            </div>
+            <div t-elif="!state.counterId" class="o_queue_console_center text-muted">
+                Aucun guichet accessible. Voyez votre responsable.
+            </div>
+            <t t-else="">
+                <div class="o_queue_console_center">
+                    <div t-if="state.data.busy">
+                        <div class="o_queue_console_state">
+                            <span t-if="state.data.ticket_state === 'called'"
+                                  class="badge text-bg-warning">Appelé — en attente du client</span>
+                            <span t-else="" class="badge text-bg-success">En cours de service</span>
+                        </div>
+                        <div class="o_queue_console_num" t-out="state.data.ticket"/>
+                        <div class="o_queue_console_sub">
+                            <t t-out="state.data.ticket_service"/>
+                            <t t-if="state.data.ticket_partner"> · <t t-out="state.data.ticket_partner"/></t>
+                        </div>
+                    </div>
+                    <div t-else="">
+                        <div class="o_queue_console_num o_free">—</div>
+                        <div class="o_queue_console_sub text-muted">
+                            Guichet libre
+                            <t t-if="state.data.next_number">
+                                · prochain : <b t-out="state.data.next_number"/>
+                            </t>
+                        </div>
+                    </div>
+                    <div class="o_queue_console_waiting">
+                        <i class="fa fa-hourglass-half me-1"/>
+                        <t t-out="state.data.waiting"/> en attente
+                        <span class="text-muted"> — <t t-out="(state.data.services or []).join(', ')"/></span>
+                    </div>
+                </div>
+
+                <div class="o_queue_console_actions">
+                    <t t-if="state.data.joined">
+                        <button t-if="!state.data.busy" class="btn btn-primary btn-lg"
+                                t-att-disabled="state.acting || !state.data.waiting"
+                                t-on-click="() => this.act('action_call_next')">
+                            <i class="fa fa-bullhorn me-2"/>Appeler le suivant
+                        </button>
+                        <t t-if="state.data.ticket_state === 'called'">
+                            <button class="btn btn-success btn-lg"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.act('action_start')">
+                                <i class="fa fa-play me-2"/>Démarrer
+                            </button>
+                            <button class="btn btn-outline-secondary btn-lg"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.act('action_recall')">
+                                <i class="fa fa-volume-up me-2"/>Rappeler
+                            </button>
+                            <button class="btn btn-outline-danger btn-lg"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.act('action_no_show')">
+                                <i class="fa fa-user-times me-2"/>Absent
+                            </button>
+                        </t>
+                        <button t-if="state.data.ticket_state === 'serving'"
+                                class="btn btn-success btn-lg"
+                                t-att-disabled="state.acting"
+                                t-on-click="() => this.act('action_done')">
+                            <i class="fa fa-check me-2"/>Terminer
+                        </button>
+                    </t>
+                    <div t-else="" class="text-muted">
+                        Rejoignez le guichet pour agir — vous pouvez le partager
+                        avec un(e) collègue.
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>

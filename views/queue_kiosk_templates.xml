@@ -44,7 +44,7 @@
                         </div>
                     </t>
                     <t t-if="not services">
-                        <div class="sub">Aucune file ouverte pour le moment.</div>
+                        <div class="sub">Aucun service ouvert pour le moment.</div>
                     </t>
                 </div>
 

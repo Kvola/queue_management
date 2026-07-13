@@ -37,7 +37,7 @@
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_services" type="object"
                                 class="oe_stat_button" icon="fa-list">
-                            <field name="service_count" widget="statinfo" string="Files"/>
+                            <field name="service_count" widget="statinfo" string="Services"/>
                         </button>
                         <button name="action_view_counters" type="object"
                                 class="oe_stat_button" icon="fa-desktop">
@@ -55,7 +55,7 @@
                     <div class="alert alert-warning" role="alert"
                          invisible="remote_enabled">
                         Tickets à distance coupés pour tout le site : les
-                        réglages « À distance » des files ci-dessous sont
+                        réglages « À distance » des services ci-dessous sont
                         ignorés tant que cet interrupteur est décoché.
                     </div>
                     <group>
@@ -70,7 +70,7 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Files" name="services">
+                        <page string="Services" name="services">
                             <field name="service_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
@@ -97,7 +97,7 @@
                             <p class="text-muted">
                                 Imprimez ce QR et affichez-le à l'entrée du site.
                                 Les clients le scannent <b>depuis l'application</b>
-                                (Prendre un ticket → scanner) pour voir les files
+                                (Prendre un ticket → scanner) pour voir les services
                                 et prendre leur ticket. En cas de fuite ou de
                                 remplacement d'affiche, utilisez « Régénérer le QR »
                                 (l'ancien cesse de fonctionner).
@@ -120,7 +120,7 @@
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Créez votre premier site</p>
-            <p>Un site = un lieu physique avec son QR d'entrée, ses files et
+            <p>Un site = un lieu physique avec son QR d'entrée, ses services et
                ses guichets. L'écran d'affichage et la borne se lancent depuis
                sa fiche.</p>
         </field>

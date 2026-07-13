@@ -8,7 +8,7 @@
             <form string="Nouvel établissement">
                 <p class="text-muted">
                     Crée en une fois : l'établissement (société), son premier
-                    site avec QR d'entrée, ses files, un guichet les desservant
+                    site avec QR d'entrée, ses services, un guichet les desservant
                     et — en option — son responsable. Tout reste modifiable
                     ensuite.
                 </p>
@@ -27,7 +27,7 @@
                                placeholder="responsable@exemple.com"/>
                     </group>
                 </group>
-                <separator string="Files d'attente"/>
+                <separator string="Services"/>
                 <field name="line_ids">
                     <list editable="bottom">
                         <field name="name"/>

@@ -3,14 +3,31 @@
 *Pour le personnel qui appelle et sert les clients. Groupe Odoo :
 « Agent de guichet ».*
 
-## Votre poste de travail : le Tableau de bord
+## Votre poste de travail : « Ma console »
+
+Menu **File d'attente → Ma console** — l'écran plein format pensé pour le
+guichet :
+
+1. Choisissez votre guichet dans le sélecteur → **Rejoindre ce guichet**.
+   Votre nom apparaît comme agent connecté (visible du responsable sur son
+   tableau de bord). Plusieurs agents peuvent partager un même guichet
+   (binôme, formation) ; rejoindre un guichet vous déconnecte
+   automatiquement du précédent.
+2. Le ticket en cours s'affiche en très grand, avec le service et le nom du
+   client ; en dessous, le nombre en attente et le prochain numéro.
+3. Les boutons suivent l'état : **Appeler le suivant** (guichet libre),
+   puis **Démarrer / Rappeler / Absent**, puis **Terminer**.
+4. **Quitter** en fin de poste — le guichet reste utilisable par les
+   collègues connectés.
+
+## L'autre vue : le Tableau de bord
 
 Menu **File d'attente → Tableau de bord**. Vous y voyez en direct
 (actualisation toutes les 5 secondes) :
 
 - les **KPIs du jour** : en attente, servis, attente moyenne, taux d'absence ;
-- les **files** : combien attendent, le prochain numéro, l'attente estimée —
-  une file passe en **orange puis rouge** quand elle se charge ;
+- les **services** : combien attendent, le prochain numéro, l'attente estimée —
+  un service passe en **orange puis rouge** quand elle se charge ;
 - les **guichets** avec leurs boutons d'action.
 
 Alternative : menu **Guichets** → vue kanban « console » (une grande carte
@@ -32,9 +49,9 @@ Cas particuliers, tant que le ticket est « appelé » :
 - **Rappeler** — ré-annonce le numéro (écran + notification) sans rien changer.
 - **Absent** — le client ne s'est pas présenté : le ticket est clos en
   « Absent » et vous pouvez appeler le suivant.
-- **Transférer** — le client s'est trompé de file (ou vous le
-  réorientez) : ouvrez son ticket → **Transférer** → choisissez la file de
-  destination du site. Il garde son heure d'arrivée (pas de queue à
+- **Transférer** — le client s'est trompé de service (ou vous le
+  réorientez) : ouvrez son ticket → **Transférer** → choisissez le service
+  de destination du site. Il garde son heure d'arrivée (pas de queue à
   refaire) et reçoit un numéro de la nouvelle file ; il est notifié.
 - **Re-mettre en file** — le client marqué absent se présente finalement :
   ouvrez son ticket (menu Tickets) → **Re-mettre en file**. Il reprend sa
@@ -51,8 +68,8 @@ l'administrateur) — votre guichet ne reste jamais bloqué.
   client à la fois — terminez (ou marquez absent) avant de rappeler.
 - *« Aucun client en attente »* : la file est vide, le bouton se réactive
   dès qu'un ticket arrive.
-- *« Ce guichet ne dessert aucune file »* : la fiche du guichet n'a pas de
-  « Files desservies » — voyez votre responsable.
+- *« Ce guichet ne dessert aucun service »* : la fiche du guichet n'a pas de
+  « Services desservis » — voyez votre responsable.
 
 ## Bon à savoir
 

@@ -56,11 +56,11 @@
 
                 <div class="o_queue_dash_columns">
                     <div class="o_queue_dash_panel">
-                        <h5>Files</h5>
+                        <h5>Services</h5>
                         <table class="table table-sm align-middle">
                             <thead>
                                 <tr>
-                                    <th>File</th>
+                                    <th>Service</th>
                                     <th class="text-end">En attente</th>
                                     <th>Prochain</th>
                                     <th class="text-end">Attente estimée</th>
@@ -86,7 +86,7 @@
                                 </tr>
                                 <tr t-if="!state.services.length">
                                     <td colspan="4" class="text-muted text-center">
-                                        Aucune file active sur ce site.
+                                        Aucun service actif sur ce site.
                                     </td>
                                 </tr>
                             </tbody>

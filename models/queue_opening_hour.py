@@ -5,7 +5,7 @@ from odoo import _
 
 
 class QueueOpeningHour(models.Model):
-    """Plage horaire d'ouverture d'une file pour les rendez-vous.
+    """Plage horaire d'ouverture d'un service pour les rendez-vous.
 
     Une ligne = un jour de la semaine + une fenêtre horaire. Les créneaux
     réservables sont générés à partir de ces plages, découpées selon la durée et
@@ -22,7 +22,7 @@ class QueueOpeningHour(models.Model):
     ]
 
     service_id = fields.Many2one(
-        'queue.service', string="File", required=True, index=True,
+        'queue.service', string="Service", required=True, index=True,
         ondelete='cascade')
     company_id = fields.Many2one(
         related='service_id.company_id', store=True, index=True, readonly=True)

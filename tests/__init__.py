@@ -7,3 +7,4 @@ from . import test_dashboard
 from . import test_settings
 from . import test_setup_wizard
 from . import test_help_docs
+from . import test_console

@@ -214,7 +214,7 @@ class QueueMobileApi(http.Controller):
         service = request.env['queue.service'].sudo().browse(
             int(kw.get('service_id') or 0))
         if not service.exists() or not service.active:
-            return self._err(_("File invalide."))
+            return self._err(_("Service invalide."))
         # Le jeton du QR reste exigé : il prouve que le client a scanné le
         # site au moins une fois (anti-énumération du service_id). Le mode
         # « à distance » (jeton mémorisé, client pas sur place) n'est permis
@@ -224,7 +224,7 @@ class QueueMobileApi(http.Controller):
         remote = bool(kw.get('remote'))
         if remote and not service._remote_available():
             return self._err(_(
-                "Cette file n'accepte pas les tickets à distance. "
+                "Ce service n'accepte pas les tickets à distance. "
                 "Rendez-vous sur place pour prendre votre ticket."))
         # Filet de sécurité : un compte créé en backoffice peut ne pas encore
         # avoir de partenaire miroir (créé normalement au premier verify_otp).
@@ -237,7 +237,7 @@ class QueueMobileApi(http.Controller):
         ], limit=1)
         if existing:
             return self._ok(ticket=self._ticket_data(existing),
-                            message=_("Vous avez déjà un ticket pour cette file."))
+                            message=_("Vous avez déjà un ticket pour ce service."))
         if self._active_quota_reached(customer.partner_id):
             return self._err(_(
                 "Vous avez trop de tickets en cours. "
@@ -294,7 +294,7 @@ class QueueMobileApi(http.Controller):
         service = request.env['queue.service'].sudo().browse(
             int(kw.get('service_id') or 0))
         if not service.exists() or not service.appointment_enabled:
-            return self._err(_("Cette file ne propose pas de rendez-vous."))
+            return self._err(_("Ce service ne propose pas de rendez-vous."))
         try:
             day = datetime.strptime(kw.get('date') or '', '%Y-%m-%d').date()
         except ValueError:
@@ -320,7 +320,7 @@ class QueueMobileApi(http.Controller):
         service = request.env['queue.service'].sudo().browse(
             int(kw.get('service_id') or 0))
         if not service.exists():
-            return self._err(_("File invalide."))
+            return self._err(_("Service invalide."))
         try:
             slot_dt = datetime.strptime(kw.get('slot') or '', '%Y-%m-%d %H:%M:%S')
         except ValueError:

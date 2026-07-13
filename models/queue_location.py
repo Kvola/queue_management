@@ -51,9 +51,9 @@ class QueueLocation(models.Model):
              "voir les files de ce site.",
     )
 
-    service_ids = fields.One2many('queue.service', 'location_id', string="Files")
+    service_ids = fields.One2many('queue.service', 'location_id', string="Services")
     counter_ids = fields.One2many('queue.counter', 'location_id', string="Guichets")
-    service_count = fields.Integer("Nb de files", compute='_compute_counts')
+    service_count = fields.Integer("Nb de services", compute='_compute_counts')
     counter_count = fields.Integer("Nb de guichets", compute='_compute_counts')
     ticket_count = fields.Integer("Nb de tickets", compute='_compute_counts')
 
@@ -84,7 +84,7 @@ class QueueLocation(models.Model):
 
     def action_view_services(self):
         return self._open_related(
-            _("Files"), 'queue.service',
+            _("Services"), 'queue.service',
             [('location_id', '=', self.id)],
             {'default_location_id': self.id})
 
@@ -197,7 +197,8 @@ class QueueLocation(models.Model):
                 'id': counter.id,
                 'name': counter.name,
                 'busy': busy,
-                'agent': counter.agent_id.name or '',
+                'agent': ", ".join(counter.agent_ids.mapped('name'))
+                         or counter.agent_id.name or '',
                 'ticket': ticket.name if busy else '',
                 'ticket_state': ticket.state if busy else '',
                 'service': ticket.service_id.name if busy else '',

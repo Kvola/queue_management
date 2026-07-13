@@ -20,7 +20,7 @@
               parent="menu_queue_config" action="action_queue_location"
               sequence="10"/>
 
-    <menuitem id="menu_queue_services" name="Files"
+    <menuitem id="menu_queue_services" name="Services"
               parent="menu_queue_config" action="action_queue_service"
               sequence="20"/>
 

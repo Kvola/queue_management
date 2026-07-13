@@ -1,0 +1,44 @@
+.o_queue_console {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 24px;
+
+    .o_queue_console_top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        .form-select { min-width: 280px; }
+        .o_queue_console_presence { display: flex; align-items: center; }
+    }
+
+    .o_queue_console_center {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+
+        .o_queue_console_num {
+            font-size: 7rem;
+            font-weight: 800;
+            line-height: 1.1;
+            &.o_free { color: $text-muted; }
+        }
+        .o_queue_console_sub { font-size: 1.4rem; margin-top: .25rem; }
+        .o_queue_console_state { margin-bottom: .5rem; .badge { font-size: 1rem; } }
+        .o_queue_console_waiting { margin-top: 1.5rem; font-size: 1.1rem; }
+    }
+
+    .o_queue_console_actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 16px 0 8px;
+        .btn-lg { min-width: 200px; padding: 14px 22px; font-size: 1.15rem; }
+    }
+}

@@ -79,7 +79,7 @@
                                    invisible="channel != 'appointment'"
                                    required="channel == 'appointment'"/>
                         </group>
-                        <group string="File &amp; guichet">
+                        <group string="Service &amp; guichet">
                             <field name="service_id"
                                    readonly="state not in ('scheduled', 'waiting')"/>
                             <field name="location_id"/>
@@ -125,7 +125,7 @@
                 <filter name="today" string="Aujourd'hui"
                         domain="[('created_at','&gt;=', context_today().strftime('%Y-%m-%d 00:00:00'))]"/>
                 <group>
-                    <filter name="group_service" string="File" context="{'group_by':'service_id'}"/>
+                    <filter name="group_service" string="Service" context="{'group_by':'service_id'}"/>
                     <filter name="group_state" string="État" context="{'group_by':'state'}"/>
                     <filter name="group_channel" string="Canal" context="{'group_by':'channel'}"/>
                 </group>

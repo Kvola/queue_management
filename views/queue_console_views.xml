@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_queue_console" model="ir.actions.client">
+        <field name="name">Ma console</field>
+        <field name="tag">queue_management.console</field>
+    </record>
+
+    <menuitem id="menu_queue_console" name="Ma console"
+              parent="menu_queue_root" action="action_queue_console"
+              sequence="3" groups="queue_management.group_queue_agent"/>
+
+</odoo>

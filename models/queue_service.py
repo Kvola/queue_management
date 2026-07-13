@@ -15,11 +15,11 @@ class QueueService(models.Model):
     """
 
     _name = 'queue.service'
-    _description = "File d'attente"
+    _description = "Service (file d'attente)"
     _inherit = ['mail.thread']
     _order = 'company_id, sequence, name'
 
-    name = fields.Char("Nom de la file", required=True, translate=True,
+    name = fields.Char("Nom du service", required=True, translate=True,
                        tracking=True)
     code = fields.Char(
         "Préfixe", required=True, size=4,
@@ -47,7 +47,7 @@ class QueueService(models.Model):
 
     counter_ids = fields.Many2many(
         'queue.counter', 'queue_counter_service_rel', 'service_id', 'counter_id',
-        string="Guichets desservant la file",
+        string="Guichets desservant le service",
     )
     ticket_ids = fields.One2many('queue.ticket', 'service_id', string="Tickets")
 
@@ -69,7 +69,7 @@ class QueueService(models.Model):
     appointment_max_per_customer = fields.Integer(
         "RDV actifs max par client", default=2,
         help="Nombre de rendez-vous à venir qu'un même client peut détenir "
-             "sur cette file (anti-abus : empêche de bloquer tout un agenda).")
+             "sur ce service (anti-abus : empêche de bloquer tout un agenda).")
     opening_hour_ids = fields.One2many(
         'queue.opening.hour', 'service_id', string="Plages d'ouverture")
 
@@ -222,7 +222,7 @@ class QueueService(models.Model):
         """
         self.ensure_one()
         if not self.appointment_enabled:
-            raise UserError(_("Les rendez-vous ne sont pas activés pour cette file."))
+            raise UserError(_("Les rendez-vous ne sont pas activés pour ce service."))
         if slot_dt <= fields.Datetime.now():
             # L'API ne propose que des créneaux futurs, mais rien n'empêchait
             # d'en poster un passé directement.
@@ -248,7 +248,7 @@ class QueueService(models.Model):
                 ('state', '=', 'scheduled')])
             if active >= max_active:
                 raise UserError(_(
-                    "Vous avez déjà %d rendez-vous à venir sur cette file. "
+                    "Vous avez déjà %d rendez-vous à venir sur ce service. "
                     "Annulez-en un avant d'en réserver un autre.", active))
         available = dict(self._slots_for_date(slot_dt.date()))
         if slot_dt not in available:
@@ -297,6 +297,6 @@ class QueueService(models.Model):
                     ticket.soon_notified = True
                     ticket._notify(
                         "Bientôt votre tour",
-                        "Vous êtes en position %d dans la file %s." % (idx, service.name),
+                        "Vous êtes en position %d — %s." % (idx, service.name),
                         {'type': 'soon', 'position': idx, 'service': service.name},
                     )
