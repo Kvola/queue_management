@@ -34,4 +34,20 @@
         <field name="binding_view_types">form</field>
     </record>
 
+    <!-- Bouton explicite sur la fiche site (le menu engrenage est peu visible).
+         Chargé APRÈS l'action ci-dessus → référence %(…)d résolue. -->
+    <record id="view_queue_location_form_add_services" model="ir.ui.view">
+        <field name="name">queue.location.form.add.services</field>
+        <field name="model">queue.location</field>
+        <field name="inherit_id" ref="queue_management.view_queue_location_form"/>
+        <field name="arch" type="xml">
+            <button name="action_regenerate_qr_token" position="after">
+                <button name="%(action_queue_service_from_template)d" type="action"
+                        string="Ajouter des services (modèle)" class="btn-secondary"
+                        context="{'active_id': id}"
+                        help="Crée des services types d'un secteur d'activité sur ce site."/>
+            </button>
+        </field>
+    </record>
+
 </odoo>

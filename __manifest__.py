@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': "Gestionnaire de file d'attente",
-    'version': '19.0.1.16.0',
+    'version': '19.0.1.17.0',
     'category': 'Services',
     'summary': "File d'attente virtuelle multi-établissements (hôpitaux, services, administrations)",
     'description': """
