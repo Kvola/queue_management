@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Catalogue de secteurs et de modèles de services (point de départ pour
+         l'onboarding). noupdate="1" : l'opérateur peut les modifier sans que
+         la mise à jour du module n'écrase ses ajustements. -->
+    <data noupdate="1">
+
+        <!-- ========== Santé ========== -->
+        <record id="sector_health" model="queue.sector">
+            <field name="name">Santé</field>
+            <field name="description">Hôpitaux, cliniques, cabinets, pharmacies</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="tmpl_health_consult" model="queue.service.template">
+            <field name="name">Consultation générale</field>
+            <field name="code">CG</field>
+            <field name="sector_id" ref="sector_health"/>
+            <field name="sequence">10</field>
+            <field name="appointment_enabled" eval="True"/>
+            <field name="remote_enabled" eval="True"/>
+        </record>
+        <record id="tmpl_health_cardio" model="queue.service.template">
+            <field name="name">Cardiologie</field>
+            <field name="code">CAR</field>
+            <field name="sector_id" ref="sector_health"/>
+            <field name="sequence">20</field>
+            <field name="appointment_enabled" eval="True"/>
+        </record>
+        <record id="tmpl_health_lab" model="queue.service.template">
+            <field name="name">Laboratoire</field>
+            <field name="code">LAB</field>
+            <field name="sector_id" ref="sector_health"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="tmpl_health_pharma" model="queue.service.template">
+            <field name="name">Pharmacie</field>
+            <field name="code">PHA</field>
+            <field name="sector_id" ref="sector_health"/>
+            <field name="sequence">40</field>
+        </record>
+
+        <!-- ========== Administration publique ========== -->
+        <record id="sector_admin" model="queue.sector">
+            <field name="name">Administration publique</field>
+            <field name="description">Mairies, préfectures, services de l'État</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="tmpl_admin_civil" model="queue.service.template">
+            <field name="name">État civil</field>
+            <field name="code">EC</field>
+            <field name="sector_id" ref="sector_admin"/>
+            <field name="sequence">10</field>
+            <field name="remote_enabled" eval="True"/>
+            <field name="appointment_enabled" eval="True"/>
+        </record>
+        <record id="tmpl_admin_id" model="queue.service.template">
+            <field name="name">Pièces d'identité</field>
+            <field name="code">CNI</field>
+            <field name="sector_id" ref="sector_admin"/>
+            <field name="sequence">20</field>
+            <field name="appointment_enabled" eval="True"/>
+        </record>
+        <record id="tmpl_admin_tax" model="queue.service.template">
+            <field name="name">Impôts &amp; taxes</field>
+            <field name="code">IMP</field>
+            <field name="sector_id" ref="sector_admin"/>
+            <field name="sequence">30</field>
+        </record>
+        <record id="tmpl_admin_legal" model="queue.service.template">
+            <field name="name">Légalisation</field>
+            <field name="code">LEG</field>
+            <field name="sector_id" ref="sector_admin"/>
+            <field name="sequence">40</field>
+        </record>
+
+        <!-- ========== Banque &amp; finance ========== -->
+        <record id="sector_bank" model="queue.sector">
+            <field name="name">Banque &amp; finance</field>
+            <field name="description">Banques, microfinance, assurances</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="tmpl_bank_cash" model="queue.service.template">
+            <field name="name">Retrait / Dépôt</field>
+            <field name="code">CAI</field>
+            <field name="sector_id" ref="sector_bank"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="tmpl_bank_account" model="queue.service.template">
+            <field name="name">Ouverture de compte</field>
+            <field name="code">CPT</field>
+            <field name="sector_id" ref="sector_bank"/>
+            <field name="sequence">20</field>
+            <field name="appointment_enabled" eval="True"/>
+        </record>
+        <record id="tmpl_bank_credit" model="queue.service.template">
+            <field name="name">Crédit &amp; conseil</field>
+            <field name="code">CRE</field>
+            <field name="sector_id" ref="sector_bank"/>
+            <field name="sequence">30</field>
+            <field name="appointment_enabled" eval="True"/>
+        </record>
+
+        <!-- ========== Transport ========== -->
+        <record id="sector_transport" model="queue.sector">
+            <field name="name">Transport</field>
+            <field name="description">Gares routières, compagnies de cars, agences</field>
+            <field name="sequence">40</field>
+        </record>
+        <record id="tmpl_transport_ticket" model="queue.service.template">
+            <field name="name">Billetterie</field>
+            <field name="code">BIL</field>
+            <field name="sector_id" ref="sector_transport"/>
+            <field name="sequence">10</field>
+            <field name="remote_enabled" eval="True"/>
+            <field name="appointment_enabled" eval="True"/>
+            <field name="payment_required" eval="True"/>
+        </record>
+        <record id="tmpl_transport_checkin" model="queue.service.template">
+            <field name="name">Enregistrement</field>
+            <field name="code">ENR</field>
+            <field name="sector_id" ref="sector_transport"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="tmpl_transport_info" model="queue.service.template">
+            <field name="name">Information</field>
+            <field name="code">INF</field>
+            <field name="sector_id" ref="sector_transport"/>
+            <field name="sequence">30</field>
+        </record>
+
+        <!-- ========== Télécom ========== -->
+        <record id="sector_telecom" model="queue.sector">
+            <field name="name">Télécom</field>
+            <field name="description">Opérateurs, boutiques, SAV</field>
+            <field name="sequence">50</field>
+        </record>
+        <record id="tmpl_telecom_sav" model="queue.service.template">
+            <field name="name">Service après-vente</field>
+            <field name="code">SAV</field>
+            <field name="sector_id" ref="sector_telecom"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="tmpl_telecom_sub" model="queue.service.template">
+            <field name="name">Souscription</field>
+            <field name="code">SUB</field>
+            <field name="sector_id" ref="sector_telecom"/>
+            <field name="sequence">20</field>
+        </record>
+        <record id="tmpl_telecom_pay" model="queue.service.template">
+            <field name="name">Paiement de facture</field>
+            <field name="code">FAC</field>
+            <field name="sector_id" ref="sector_telecom"/>
+            <field name="sequence">30</field>
+            <field name="payment_required" eval="True"/>
+        </record>
+
+        <!-- ========== Commerce &amp; services ========== -->
+        <record id="sector_retail" model="queue.sector">
+            <field name="name">Commerce &amp; services</field>
+            <field name="description">Boutiques, retraits de commande, réclamations</field>
+            <field name="sequence">60</field>
+        </record>
+        <record id="tmpl_retail_welcome" model="queue.service.template">
+            <field name="name">Accueil</field>
+            <field name="code">ACC</field>
+            <field name="sector_id" ref="sector_retail"/>
+            <field name="sequence">10</field>
+        </record>
+        <record id="tmpl_retail_pickup" model="queue.service.template">
+            <field name="name">Retrait de commande</field>
+            <field name="code">RET</field>
+            <field name="sector_id" ref="sector_retail"/>
+            <field name="sequence">20</field>
+            <field name="remote_enabled" eval="True"/>
+        </record>
+        <record id="tmpl_retail_claim" model="queue.service.template">
+            <field name="name">Réclamations</field>
+            <field name="code">REC</field>
+            <field name="sector_id" ref="sector_retail"/>
+            <field name="sequence">30</field>
+        </record>
+
+    </data>
+</odoo>

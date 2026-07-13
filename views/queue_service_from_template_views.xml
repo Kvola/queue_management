@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_queue_service_from_template_form" model="ir.ui.view">
+        <field name="name">queue.service.from.template.wizard.form</field>
+        <field name="model">queue.service.from.template.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Ajouter des services">
+                <p class="text-muted">
+                    Choisissez un secteur et cochez les services types à créer
+                    sur ce site. Les préfixes déjà utilisés sont ignorés.
+                </p>
+                <group>
+                    <field name="location_id" readonly="1"/>
+                    <field name="sector_id"/>
+                    <field name="template_ids" widget="many2many_tags"
+                           options="{'no_create': True}"/>
+                </group>
+                <footer>
+                    <button name="action_add" type="object"
+                            string="Ajouter les services" class="btn-primary"/>
+                    <button string="Annuler" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_queue_service_from_template" model="ir.actions.act_window">
+        <field name="name">Ajouter des services (modèle)</field>
+        <field name="res_model">queue.service.from.template.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_queue_location"/>
+        <field name="binding_view_types">form</field>
+    </record>
+
+</odoo>

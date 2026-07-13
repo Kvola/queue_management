@@ -65,7 +65,27 @@ refaire**.
 - **APK de production** : build signé (keystore), pointant l'URL HTTPS via
   `--dart-define=QUEUE_BASE_URL=…` — le HTTP en clair est refusé en release.
 
-## 5. Données de démonstration
+## 5. Secteurs & modèles de services
+
+**Configuration → Secteurs & modèles** : catalogue de secteurs (Santé,
+Administration, Banque, Transport, Télécom, Commerce) et de leurs services
+types, avec réglages par défaut (distant, RDV, tarif). Ils pré-remplissent
+l'assistant « Nouvel établissement » et le bouton « Ajouter des services
+(modèle) » d'un site. Éditez-les librement — ce ne sont que des points de
+départ.
+
+## 6. Paiement
+
+Un service peut être **payant** (case « Paiement requis » + tarif). Chaque
+ticket naît alors « paiement en attente ». Deux règlements : l'agent
+**encaisse** au guichet (espèces), ou le client paie par **mobile money**
+depuis l'app. ⚠️ L'endpoint mobile est aujourd'hui une **simulation** :
+pour un vrai paiement, brancher un agrégateur (Orange/MTN/Wave) sur
+`queue.ticket.action_register_payment(method, ref)`, confirmé par le webhook
+du prestataire. Aucun blocage du service en cas d'impayé (choix métier) — le
+filtre « À payer » liste les régularisations.
+
+## 7. Données de démonstration
 
 Installé avec la démo, le module crée deux établissements complets (Hôpital
 Central, Mairie de Cocody) : services avec canaux variés (distant, RDV),
@@ -74,7 +94,7 @@ rendez-vous à venir et un compte agent — **aya.brou@hopital.demo** — déjà
 connecté au Guichet 1 (définissez son mot de passe pour tester « Ma
 console »).
 
-## 6. Mécanismes automatiques (crons)
+## 8. Mécanismes automatiques (crons)
 
 | Cron | Fréquence | Rôle |
 |---|---|---|
@@ -83,7 +103,7 @@ console »).
 | Purge des comptes jamais vérifiés | 1 j | Comptes email sans connexion > 30 j |
 | Purge des compteurs de rate-limit | 1 j | Nettoyage des compteurs anti-abus |
 
-## 7. Sécurité — ce qui est déjà en place
+## 9. Sécurité — ce qui est déjà en place
 
 Jetons de session **hachés** (un dump de base ne donne aucune session),
 codes OTP hachés avec verrouillage après 5 échecs, **rate-limit par IP**

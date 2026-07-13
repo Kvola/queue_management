@@ -28,6 +28,9 @@
         <field name="appointment_enabled" eval="True"/>
         <field name="slot_duration">30</field>
         <field name="slot_capacity">2</field>
+        <field name="payment_required" eval="True"/>
+        <field name="price">5000</field>
+        <field name="currency_id" ref="base.XOF"/>
     </record>
 
     <record id="service_radio" model="queue.service">
@@ -213,6 +216,7 @@
         <field name="service_id" ref="service_cardio"/>
         <field name="channel">mobile</field>
         <field name="priority">2</field>
+        <field name="partner_id" ref="partner_demo_awa"/>
         <field name="created_at" eval="(DateTime.now() - timedelta(minutes=8)).strftime('%Y-%m-%d %H:%M:%S')"/>
     </record>
     <record id="ticket_demo_waiting_remote" model="queue.ticket">

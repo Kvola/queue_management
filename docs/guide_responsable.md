@@ -7,7 +7,13 @@ système.*
 
 ## 1. Mettre en place un site
 
-**Configuration → Sites → Nouveau** :
+**Astuce onboarding** : créez votre établissement via **Configuration →
+Nouvel établissement** (assistant) en choisissant votre **secteur d'activité**
+— les services types sont pré-remplis (Santé, Administration, Banque,
+Transport, Télécom, Commerce). Sur un site existant, le bouton
+**Ajouter des services (modèle)** fait de même.
+
+**Configuration → Sites → Nouveau** (manuel) :
 
 1. Nom, adresse — le site appartient à votre société.
 2. Onglet **Services** : créez vos services (nom + préfixe de numérotation,
@@ -17,7 +23,11 @@ système.*
      (fiche du site, coupe tout d'un coup) puis le réglage **de chaque
      service** — le distant n'est ouvert que si les deux le permettent ;
    - **Rendez-vous** : créneaux réservables (durée, capacité par créneau,
-     quota de RDV actifs par client, plages d'ouverture par jour).
+     quota de RDV actifs par client, plages d'ouverture par jour) ;
+   - **Tarification** : cochez « Paiement requis » et saisissez le tarif —
+     chaque ticket naît alors « paiement en attente ». Le client paie depuis
+     l'application (mobile money) ou vous encaissez au guichet (bouton
+     **Encaisser** sur le ticket). Le filtre **À payer** liste les impayés.
 3. Onglet **Guichets** : créez les postes. En choisissant le site, les
    services sont pré-remplis — ajustez qui dessert quoi. L'« agent
    titulaire » est l'affectation par défaut ; la présence réelle se voit en

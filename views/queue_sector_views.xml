@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_queue_sector_list" model="ir.ui.view">
+        <field name="name">queue.sector.list</field>
+        <field name="model">queue.sector</field>
+        <field name="arch" type="xml">
+            <list string="Secteurs d'activité">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="description"/>
+                <field name="template_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_queue_sector_form" model="ir.ui.view">
+        <field name="name">queue.sector.form</field>
+        <field name="model">queue.sector</field>
+        <field name="arch" type="xml">
+            <form string="Secteur d'activité">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Ex. Santé"/></h1>
+                    </div>
+                    <group>
+                        <field name="description"
+                               placeholder="À qui s'adresse ce secteur ?"/>
+                        <field name="active" invisible="1"/>
+                    </group>
+                    <separator string="Modèles de services"/>
+                    <field name="template_ids">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="remote_enabled" optional="show"/>
+                            <field name="appointment_enabled" optional="show"/>
+                            <field name="payment_required" optional="show"/>
+                            <field name="price" optional="show"/>
+                            <field name="currency_id" column_invisible="1"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_queue_sector" model="ir.actions.act_window">
+        <field name="name">Secteurs &amp; modèles</field>
+        <field name="res_model">queue.sector</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucun secteur défini</p>
+            <p>Un secteur regroupe des modèles de services types. Ils
+               accélèrent la création d'un établissement : choisissez le
+               secteur, les services sont pré-remplis.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_queue_sector" name="Secteurs &amp; modèles"
+              parent="menu_queue_config" action="action_queue_sector"
+              sequence="60" groups="base.group_system"/>
+
+</odoo>

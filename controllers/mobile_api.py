@@ -102,6 +102,9 @@ class QueueMobileApi(http.Controller):
             'scheduled_time': fields.Datetime.to_string(ticket.scheduled_time)
             if ticket.scheduled_time else '',
             'eta_minutes': ticket.eta_minutes,
+            'payment_state': ticket.payment_state,
+            'payment_amount': ticket.payment_amount,
+            'currency': ticket.currency_id.symbol or ticket.currency_id.name or '',
         }
 
     # --- Authentification par email (OTP) ------------------------------------
@@ -177,7 +180,9 @@ class QueueMobileApi(http.Controller):
             return self._err(_("Site introuvable."))
         services = [
             {'id': s.id, 'name': s.name, 'code': s.code, 'waiting': s.waiting_count,
-             'appointment': s.appointment_enabled, 'remote': s._remote_available()}
+             'appointment': s.appointment_enabled, 'remote': s._remote_available(),
+             'payment_required': s.payment_required,
+             'price': s.price, 'currency': s.currency_id.symbol or s.currency_id.name or ''}
             for s in location.service_ids.filtered('active')
         ]
         return self._ok(
@@ -350,6 +355,32 @@ class QueueMobileApi(http.Controller):
             ticket.action_check_in()
         except UserError as exc:
             return self._err(exc.args[0] if exc.args else _("Enregistrement impossible."))
+        return self._ok(ticket=self._ticket_data(ticket))
+
+    @http.route('/api/queue/ticket/pay', type='jsonrpc', auth='public',
+                methods=['POST'], csrf=False)
+    def ticket_pay(self, **kw):
+        """Paiement mobile d'un ticket.
+
+        ⚠️ SIMULATION : marque le ticket payé immédiatement. En production,
+        cette route INITIERAIT le paiement auprès de l'agrégateur mobile money
+        (Orange/MTN/Wave…) et le ticket ne passerait « payé » qu'à la
+        confirmation asynchrone (webhook du PSP). Le point d'extension est
+        ``queue.ticket.action_register_payment(method, ref)``.
+        """
+        customer = self._get_customer(kw)
+        if not customer:
+            return self._err(_("Non authentifié."), code='auth_required')
+        ticket = request.env['queue.ticket'].sudo().browse(
+            int(kw.get('ticket_id') or 0))
+        if not ticket.exists() or ticket.partner_id != customer.partner_id:
+            return self._err(_("Ticket introuvable."))
+        if ticket.payment_state == 'paid':
+            return self._ok(ticket=self._ticket_data(ticket))
+        if ticket.payment_state != 'pending':
+            return self._err(_("Ce ticket n'attend pas de paiement."))
+        ticket.action_register_payment(
+            method='mobile_money', ref='SIMU-%s' % ticket.id)
         return self._ok(ticket=self._ticket_data(ticket))
 
     # --- Notifications push ---------------------------------------------------

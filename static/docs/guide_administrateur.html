@@ -305,7 +305,25 @@ sondage.</li>
 pointant l'URL HTTPS via <code>--dart-define=QUEUE_BASE_URL=…</code> —
 le HTTP en clair est refusé en release.</li>
 </ul>
-<h2 id="5-données-de-démonstration">5. Données de démonstration</h2>
+<h2 id="5-secteurs--modèles-de-services">5. Secteurs &amp; modèles de
+services</h2>
+<p><strong>Configuration → Secteurs &amp; modèles</strong> : catalogue
+de secteurs (Santé, Administration, Banque, Transport, Télécom,
+Commerce) et de leurs services types, avec réglages par défaut (distant,
+RDV, tarif). Ils pré-remplissent l'assistant « Nouvel établissement » et
+le bouton « Ajouter des services (modèle) » d'un site. Éditez-les
+librement — ce ne sont que des points de départ.</p>
+<h2 id="6-paiement">6. Paiement</h2>
+<p>Un service peut être <strong>payant</strong> (case « Paiement requis
+» + tarif). Chaque ticket naît alors « paiement en attente ». Deux
+règlements : l'agent <strong>encaisse</strong> au guichet (espèces), ou
+le client paie par <strong>mobile money</strong> depuis l'app. ⚠️
+L'endpoint mobile est aujourd'hui une <strong>simulation</strong> : pour
+un vrai paiement, brancher un agrégateur (Orange/MTN/Wave) sur
+<code>queue.ticket.action_register_payment(method, ref)</code>, confirmé
+par le webhook du prestataire. Aucun blocage du service en cas d'impayé
+(choix métier) — le filtre « À payer » liste les régularisations.</p>
+<h2 id="7-données-de-démonstration">7. Données de démonstration</h2>
 <p>Installé avec la démo, le module crée deux établissements complets
 (Hôpital Central, Mairie de Cocody) : services avec canaux variés
 (distant, RDV), guichets, historique du jour, clients mobiles (Awa Koné,
@@ -313,7 +331,7 @@ Moussa Traoré), rendez-vous à venir et un compte agent — <strong><a
 href="mailto:aya.brou@hopital.demo">aya.brou@hopital.demo</a></strong> —
 déjà connecté au Guichet 1 (définissez son mot de passe pour tester « Ma
 console »).</p>
-<h2 id="6-mécanismes-automatiques-crons">6. Mécanismes automatiques
+<h2 id="8-mécanismes-automatiques-crons">8. Mécanismes automatiques
 (crons)</h2>
 <table>
 <thead>
@@ -346,7 +364,7 @@ console »).</p>
 </tr>
 </tbody>
 </table>
-<h2 id="7-sécurité--ce-qui-est-déjà-en-place">7. Sécurité — ce qui est
+<h2 id="9-sécurité--ce-qui-est-déjà-en-place">9. Sécurité — ce qui est
 déjà en place</h2>
 <p>Jetons de session <strong>hachés</strong> (un dump de base ne donne
 aucune session), codes OTP hachés avec verrouillage après 5 échecs,

@@ -58,6 +58,11 @@ Cas particuliers, tant que le ticket est « appelé » :
   place selon son heure d'arrivée d'origine (dans les 2 h qui suivent
   l'appel ; au-delà, il reprend un ticket).
 
+- **Encaisser** — service payant : sur le ticket « à payer », le bouton
+  **Encaisser** enregistre le règlement en espèces (le client peut aussi
+  payer lui-même par mobile money depuis l'app). Le filtre **À payer** de la
+  liste des tickets recense les impayés.
+
 À savoir : un ticket appelé resté **sans réponse** est automatiquement
 marqué absent au bout de quelques minutes (délai réglé par
 l'administrateur) — votre guichet ne reste jamais bloqué.

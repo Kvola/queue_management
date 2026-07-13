@@ -27,6 +27,17 @@ class QueueService(models.Model):
     )
     sequence = fields.Integer("Séquence", default=10)
     active = fields.Boolean("Active", default=True, tracking=True)
+    payment_required = fields.Boolean(
+        "Paiement requis", default=False, tracking=True,
+        help="Si coché, chaque ticket de ce service naît « paiement en "
+             "attente » : le client peut payer depuis l'application (mobile "
+             "money) ou l'agent encaisser au guichet.")
+    price = fields.Monetary(
+        "Tarif", currency_field='currency_id', tracking=True,
+        help="Montant dû pour ce service.")
+    currency_id = fields.Many2one(
+        'res.currency', string="Devise",
+        default=lambda self: self.env.company.currency_id)
     remote_enabled = fields.Boolean(
         "Tickets à distance", default=False, tracking=True,
         help="Autorise un client ayant déjà scanné le QR du site à prendre "

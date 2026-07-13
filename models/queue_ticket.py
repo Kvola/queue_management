@@ -82,6 +82,32 @@ class QueueTicket(models.Model):
     )
 
     counter_id = fields.Many2one('queue.counter', string="Guichet", copy=False)
+
+    # --- Paiement ---
+    PAYMENT_STATE = [
+        ('not_required', "Gratuit"),
+        ('pending', "Paiement en attente"),
+        ('paid', "Payé"),
+        ('refunded', "Remboursé"),
+    ]
+    PAYMENT_METHOD = [
+        ('cash', "Espèces"),
+        ('mobile_money', "Mobile money"),
+        ('card', "Carte"),
+    ]
+    payment_state = fields.Selection(
+        PAYMENT_STATE, string="Paiement", default='not_required',
+        required=True, copy=False, tracking=True, index=True)
+    payment_amount = fields.Monetary(
+        "Montant", currency_field='currency_id', copy=False)
+    currency_id = fields.Many2one(
+        related='service_id.currency_id', string="Devise", store=True)
+    payment_method = fields.Selection(
+        PAYMENT_METHOD, string="Moyen de paiement", copy=False)
+    paid_at = fields.Datetime("Payé le", copy=False)
+    payment_ref = fields.Char(
+        "Référence de paiement", copy=False,
+        help="Identifiant de la transaction (agrégateur mobile money, TPE…).")
     scheduled_time = fields.Datetime(
         "Heure de rendez-vous", copy=False,
         help="Renseignée uniquement pour les tickets de type Rendez-vous.",
@@ -164,6 +190,13 @@ class QueueTicket(models.Model):
                     and vals.get('state', 'waiting') != 'scheduled'):
                 service = self.env['queue.service'].browse(vals['service_id'])
                 vals['name'] = service._next_number()
+            if vals.get('service_id') and 'payment_state' not in vals:
+                service = self.env['queue.service'].browse(vals['service_id'])
+                if service.payment_required and service.price > 0:
+                    vals['payment_state'] = 'pending'
+                    vals.setdefault('payment_amount', service.price)
+                else:
+                    vals['payment_state'] = 'not_required'
         return super().create(vals_list)
 
     def _scheduling_key(self):
@@ -429,6 +462,28 @@ class QueueTicket(models.Model):
                 {'type': 'auto_no_show'},
             )
             ticket.service_id._notify_upcoming()
+        return True
+
+    def action_register_payment(self, method='cash', ref=False):
+        """Enregistre le paiement d'un ticket (encaissement agent au guichet,
+        ou confirmation mobile money). Idempotent : ne re-paie pas."""
+        now = fields.Datetime.now()
+        for ticket in self:
+            if ticket.payment_state == 'paid':
+                continue
+            if ticket.payment_state == 'not_required':
+                raise UserError(_("Ce service est gratuit : rien à encaisser."))
+            ticket.write({
+                'payment_state': 'paid',
+                'payment_method': method,
+                'paid_at': now,
+                'payment_ref': ref or ticket.payment_ref,
+            })
+            ticket.message_post(body=_(
+                "Paiement encaissé : %(montant)s (%(moyen)s).",
+                montant=ticket.currency_id.format(ticket.payment_amount or 0.0)
+                        if ticket.currency_id else (ticket.payment_amount or 0.0),
+                moyen=dict(ticket.PAYMENT_METHOD).get(method, method)))
         return True
 
     def _release_counter(self):

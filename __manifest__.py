@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': "Gestionnaire de file d'attente",
-    'version': '19.0.1.15.0',
+    'version': '19.0.1.16.0',
     'category': 'Services',
     'summary': "File d'attente virtuelle multi-établissements (hôpitaux, services, administrations)",
     'description': """
@@ -45,6 +45,8 @@ d'attente & statistiques (Phase 5).
         'security/queue_security.xml',
         'security/ir.model.access.csv',
         'security/queue_record_rules.xml',
+        # Catalogue secteurs / modèles de services.
+        'data/queue_sectors.xml',
         # Vues & menus.
         'views/queue_location_views.xml',
         'views/queue_service_views.xml',
@@ -54,6 +56,7 @@ d'attente & statistiques (Phase 5).
         'views/queue_display_templates.xml',
         'views/queue_kiosk_templates.xml',
         'views/queue_menus.xml',
+        'views/queue_sector_views.xml',
         'views/queue_stats_views.xml',
         'views/queue_customer_views.xml',
         'views/queue_app_release_views.xml',
@@ -61,6 +64,7 @@ d'attente & statistiques (Phase 5).
         'views/queue_dashboard_views.xml',
         'views/res_config_settings_views.xml',
         'views/queue_setup_wizard_views.xml',
+        'views/queue_service_from_template_views.xml',
         'views/queue_help_menus.xml',
         'views/queue_console_views.xml',
         'data/queue_cron.xml',

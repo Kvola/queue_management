@@ -54,6 +54,14 @@
                             <field name="remote_enabled"/>
                             <field name="appointment_enabled"/>
                         </group>
+                        <group string="Tarification" colspan="2">
+                            <field name="payment_required"/>
+                            <field name="price"
+                                   invisible="not payment_required"/>
+                            <field name="currency_id"
+                                   invisible="not payment_required"
+                                   groups="base.group_multi_currency"/>
+                        </group>
                     </group>
                     <div class="alert alert-info" role="alert"
                          invisible="not remote_enabled">

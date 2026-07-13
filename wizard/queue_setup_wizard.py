@@ -13,6 +13,10 @@ class QueueSetupWizard(models.TransientModel):
     _description = "Assistant nouvel établissement"
 
     company_name = fields.Char("Nom de l'établissement", required=True)
+    sector_id = fields.Many2one(
+        'queue.sector', string="Secteur d'activité",
+        help="Choisir un secteur pré-remplit les services avec des modèles "
+             "types — à ajuster ensuite.")
     site_name = fields.Char(
         "Nom du site", help="Laissez vide pour reprendre le nom de "
                             "l'établissement (un site pourra être ajouté "
@@ -32,6 +36,18 @@ class QueueSetupWizard(models.TransientModel):
              "son mot de passe (ou lui enverrez une invitation) depuis sa "
              "fiche utilisateur.")
 
+    @api.onchange('sector_id')
+    def _onchange_sector_id(self):
+        if self.sector_id:
+            self.line_ids = [(5, 0, 0)] + [
+                (0, 0, {
+                    'name': t.name, 'code': t.code,
+                    'remote_enabled': t.remote_enabled,
+                    'appointment_enabled': t.appointment_enabled,
+                    'payment_required': t.payment_required,
+                    'price': t.price,
+                }) for t in self.sector_id.template_ids]
+
     def action_create(self):
         self.ensure_one()
         company = self.env['res.company'].create({'name': self.company_name})
@@ -47,6 +63,8 @@ class QueueSetupWizard(models.TransientModel):
             'location_id': location.id,
             'remote_enabled': line.remote_enabled,
             'appointment_enabled': line.appointment_enabled,
+            'payment_required': line.payment_required,
+            'price': line.price,
             'sequence': idx * 10,
         } for idx, line in enumerate(self.line_ids, start=1)])
         self.env['queue.counter'].create({
@@ -89,3 +107,5 @@ class QueueSetupWizardLine(models.TransientModel):
     code = fields.Char("Préfixe", required=True, size=4)
     remote_enabled = fields.Boolean("À distance")
     appointment_enabled = fields.Boolean("Rendez-vous")
+    payment_required = fields.Boolean("Payant")
+    price = fields.Float("Tarif")

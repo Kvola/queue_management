@@ -18,6 +18,9 @@
                 <field name="counter_id"/>
                 <field name="scheduled_time" optional="hide"/>
                 <field name="created_at"/>
+                <field name="payment_state" widget="badge" optional="show"
+                       decoration-warning="payment_state == 'pending'"
+                       decoration-success="payment_state == 'paid'"/>
                 <field name="state" widget="badge"
                        decoration-info="state == 'waiting'"
                        decoration-success="state == 'done'"
@@ -51,6 +54,10 @@
                             string="Re-mettre en file" class="btn-primary"
                             invisible="state != 'no_show'"
                             help="Le client s'est présenté après avoir été marqué absent : il reprend sa place selon son heure d'arrivée d'origine."/>
+                    <button name="action_register_payment" type="object"
+                            string="Encaisser" class="btn-primary"
+                            invisible="payment_state != 'pending'"
+                            help="Enregistre le paiement au guichet (espèces)."/>
                     <button name="action_cancel" type="object" string="Annuler"
                             invisible="state in ('done','no_show','cancelled')"
                             confirm="Annuler ce ticket ?"/>
@@ -64,6 +71,8 @@
                             invisible="state != 'no_show'"/>
                     <widget name="web_ribbon" title="Terminé" bg_color="text-bg-success"
                             invisible="state != 'done'"/>
+                    <widget name="web_ribbon" title="À payer" bg_color="text-bg-warning"
+                            invisible="payment_state != 'pending'"/>
                     <div class="oe_title">
                         <h1>
                             <field name="priority" widget="priority" class="me-2"/>
@@ -78,6 +87,14 @@
                             <field name="scheduled_time"
                                    invisible="channel != 'appointment'"
                                    required="channel == 'appointment'"/>
+                        </group>
+                        <group string="Paiement" invisible="payment_state == 'not_required'">
+                            <field name="payment_state"/>
+                            <field name="payment_amount" widget="monetary"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="payment_method"
+                                   invisible="payment_state != 'paid'"/>
+                            <field name="paid_at" invisible="payment_state != 'paid'"/>
                         </group>
                         <group string="Service &amp; guichet">
                             <field name="service_id"
@@ -121,6 +138,8 @@
                 <filter name="waiting" string="En attente" domain="[('state','=','waiting')]"/>
                 <filter name="active" string="Actifs"
                         domain="[('state','in',('waiting','called','serving'))]"/>
+                <filter name="to_pay" string="À payer"
+                        domain="[('payment_state','=','pending')]"/>
                 <separator/>
                 <filter name="today" string="Aujourd'hui"
                         domain="[('created_at','&gt;=', context_today().strftime('%Y-%m-%d 00:00:00'))]"/>
