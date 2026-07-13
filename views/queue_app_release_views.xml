@@ -86,6 +86,6 @@
 
     <menuitem id="menu_queue_app_release" name="App mobile"
               parent="menu_queue_config" action="action_queue_app_release"
-              sequence="40"/>
+              sequence="50"/>
 
 </odoo>

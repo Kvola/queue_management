@@ -56,6 +56,6 @@
     <!-- Créer une société et son utilisateur exige les droits d'administration. -->
     <menuitem id="menu_queue_setup_wizard" name="Nouvel établissement"
               parent="menu_queue_config" action="action_queue_setup_wizard"
-              sequence="5" groups="base.group_system"/>
+              sequence="10" groups="base.group_system"/>
 
 </odoo>

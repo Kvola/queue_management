@@ -4,24 +4,43 @@
     <menuitem id="menu_queue_root" name="File d'attente"
               sequence="50"/>
 
-    <menuitem id="menu_queue_tickets" name="Tickets"
-              parent="menu_queue_root" action="action_queue_ticket"
-              sequence="10"/>
+    <!-- ═══════════ Sections de premier niveau (ordre = usage quotidien) ═══════════
+         1. Ma console       — poste de travail de l'agent (défini ailleurs, seq 1)
+         2. Supervision      — tableau de bord + statistiques
+         3. Opérations       — tickets, guichets, clients mobiles
+         4. Transport        — cars inter-urbains (module queue_transport, seq 30)
+         5. Configuration    — structure, catalogue, réglages
+         6. Aide             — guides par rôle (seq 95)
+    -->
 
-    <menuitem id="menu_queue_counters" name="Guichets"
-              parent="menu_queue_root" action="action_queue_counter"
-              sequence="20"/>
+    <menuitem id="menu_queue_supervision" name="Supervision"
+              parent="menu_queue_root" sequence="10"
+              groups="queue_management.group_queue_agent"/>
+
+    <menuitem id="menu_queue_operations" name="Opérations"
+              parent="menu_queue_root" sequence="20"
+              groups="queue_management.group_queue_agent"/>
 
     <menuitem id="menu_queue_config" name="Configuration"
               parent="menu_queue_root" sequence="90"
               groups="queue_management.group_queue_manager"/>
 
+    <!-- ─── Opérations ─── -->
+    <menuitem id="menu_queue_tickets" name="Tickets"
+              parent="menu_queue_operations" action="action_queue_ticket"
+              sequence="10"/>
+
+    <menuitem id="menu_queue_counters" name="Guichets"
+              parent="menu_queue_operations" action="action_queue_counter"
+              sequence="20"/>
+
+    <!-- ─── Configuration : structure ─── -->
     <menuitem id="menu_queue_locations" name="Sites"
               parent="menu_queue_config" action="action_queue_location"
-              sequence="10"/>
+              sequence="20"/>
 
     <menuitem id="menu_queue_services" name="Services"
               parent="menu_queue_config" action="action_queue_service"
-              sequence="20"/>
+              sequence="30"/>
 
 </odoo>

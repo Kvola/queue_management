@@ -8,6 +8,6 @@
 
     <menuitem id="menu_queue_console" name="Ma console"
               parent="menu_queue_root" action="action_queue_console"
-              sequence="3" groups="queue_management.group_queue_agent"/>
+              sequence="1" groups="queue_management.group_queue_agent"/>
 
 </odoo>

@@ -70,7 +70,7 @@
     </record>
 
     <menuitem id="menu_queue_customers" name="Clients mobiles"
-              parent="menu_queue_config" action="action_queue_customer"
-              sequence="30"/>
+              parent="menu_queue_operations" action="action_queue_customer"
+              sequence="30" groups="queue_management.group_queue_manager"/>
 
 </odoo>

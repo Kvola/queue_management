@@ -34,8 +34,8 @@
     </record>
 
     <menuitem id="menu_queue_stats" name="Statistiques"
-              parent="menu_queue_root" action="action_queue_stats"
-              sequence="80"
+              parent="menu_queue_supervision" action="action_queue_stats"
+              sequence="20"
               groups="queue_management.group_queue_manager"/>
 
 </odoo>

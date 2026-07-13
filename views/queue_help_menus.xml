@@ -27,7 +27,8 @@
     </record>
 
     <menuitem id="menu_queue_help" name="Aide"
-              parent="menu_queue_root" sequence="95"/>
+              parent="menu_queue_root" sequence="95"
+              groups="queue_management.group_queue_agent"/>
 
     <menuitem id="menu_queue_help_agent" name="Guide de l'agent"
               parent="menu_queue_help" action="action_help_agent"

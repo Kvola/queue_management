@@ -10,7 +10,7 @@
          c'est aussi leur poste de travail — appeler/servir depuis les cartes
          guichets. La configuration reste réservée aux responsables. -->
     <menuitem id="menu_queue_dashboard" name="Tableau de bord"
-              parent="menu_queue_root" action="action_queue_dashboard"
-              sequence="5" groups="queue_management.group_queue_agent"/>
+              parent="menu_queue_supervision" action="action_queue_dashboard"
+              sequence="10" groups="queue_management.group_queue_agent"/>
 
 </odoo>

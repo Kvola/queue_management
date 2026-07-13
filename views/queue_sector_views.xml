@@ -61,6 +61,6 @@
 
     <menuitem id="menu_queue_sector" name="Secteurs &amp; modèles"
               parent="menu_queue_config" action="action_queue_sector"
-              sequence="60" groups="base.group_system"/>
+              sequence="40" groups="base.group_system"/>
 
 </odoo>
