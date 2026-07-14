@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_report_site_qr" model="ir.actions.report">
+        <field name="name">Affiche QR d'entrée</field>
+        <field name="model">queue.location</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">queue_management.report_site_qr</field>
+        <field name="report_file">queue_management.report_site_qr</field>
+        <field name="binding_model_id" ref="model_queue_location"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">"QR-%s" % (object.name)</field>
+    </record>
+
+    <template id="report_site_qr">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="site">
+                <t t-call="web.basic_layout">
+                    <div class="page" style="text-align:center; padding-top:40px;">
+                        <h1 style="font-size:34px; margin-bottom:6px;">
+                            <span t-field="site.name"/>
+                        </h1>
+                        <p style="font-size:20px; color:#475569; margin-bottom:30px;">
+                            <t t-if="site.city"><span t-field="site.city"/></t>
+                        </p>
+                        <img t-att-src="'/report/barcode/?barcode_type=QR&amp;value=%s&amp;width=520&amp;height=520' % site.qr_token"
+                             style="width:400px; height:400px;"/>
+                        <h2 style="font-size:26px; margin-top:34px;">
+                            Scannez pour prendre votre ticket
+                        </h2>
+                        <p style="font-size:18px; color:#475569; max-width:520px; margin:12px auto 0;">
+                            Ouvrez l'application « File d'attente », touchez
+                            « Prendre un ticket » puis scannez ce code — ou
+                            saisissez le code du site :
+                            <b style="font-family:monospace;"><span t-field="site.qr_token"/></b>
+                        </p>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

@@ -34,14 +34,24 @@ Transport, Télécom, Commerce). Sur un site existant, le bouton
    temps réel : les agents **se connectent** à leur guichet depuis « Ma
    console » (plusieurs agents possibles par guichet), et le tableau de
    bord affiche qui est connecté où.
-4. Onglet **QR d'entrée (à imprimer)** : imprimez et affichez ce QR à
-   l'entrée — c'est lui que les clients scannent *dans l'app* pour prendre
-   leur ticket. **Régénérer le QR** invalide l'ancien (affiche perdue/volée).
+4. Onglet **QR d'entrée (à imprimer)** : le bouton **« Télécharger l'affiche
+   QR (PDF) »** génère une affiche prête à imprimer (QR + nom du site +
+   consigne) à poser à l'entrée. Les clients la scannent *dans l'app* pour
+   prendre leur ticket. **Régénérer le QR** invalide l'ancien (affiche
+   perdue/volée). Le bouton **Télécharger le QR** est aussi dans l'en-tête
+   de la fiche.
 
 Depuis la fiche du site, deux écrans publics à mettre en plein écran :
 
-- **Écran d'affichage** : salle d'attente (numéros appelés, prochains) ;
-- **Borne tactile** : prise de ticket pour les clients sans smartphone.
+- **Écran d'affichage** : salle d'attente — numéros appelés (le nouvel appel
+  clignote **et émet un carillon**), prochains appels et **file d'attente par
+  service** ;
+- **Borne tactile** : prise de ticket pour les clients sans smartphone —
+  touchez un service, le ticket s'affiche avec position, attente estimée et,
+  pour un service payant, le **montant à régler au guichet**.
+
+*(Le carillon de l'écran d'affichage nécessite que le navigateur autorise le
+son — en mode plein écran/kiosque, ou après un premier appui sur l'écran.)*
 
 Les deux affichent automatiquement le QR « installez l'app » quand une
 version est publiée par l'administrateur.

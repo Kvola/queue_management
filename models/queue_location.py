@@ -118,6 +118,12 @@ class QueueLocation(models.Model):
                 '</div>'
             ) % (src, location.name or '')
 
+    def action_download_qr(self):
+        """Télécharge l'affiche QR d'entrée du site (PDF imprimable)."""
+        self.ensure_one()
+        return self.env.ref(
+            'queue_management.action_report_site_qr').report_action(self)
+
     def action_regenerate_qr_token(self):
         """Invalide le QR précédent (en cas de fuite ou d'affiche remplacée)."""
         for location in self:

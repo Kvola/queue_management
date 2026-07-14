@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 
-from odoo import http
+from odoo import fields, http
 from odoo.http import request
 
 # Défense en profondeur des pages publiques (borne, affichage) : elles sont
@@ -64,10 +64,24 @@ class QueueDisplayController(http.Controller):
             {'ticket': t.name, 'service': t.service_id.name}
             for t in waiting.sorted(key=lambda t: t._scheduling_key())[:6]
         ]
+        # Attente par service (petit récap sous les appels).
+        services = [
+            {'name': s.name, 'waiting': s.waiting_count}
+            for s in location.service_ids.filtered('active')
+            if s.waiting_count
+        ]
+        # Jeton de "génération d'appel" : change dès qu'un ticket est appelé
+        # (called_at). L'écran s'en sert pour déclencher un bip une seule fois.
+        called = now_serving and max(
+            (c.current_ticket_id.called_at for c in counters
+             if c.current_ticket_id and c.current_ticket_id.called_at),
+            default=False)
         return {
             'location': location.name,
             'now_serving': now_serving,
             'upcoming': upcoming,
+            'services': services,
+            'call_token': fields.Datetime.to_string(called) if called else '',
         }
 
     @staticmethod

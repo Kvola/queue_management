@@ -458,3 +458,33 @@ class TestQueueKiosk(HttpCase):
 
     def test_kiosk_bad_token_404(self):
         self.assertEqual(self.url_open('/queue/kiosk/nope').status_code, 404)
+
+    def test_kiosk_ticket_has_eta_and_payment(self):
+        """La borne renvoie position, ETA et l'info de paiement (service payant)."""
+        self.service.write({'payment_required': True, 'price': 1500.0})
+        resp = self.url_open(
+            '/queue/kiosk/%s/ticket' % self.location.qr_token,
+            data={'service_id': self.service.id})
+        t = resp.json()['ticket']
+        self.assertIn('position', t)
+        self.assertIn('eta', t)
+        self.assertTrue(t['to_pay'])
+        self.assertIn('1500', t['amount'])
+        self.service.write({'payment_required': False})
+
+    def test_display_data_has_services_and_call_token(self):
+        self.env['queue.ticket'].create({'service_id': self.service.id})
+        resp = self.url_open('/queue/display/%s/data' % self.location.qr_token)
+        data = resp.json()
+        self.assertIn('services', data)
+        self.assertIn('call_token', data)
+
+    def test_site_qr_report_renders(self):
+        """Le rapport affiche QR se génère et contient le nom + le QR du site."""
+        report = self.env.ref('queue_management.action_report_site_qr')
+        html, ftype = self.env['ir.actions.report']._render_qweb_html(
+            report.report_name, self.location.ids)
+        self.assertEqual(ftype, 'html')
+        html = html.decode() if isinstance(html, bytes) else html
+        self.assertIn('Borne Site', html)
+        self.assertIn(self.location.qr_token, html)

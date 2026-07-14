@@ -18,6 +18,7 @@
                     .svc:active { transform: scale(.97); border-color: #2563eb; }
                     .svc .name { font-size: 1.8rem; font-weight: 700; }
                     .svc .wait { color: #94a3b8; margin-top: .5rem; font-size: 1.05rem; }
+                    .svc .price { margin-top: .6rem; color: #22c55e; font-weight: 700; font-size: 1.1rem; }
                     .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.97);
                                display: none; flex-direction: column; align-items: center; justify-content: center;
                                text-align: center; padding: 2rem; }
@@ -25,6 +26,8 @@
                     .overlay .lead { font-size: 1.5rem; color: #94a3b8; }
                     .overlay .num { font-size: 7rem; font-weight: 800; color: #22c55e; line-height: 1.1; margin: 1rem 0; }
                     .overlay .info { font-size: 1.4rem; }
+                    .overlay .eta { font-size: 1.2rem; color: #94a3b8; margin-top: .6rem; }
+                    .overlay .pay { font-size: 1.5rem; color: #fbbf24; font-weight: 700; margin-top: 1rem; }
                     .overlay .hint { margin-top: 2.5rem; color: #64748b; font-size: 1.1rem; }
                     .appbar { display: flex; align-items: center; justify-content: center;
                               gap: 1rem; margin-top: 2rem; color: #94a3b8; }
@@ -41,6 +44,7 @@
                         <div class="svc" t-att-data-id="s['id']">
                             <div class="name"><t t-out="s['name']"/></div>
                             <div class="wait"><t t-out="s['waiting']"/> en attente</div>
+                            <div t-if="s['paid']" class="price">💳 <t t-out="s['price']"/></div>
                         </div>
                     </t>
                     <t t-if="not services">
@@ -60,6 +64,8 @@
                     <div class="lead">Votre ticket</div>
                     <div class="num" id="ovNum">—</div>
                     <div class="info" id="ovInfo"></div>
+                    <div class="eta" id="ovEta"></div>
+                    <div class="pay" id="ovPay"></div>
                     <div class="hint">Touchez l'écran pour continuer…</div>
                 </div>
 
@@ -81,9 +87,13 @@
                                 document.getElementById('ovNum').textContent = d.ticket.name;
                                 document.getElementById('ovInfo').textContent =
                                     d.ticket.service + ' · position ' + d.ticket.position;
+                                document.getElementById('ovEta').textContent =
+                                    d.ticket.eta > 0 ? ('~ ' + d.ticket.eta + ' min d’attente') : '';
+                                document.getElementById('ovPay').textContent =
+                                    d.ticket.to_pay ? ('À régler au guichet : ' + d.ticket.amount) : '';
                                 document.getElementById('overlay').classList.add('show');
                                 clearTimeout(window._ovTimer);
-                                window._ovTimer = setTimeout(reloadKiosk, 8000);
+                                window._ovTimer = setTimeout(reloadKiosk, 10000);
                             })
                             .catch(function(){ busy = false; alert('Connexion impossible.'); });
                     }

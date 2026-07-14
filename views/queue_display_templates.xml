@@ -33,6 +33,7 @@
                                border-bottom: 1px solid #334155; font-size: 1.3rem; font-weight: 600; }
                     aside li span { color: #94a3b8; font-weight: 400; font-size: 1rem; }
                     aside li.empty { color: #64748b; font-weight: 400; justify-content: center; }
+                    aside h2.mt { margin-top: 1.5rem; }
                     .appbar { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem;
                               background: #1e293b; border-radius: 1rem; padding: .9rem 1.25rem; }
                     .appbar img { width: 96px; height: 96px; background: #fff; padding: 5px;
@@ -64,6 +65,13 @@
                             </t>
                             <li t-if="not data['upcoming']" class="empty">Aucun en attente</li>
                         </ul>
+                        <h2 class="mt">File d'attente</h2>
+                        <ul id="services">
+                            <t t-foreach="data['services']" t-as="s">
+                                <li><span t-out="s['name']"/><span t-out="s['waiting']"/></li>
+                            </t>
+                            <li t-if="not data['services']" class="empty">Personne en attente</li>
+                        </ul>
                     </aside>
                 </div>
                 <div t-if="app_qr" class="appbar">
@@ -90,11 +98,41 @@
                         }).join('');
                         document.getElementById('upcoming').innerHTML = up
                             || '<li class="empty">Aucun en attente</li>';
+                        var sv = (d.services || []).map(function(s){
+                            return '<li><span>' + h(s.name) + '</span><span>' + h(s.waiting) + '</span></li>';
+                        }).join('');
+                        document.getElementById('services').innerHTML = sv
+                            || '<li class="empty">Personne en attente</li>';
+                    }
+                    // Bip (carillon) au NOUVEL appel — Web Audio, aucune ressource
+                    // externe (compatible CSP). Le premier chargement n'émet pas.
+                    var lastCall = null, audioCtx = null;
+                    function chime(){
+                        try {
+                            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                            [880, 1320].forEach(function(f, i){
+                                var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                                o.frequency.value = f; o.type = 'sine';
+                                o.connect(g); g.connect(audioCtx.destination);
+                                var t = audioCtx.currentTime + i * 0.18;
+                                g.gain.setValueAtTime(0.0001, t);
+                                g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+                                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+                                o.start(t); o.stop(t + 0.18);
+                            });
+                        } catch(e) {}
                     }
                     function refresh(){
                         fetch(window.location.pathname + '/data', {cache:'no-store'})
                             .then(function(r){ return r.ok ? r.json() : null; })
-                            .then(function(d){ if(d) render(d); })
+                            .then(function(d){
+                                if(!d) return;
+                                render(d);
+                                if (lastCall !== null && d.call_token && d.call_token !== lastCall) {
+                                    chime();
+                                }
+                                lastCall = d.call_token || lastCall;
+                            })
                             .catch(function(){});
                     }
                     function tick(){

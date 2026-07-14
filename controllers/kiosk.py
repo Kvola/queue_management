@@ -29,7 +29,10 @@ class QueueKioskController(http.Controller):
 
     def _services(self, location):
         return [
-            {'id': s.id, 'name': s.name, 'code': s.code, 'waiting': s.waiting_count}
+            {'id': s.id, 'name': s.name, 'code': s.code, 'waiting': s.waiting_count,
+             'paid': bool(s.payment_required and s.price > 0),
+             'price': '%d %s' % (int(s.price), s.currency_id.symbol
+                                 or s.currency_id.name or '') if s.payment_required else ''}
             for s in location.service_ids.filtered('active')
         ]
 
@@ -82,6 +85,13 @@ class QueueKioskController(http.Controller):
                 'name': ticket.name,
                 'service': service.name,
                 'position': ticket.position,
+                'eta': ticket.eta_minutes,
+                # Ticket anonyme : s'il est payant, le client règle au guichet.
+                'to_pay': ticket.payment_state == 'pending',
+                'amount': '%d %s' % (int(ticket.payment_amount),
+                                     ticket.currency_id.symbol
+                                     or ticket.currency_id.name or '')
+                          if ticket.payment_state == 'pending' else '',
             },
         }
         return secure_public_page(request.make_response(

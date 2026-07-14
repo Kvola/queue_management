@@ -27,6 +27,9 @@
                     <button name="action_open_kiosk" type="object"
                             string="Borne tactile"
                             help="Borne publique de prise de ticket (plein écran)."/>
+                    <button name="action_download_qr" type="object"
+                            string="Télécharger le QR" class="btn-secondary"
+                            help="Affiche PDF imprimable (QR + nom du site) à poser à l'entrée."/>
                     <button name="action_regenerate_qr_token" type="object"
                             string="Régénérer le QR"
                             confirm="L'ancien QR code affiché à l'entrée ne fonctionnera plus (affiches à réimprimer). Continuer ?"/>
@@ -102,6 +105,9 @@
                                 remplacement d'affiche, utilisez « Régénérer le QR »
                                 (l'ancien cesse de fonctionner).
                             </p>
+                            <button name="action_download_qr" type="object"
+                                    string="Télécharger l'affiche QR (PDF)"
+                                    class="btn-primary" icon="fa-download"/>
                             <field name="qr_html" nolabel="1"/>
                             <group>
                                 <field name="qr_token" readonly="1"/>
