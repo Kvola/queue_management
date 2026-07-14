@@ -476,6 +476,28 @@ class QueueTicket(models.Model):
             ticket.service_id._notify_upcoming()
         return True
 
+    def _console_payment(self, with_ticket=False):
+        """Résumé paiement pour la console agent (validation en direct).
+
+        Retourne False si rien à faire (gratuit ou déjà payé). ``with_ticket``
+        ajoute le numéro/service (pour la liste des paiements déclarés).
+        """
+        self.ensure_one()
+        if self.payment_state not in ('pending', 'to_validate'):
+            return False
+        data = {
+            'ticket_id': self.id,
+            'state': self.payment_state,
+            'amount': self._amount_label(),
+            'method': dict(self.PAYMENT_METHOD).get(self.payment_method, ''),
+            'ref': self.payment_ref or '',
+            'has_proof': bool(self.payment_proof),
+        }
+        if with_ticket:
+            data.update(name=self.name, service=self.service_id.name,
+                        partner=self.partner_id.name or '')
+        return data
+
     def _amount_label(self):
         self.ensure_one()
         if self.currency_id:

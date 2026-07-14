@@ -61,6 +61,47 @@
                             </t>
                         </div>
                     </div>
+                    <!-- Paiement du ticket en cours : valider / encaisser sur place -->
+                    <div t-if="state.data.ticket_payment"
+                         t-attf-class="o_queue_console_pay {{ state.data.ticket_payment.state === 'to_validate' ? 'o_to_validate' : 'o_pending' }}">
+                        <div class="o_queue_console_pay_head">
+                            <span t-if="state.data.ticket_payment.state === 'to_validate'">
+                                <i class="fa fa-hourglass-half me-1"/>Paiement à valider
+                            </span>
+                            <span t-else=""><i class="fa fa-credit-card me-1"/>À payer</span>
+                            <b class="ms-2" t-out="state.data.ticket_payment.amount"/>
+                        </div>
+                        <div class="o_queue_console_pay_info text-muted">
+                            <t t-if="state.data.ticket_payment.method">
+                                <t t-out="state.data.ticket_payment.method"/>
+                            </t>
+                            <t t-if="state.data.ticket_payment.ref"> · réf. <t t-out="state.data.ticket_payment.ref"/></t>
+                            <a t-if="state.data.ticket_payment.has_proof" class="ms-2"
+                               t-att-href="proofUrl(state.data.ticket_payment.ticket_id)"
+                               target="_blank">Voir la preuve</a>
+                        </div>
+                        <div class="o_queue_console_pay_actions">
+                            <button t-if="state.data.ticket_payment.state === 'to_validate'"
+                                    class="btn btn-success btn-sm"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.payAction(state.data.ticket_payment.ticket_id, 'action_validate_payment')">
+                                <i class="fa fa-check me-1"/>Valider le paiement
+                            </button>
+                            <button t-if="state.data.ticket_payment.state === 'pending'"
+                                    class="btn btn-success btn-sm"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.payAction(state.data.ticket_payment.ticket_id, 'action_register_payment')">
+                                <i class="fa fa-money-bill me-1"/>Encaisser
+                            </button>
+                            <button t-if="state.data.ticket_payment.state === 'to_validate'"
+                                    class="btn btn-outline-danger btn-sm"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.payAction(state.data.ticket_payment.ticket_id, 'action_reject_payment')">
+                                Rejeter
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="o_queue_console_waiting">
                         <i class="fa fa-hourglass-half me-1"/>
                         <t t-out="state.data.waiting"/> en attente
@@ -102,6 +143,36 @@
                     <div t-else="" class="text-muted">
                         Rejoignez le guichet pour agir — vous pouvez le partager
                         avec un(e) collègue.
+                    </div>
+                </div>
+
+                <!-- Paiements déclarés à distance (Wave marchand avant arrivée…) -->
+                <div t-if="state.data.to_validate and state.data.to_validate.length"
+                     class="o_queue_console_pending">
+                    <h6><i class="fa fa-check-circle me-1"/>Paiements à valider
+                        (<t t-out="state.data.to_validate.length"/>)</h6>
+                    <div t-foreach="state.data.to_validate" t-as="p" t-key="p.ticket_id"
+                         class="o_queue_console_pending_row">
+                        <div class="o_queue_console_pending_info">
+                            <b t-out="p.name"/> · <t t-out="p.service"/>
+                            <span t-if="p.partner" class="text-muted"> · <t t-out="p.partner"/></span>
+                            <span class="ms-2" t-out="p.amount"/>
+                            <span class="text-muted"> — <t t-out="p.method"/></span>
+                            <a t-if="p.has_proof" class="ms-2"
+                               t-att-href="proofUrl(p.ticket_id)" target="_blank">preuve</a>
+                        </div>
+                        <div class="o_queue_console_pending_actions">
+                            <button class="btn btn-success btn-sm"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.payAction(p.ticket_id, 'action_validate_payment')">
+                                Valider
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm"
+                                    t-att-disabled="state.acting"
+                                    t-on-click="() => this.payAction(p.ticket_id, 'action_reject_payment')">
+                                Rejeter
+                            </button>
+                        </div>
                     </div>
                 </div>
             </t>

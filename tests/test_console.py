@@ -73,6 +73,33 @@ class TestConsole(TransactionCase):
         self.assertEqual(data['ticket'], ticket.name)
         self.assertEqual(data['ticket_state'], 'called')
 
+    def test_console_surfaces_payments(self):
+        """La console remonte le paiement du ticket en cours et la liste des
+        paiements déclarés à distance, actionnables par l'agent."""
+        # Service payant.
+        self.service.write({'payment_required': True, 'price': 2000.0})
+        Counter = self.env['queue.counter'].with_user(self.agent)
+        Counter.browse(self.counter_a.id).action_join()
+        # Un ticket appelé, paiement à valider (déclaré au guichet).
+        ticket = self.env['queue.ticket'].create({'service_id': self.service.id})
+        ticket._submit_payment('counter')
+        Counter.browse(self.counter_a.id).action_call_next()
+        data = Counter.get_console_data(self.counter_a.id)
+        pay = data['ticket_payment']
+        self.assertTrue(pay)
+        self.assertEqual(pay['state'], 'to_validate')
+        self.assertEqual(pay['ticket_id'], ticket.id)
+        # Un autre ticket déclaré à distance (pas au guichet) → liste à valider.
+        remote = self.env['queue.ticket'].create({'service_id': self.service.id})
+        remote._submit_payment('wave', ref='WV9')
+        data = Counter.get_console_data(self.counter_a.id)
+        ids = [p['ticket_id'] for p in data['to_validate']]
+        self.assertIn(remote.id, ids)
+        self.assertNotIn(ticket.id, ids)   # le ticket en cours n'y est pas
+        # L'agent valide depuis la console (méthode ticket).
+        remote.with_user(self.agent).action_validate_payment()
+        self.assertEqual(remote.payment_state, 'paid')
+
     def test_console_respects_tenant_isolation(self):
         """Un agent ne voit que les guichets de SES établissements."""
         other_company = self.env['res.company'].create({'name': 'Autre Cie'})

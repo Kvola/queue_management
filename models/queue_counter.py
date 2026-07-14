@@ -176,12 +176,25 @@ class QueueCounter(models.Model):
                 'agents': counter.agent_ids.mapped('name'),
                 'services': counter.service_ids.mapped('name'),
                 'busy': counter.state == 'busy',
+                'ticket_id': ticket.id if ticket else False,
                 'ticket': ticket.name if ticket else '',
                 'ticket_state': ticket.state if ticket else '',
                 'ticket_service': ticket.service_id.name if ticket else '',
                 'ticket_partner': ticket.partner_id.name if ticket else '',
                 'next_number': counter.next_number or '',
                 'waiting': counter.waiting_count,
+                # Paiement du ticket en cours (pour valider/encaisser en direct).
+                'ticket_payment': ticket._console_payment() if ticket else False,
+                # Paiements déclarés à distance sur les services du guichet
+                # (Wave marchand avant l'arrivée…) — hors ticket en cours.
+                'to_validate': [
+                    t._console_payment(with_ticket=True)
+                    for t in self.env['queue.ticket'].search([
+                        ('service_id', 'in', counter.service_ids.ids),
+                        ('payment_state', '=', 'to_validate'),
+                        ('id', '!=', ticket.id),
+                    ], limit=20)
+                ],
             })
         return data
 

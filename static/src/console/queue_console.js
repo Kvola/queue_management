@@ -64,6 +64,29 @@ export class QueueConsole extends Component {
             this.state.acting = false;
         }
     }
+
+    /** Action de paiement sur un ticket précis (valider / encaisser / rejeter). */
+    async payAction(ticketId, method) {
+        if (this.state.acting) {
+            return;
+        }
+        this.state.acting = true;
+        try {
+            await this.orm.call("queue.ticket", method, [[ticketId]]);
+            await this.load();
+        } catch (error) {
+            this.notification.add(
+                error.data?.message || error.message || "Action impossible.",
+                { type: "warning" });
+        } finally {
+            this.state.acting = false;
+        }
+    }
+
+    /** URL de la preuve de paiement jointe (image), pour l'ouvrir. */
+    proofUrl(ticketId) {
+        return `/web/image/queue.ticket/${ticketId}/payment_proof`;
+    }
 }
 
 registry.category("actions").add("queue_management.console", QueueConsole);

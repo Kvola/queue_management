@@ -17,7 +17,12 @@ guichet :
    client ; en dessous, le nombre en attente et le prochain numéro.
 3. Les boutons suivent l'état : **Appeler le suivant** (guichet libre),
    puis **Démarrer / Rappeler / Absent**, puis **Terminer**.
-4. **Quitter** en fin de poste — le guichet reste utilisable par les
+4. **Valider les paiements** : si le service est payant, la console affiche
+   le paiement du client en cours (**Valider** un paiement déclaré,
+   **Encaisser** un paiement au comptoir, **Rejeter**), et une liste des
+   **paiements à valider** déclarés à distance (Wave marchand avant
+   l'arrivée). Vous validez sans quitter la console.
+5. **Quitter** en fin de poste — le guichet reste utilisable par les
    collègues connectés.
 
 ## L'autre vue : le Tableau de bord
