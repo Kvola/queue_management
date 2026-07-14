@@ -21,10 +21,16 @@
                         </setting>
                     </block>
                     <block title="Paiement — Wave">
-                        <setting string="Numéro / nom Wave Marchand"
-                                 help="Affiché au client pour un paiement Wave manuel, validé ensuite au guichet.">
-                            <field name="queue_wave_merchant_label"
-                                   placeholder="Ex. +225 07 00 00 00 00"/>
+                        <setting string="Lien de paiement Wave (cette compagnie)"
+                                 help="Lien marchand Wave pour recevoir vos paiements. Le montant est ajouté automatiquement. Vide → lien par défaut de la plateforme.">
+                            <field name="queue_wave_payment_link"
+                                   placeholder="https://pay.wave.com/m/M_ci_xxxx/c/ci/"/>
+                        </setting>
+                        <setting string="Lien Wave par défaut (plateforme)"
+                                 help="Utilisé quand une compagnie n'a pas renseigné son propre lien."
+                                 groups="base.group_system">
+                            <field name="queue_wave_default_link"
+                                   placeholder="https://pay.wave.com/m/…/c/ci/"/>
                         </setting>
                         <setting string="Clé API Wave (paiement direct)"
                                  help="Renseignée → le paiement Wave est confirmé automatiquement par webhook, sans validation guichet. Vide → Wave Marchand.">

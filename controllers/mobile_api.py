@@ -397,14 +397,14 @@ class QueueMobileApi(http.Controller):
         wave = request.env['queue.wave.mixin'].sudo()
 
         if method == 'wave' and wave._wave_api_configured():
-            # Voie directe : on tente d'ouvrir une session Wave.
+            # Voie directe (API Checkout) : session + webhook, sans validation.
             from odoo.addons.queue_management.models.queue_wave import WaveError
             try:
                 url = wave._wave_create_checkout(ticket)
                 return self._ok(ticket=self._ticket_data(ticket),
                                 payment_url=url)
             except WaveError:
-                pass  # repli sur Wave Marchand ci-dessous
+                pass  # repli sur le lien de paiement ci-dessous
 
         proof_b64 = kw.get('proof')
         proof = False
@@ -424,6 +424,9 @@ class QueueMobileApi(http.Controller):
             return self._err(exc.args[0] if exc.args else _("Paiement impossible."))
         extra = {}
         if method == 'wave':
+            # Lien Wave (compagnie ou défaut) avec le montant → l'app l'ouvre.
+            # Le paiement reste « à valider » (un lien ne confirme pas seul).
+            extra['payment_url'] = wave._wave_payment_url(ticket)
             extra['merchant'] = wave._wave_merchant_label()
         return self._ok(ticket=self._ticket_data(ticket), **extra)
 

@@ -72,6 +72,31 @@ class TestPayment(TransactionCase):
         with self.assertRaises(UserError):   # rien à valider (encore pending)
             ticket.action_validate_payment()
 
+    def test_wave_link_default_and_company(self):
+        """Lien Wave : celui de la compagnie s'il existe, sinon le défaut ;
+        le montant est ajouté en ?amount=."""
+        wave = self.env['queue.wave.mixin']
+        ticket = self.env['queue.ticket'].create({'service_id': self.paid.id})
+        # Par défaut : lien plateforme.
+        url = wave._wave_payment_url(ticket)
+        self.assertIn('pay.wave.com', url)
+        self.assertIn('amount=5000', url)
+        # Lien propre à la compagnie → prioritaire.
+        self.location.company_id.wave_payment_link = \
+            'https://pay.wave.com/m/M_ci_ABC/c/ci/'
+        url2 = wave._wave_payment_url(ticket)
+        self.assertIn('M_ci_ABC', url2)
+        self.assertIn('amount=5000', url2)
+
+    def test_wave_link_replaces_existing_amount(self):
+        wave = self.env['queue.wave.mixin']
+        self.location.company_id.wave_payment_link = \
+            'https://pay.wave.com/m/M_ci_ABC/c/ci/?amount=99'
+        ticket = self.env['queue.ticket'].create({'service_id': self.paid.id})
+        url = wave._wave_payment_url(ticket)
+        self.assertIn('amount=5000', url)
+        self.assertNotIn('amount=99', url)
+
     def test_cannot_pay_free_ticket(self):
         ticket = self.env['queue.ticket'].create({'service_id': self.free.id})
         with self.assertRaises(UserError):

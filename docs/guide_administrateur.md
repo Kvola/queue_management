@@ -85,16 +85,23 @@ depuis l'app. **Trois moyens** côté client : **Wave**, **au guichet**,
 l'API Wave est configurée.
 
 **Configuration Wave** (Paramètres → File d'attente, section « Paiement — Wave ») :
-- *Numéro / nom Wave Marchand* : affiché au client pour le paiement manuel ;
-- *Clé API Wave (Checkout)* : si renseignée → paiement **direct** (l'app
-  initie la transaction, Wave confirme par **webhook** signé, sans
-  validation guichet) ;
-- *Secret du webhook Wave* : vérifie la signature des notifications Wave
-  (URL du webhook : `https://VOTRE-DOMAINE/api/queue/wave/webhook`).
-⚠️ L'appel réel à l'API Wave nécessite un compte marchand Wave et n'a pas
-encore été éprouvé en production. Sans clé API, le paiement Wave reste en
-mode « Marchand » (déclaration → validation). Aucun blocage du service en
-cas d'impayé.
+- *Lien de paiement Wave (cette compagnie)* : le lien marchand Wave de la
+  compagnie (ex. `https://pay.wave.com/m/M_ci_xxxx/c/ci/`). L'app l'ouvre
+  avec le montant ajouté (`?amount=…`) — chaque compagnie reçoit ainsi ses
+  propres paiements. **Vide → lien par défaut** de la plateforme.
+- *Lien Wave par défaut (plateforme)* : utilisé pour les compagnies sans
+  lien propre.
+- *Clé API Wave (Checkout)* + *Secret du webhook* : optionnels — si
+  renseignés, le paiement Wave devient **direct** (session API + webhook
+  signé → payé **sans** validation guichet ; URL du webhook :
+  `https://VOTRE-DOMAINE/api/queue/wave/webhook`).
+
+⚠️ Un **lien** de paiement Wave ne renvoie pas de confirmation automatique :
+le client paie via le lien, puis un **agent valide** au guichet (il vérifie
+que le compte Wave marchand a été crédité). Seule l'**API Checkout** (clé +
+secret) confirme sans validation — elle nécessite un compte marchand Wave et
+n'a pas encore été éprouvée en production. Aucun blocage du service en cas
+d'impayé.
 
 ## 7. Données de démonstration
 

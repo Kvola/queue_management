@@ -52,11 +52,19 @@ class ResConfigSettings(models.TransientModel):
              "(guichet libéré, client notifié, re-mise en file possible). "
              "0 = désactivé.")
     # --- Paiement Wave ---
+    queue_wave_payment_link = fields.Char(
+        related='company_id.wave_payment_link', readonly=False,
+        string="Lien de paiement Wave (cette compagnie)",
+        help="Lien marchand Wave de la compagnie pour recevoir ses paiements. "
+             "Le montant est ajouté automatiquement. Vide → lien par défaut.")
+    queue_wave_default_link = fields.Char(
+        "Lien Wave par défaut (plateforme)",
+        config_parameter='queue_management.wave_default_link',
+        help="Utilisé quand une compagnie n'a pas renseigné son propre lien.")
     queue_wave_merchant_label = fields.Char(
         "Numéro / nom Wave Marchand",
         config_parameter='queue_management.wave_merchant_label',
-        help="Affiché au client pour la voie « Wave Marchand » (paiement "
-             "manuel puis validation au guichet).")
+        help="Optionnel — affiché au client si aucun lien Wave n'est disponible.")
     queue_wave_api_key = fields.Char(
         "Clé API Wave (Checkout)",
         config_parameter='queue_management.wave_api_key',

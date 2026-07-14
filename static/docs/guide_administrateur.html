@@ -326,19 +326,27 @@ est configurée.</p>
 <p><strong>Configuration Wave</strong> (Paramètres → File d'attente,
 section « Paiement — Wave ») :</p>
 <ul>
-<li><em>Numéro / nom Wave Marchand</em> : affiché au client pour le
-paiement manuel ;</li>
-<li><em>Clé API Wave (Checkout)</em> : si renseignée → paiement
-<strong>direct</strong> (l'app initie la transaction, Wave confirme par
-<strong>webhook</strong> signé, sans validation guichet) ;</li>
-<li><em>Secret du webhook Wave</em> : vérifie la signature des
-notifications Wave (URL du webhook :
-<code>https://VOTRE-DOMAINE/api/queue/wave/webhook</code>). ⚠️ L'appel
-réel à l'API Wave nécessite un compte marchand Wave et n'a pas encore
-été éprouvé en production. Sans clé API, le paiement Wave reste en mode
-« Marchand » (déclaration → validation). Aucun blocage du service en cas
-d'impayé.</li>
+<li><em>Lien de paiement Wave (cette compagnie)</em> : le lien marchand
+Wave de la compagnie (ex.
+<code>https://pay.wave.com/m/M_ci_xxxx/c/ci/</code>). L'app l'ouvre avec
+le montant ajouté (<code>?amount=…</code>) — chaque compagnie reçoit
+ainsi ses propres paiements. <strong>Vide → lien par défaut</strong> de
+la plateforme.</li>
+<li><em>Lien Wave par défaut (plateforme)</em> : utilisé pour les
+compagnies sans lien propre.</li>
+<li><em>Clé API Wave (Checkout)</em> + <em>Secret du webhook</em> :
+optionnels — si renseignés, le paiement Wave devient
+<strong>direct</strong> (session API + webhook signé → payé
+<strong>sans</strong> validation guichet ; URL du webhook :
+<code>https://VOTRE-DOMAINE/api/queue/wave/webhook</code>).</li>
 </ul>
+<p>⚠️ Un <strong>lien</strong> de paiement Wave ne renvoie pas de
+confirmation automatique : le client paie via le lien, puis un
+<strong>agent valide</strong> au guichet (il vérifie que le compte Wave
+marchand a été crédité). Seule l'<strong>API Checkout</strong> (clé +
+secret) confirme sans validation — elle nécessite un compte marchand
+Wave et n'a pas encore été éprouvée en production. Aucun blocage du
+service en cas d'impayé.</p>
 <h2 id="7-données-de-démonstration">7. Données de démonstration</h2>
 <p>Installé avec la démo, le module crée deux établissements complets
 (Hôpital Central, Mairie de Cocody) : services avec canaux variés

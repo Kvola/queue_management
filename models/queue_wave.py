@@ -18,6 +18,8 @@ import hmac
 import json
 import logging
 
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 import requests
 
 from odoo import api, models
@@ -28,6 +30,11 @@ _logger = logging.getLogger(__name__)
 # queue_management.wave_api_base si besoin (bac à sable).
 _WAVE_API_BASE = "https://api.wave.com/v1"
 _WAVE_TIMEOUT = 15
+
+# Lien marchand Wave par défaut de la plateforme (utilisé si une compagnie
+# n'a pas configuré le sien). Surchargé par le paramètre
+# queue_management.wave_default_link.
+_WAVE_DEFAULT_LINK = "https://pay.wave.com/m/M_ci_sy9lVJUuQUd0/c/ci/"
 
 
 class WaveError(Exception):
@@ -60,6 +67,31 @@ class QueueWaveMixin(models.AbstractModel):
     @api.model
     def _wave_api_base(self):
         return self._wave_param('wave_api_base', _WAVE_API_BASE).rstrip('/')
+
+    # --- Lien de paiement Wave (par compagnie, sinon par défaut) -----------
+
+    @api.model
+    def _wave_default_link(self):
+        return self._wave_param('wave_default_link', _WAVE_DEFAULT_LINK)
+
+    @api.model
+    def _wave_link_for(self, company):
+        """Lien marchand Wave à utiliser : celui de la compagnie, sinon le
+        lien par défaut de la plateforme."""
+        return (company.wave_payment_link or '').strip() or self._wave_default_link()
+
+    @api.model
+    def _wave_payment_url(self, ticket):
+        """URL Wave prête à payer : lien marchand + ?amount=<montant>."""
+        link = self._wave_link_for(ticket.company_id)
+        if not link:
+            return ''
+        amount = int(round(ticket.payment_amount or 0))
+        parts = urlsplit(link)
+        query = [(k, v) for k, v in parse_qsl(parts.query) if k != 'amount']
+        query.append(('amount', str(amount)))
+        return urlunsplit((parts.scheme, parts.netloc, parts.path,
+                           urlencode(query), parts.fragment))
 
     # ------------------------------------------------------------------
     # Appel API Checkout (voie directe)
