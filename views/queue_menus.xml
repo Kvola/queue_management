@@ -34,6 +34,10 @@
               parent="menu_queue_operations" action="action_queue_counter"
               sequence="20"/>
 
+    <menuitem id="menu_queue_payments_to_validate" name="Paiements à valider"
+              parent="menu_queue_operations" action="action_queue_payments_to_validate"
+              sequence="25"/>
+
     <!-- ─── Configuration : structure ─── -->
     <menuitem id="menu_queue_locations" name="Sites"
               parent="menu_queue_config" action="action_queue_location"

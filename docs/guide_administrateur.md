@@ -79,11 +79,22 @@ départ.
 Un service peut être **payant** (case « Paiement requis » + tarif). Chaque
 ticket naît alors « paiement en attente ». Deux règlements : l'agent
 **encaisse** au guichet (espèces), ou le client paie par **mobile money**
-depuis l'app. ⚠️ L'endpoint mobile est aujourd'hui une **simulation** :
-pour un vrai paiement, brancher un agrégateur (Orange/MTN/Wave) sur
-`queue.ticket.action_register_payment(method, ref)`, confirmé par le webhook
-du prestataire. Aucun blocage du service en cas d'impayé (choix métier) — le
-filtre « À payer » liste les régularisations.
+depuis l'app. **Trois moyens** côté client : **Wave**, **au guichet**,
+**preuve de paiement** — tous soumis à **validation d'un agent**
+(Opérations → Paiements à valider), sauf le paiement **Wave direct** si
+l'API Wave est configurée.
+
+**Configuration Wave** (Paramètres → File d'attente, section « Paiement — Wave ») :
+- *Numéro / nom Wave Marchand* : affiché au client pour le paiement manuel ;
+- *Clé API Wave (Checkout)* : si renseignée → paiement **direct** (l'app
+  initie la transaction, Wave confirme par **webhook** signé, sans
+  validation guichet) ;
+- *Secret du webhook Wave* : vérifie la signature des notifications Wave
+  (URL du webhook : `https://VOTRE-DOMAINE/api/queue/wave/webhook`).
+⚠️ L'appel réel à l'API Wave nécessite un compte marchand Wave et n'a pas
+encore été éprouvé en production. Sans clé API, le paiement Wave reste en
+mode « Marchand » (déclaration → validation). Aucun blocage du service en
+cas d'impayé.
 
 ## 7. Données de démonstration
 

@@ -30,15 +30,47 @@ class TestPayment(TransactionCase):
         ticket = self.env['queue.ticket'].create({'service_id': self.free.id})
         self.assertEqual(ticket.payment_state, 'not_required')
 
-    def test_register_payment(self):
+    def test_register_payment_direct_agent(self):
+        """Encaissement direct par l'agent → payé (l'agent valide)."""
         ticket = self.env['queue.ticket'].create({'service_id': self.paid.id})
-        ticket.action_register_payment(method='cash')
+        ticket.action_register_payment(method='counter')
         self.assertEqual(ticket.payment_state, 'paid')
-        self.assertEqual(ticket.payment_method, 'cash')
+        self.assertEqual(ticket.payment_method, 'counter')
         self.assertTrue(ticket.paid_at)
-        # Idempotent.
-        ticket.action_register_payment(method='cash')
+        self.assertEqual(ticket.payment_validated_by, self.env.user)
+        ticket.action_register_payment(method='counter')  # idempotent
         self.assertEqual(ticket.payment_state, 'paid')
+
+    def test_submit_then_validate(self):
+        """Le client déclare → à valider → l'agent valide → payé."""
+        ticket = self.env['queue.ticket'].create({'service_id': self.paid.id})
+        ticket._submit_payment('counter')
+        self.assertEqual(ticket.payment_state, 'to_validate')
+        self.assertTrue(ticket.payment_submitted_at)
+        ticket.action_validate_payment()
+        self.assertEqual(ticket.payment_state, 'paid')
+
+    def test_submit_then_reject(self):
+        ticket = self.env['queue.ticket'].create({'service_id': self.paid.id})
+        ticket._submit_payment('wave', ref='WV123')
+        self.assertEqual(ticket.payment_state, 'to_validate')
+        ticket.action_reject_payment()
+        self.assertEqual(ticket.payment_state, 'pending')
+
+    def test_submit_proof_requires_attachment(self):
+        import base64
+        ticket = self.env['queue.ticket'].create({'service_id': self.paid.id})
+        with self.assertRaises(UserError):
+            ticket._submit_payment('proof')   # sans preuve
+        ticket._submit_payment('proof', proof=base64.b64encode(b'img'),
+                               proof_filename='recu.png')
+        self.assertEqual(ticket.payment_state, 'to_validate')
+        self.assertTrue(ticket.payment_proof)
+
+    def test_validate_guard(self):
+        ticket = self.env['queue.ticket'].create({'service_id': self.paid.id})
+        with self.assertRaises(UserError):   # rien à valider (encore pending)
+            ticket.action_validate_payment()
 
     def test_cannot_pay_free_ticket(self):
         ticket = self.env['queue.ticket'].create({'service_id': self.free.id})
@@ -82,9 +114,40 @@ class TestPaymentApi(HttpCase):
             'qr_token': self.location.qr_token})
         self.assertEqual(res['ticket']['payment_state'], 'pending')
         self.assertEqual(res['ticket']['payment_amount'], 3000.0)
+        # Sans méthode Wave directe configurée → à valider (Wave marchand).
         pay = self._call('/api/queue/ticket/pay', {
-            'auth_token': self.TOKEN, 'ticket_id': res['ticket']['id']})
-        self.assertEqual(pay['ticket']['payment_state'], 'paid')
+            'auth_token': self.TOKEN, 'ticket_id': res['ticket']['id'],
+            'method': 'counter'})
+        self.assertEqual(pay['ticket']['payment_state'], 'to_validate')
+
+    def test_wave_webhook_marks_paid(self):
+        import json
+        # Un ticket dont la référence Wave est connue.
+        ticket = self.env['queue.ticket'].create({
+            'service_id': self.service.id, 'partner_id': self.customer.partner_id.id})
+        ticket.write({'payment_state': 'to_validate', 'payment_ref': 'SESS-1'})
+        self.env['ir.config_parameter'].sudo().set_param(
+            'queue_management.wave_webhook_secret', 'topsecret')
+        body = json.dumps({'type': 'checkout.session.completed',
+                           'data': {'id': 'SESS-1', 'payment_status': 'succeeded'}})
+        import hashlib, hmac
+        sig = hmac.new(b'topsecret', body.encode(), hashlib.sha256).hexdigest()
+        resp = self.url_open('/api/queue/wave/webhook', data=body.encode(),
+                             headers={'Content-Type': 'application/json',
+                                      'Wave-Signature': sig})
+        self.assertEqual(resp.status_code, 200)
+        ticket.invalidate_recordset(['payment_state'])
+        self.assertEqual(ticket.payment_state, 'paid')
+
+    def test_wave_webhook_rejects_bad_signature(self):
+        import json
+        self.env['ir.config_parameter'].sudo().set_param(
+            'queue_management.wave_webhook_secret', 'topsecret')
+        body = json.dumps({'data': {'id': 'X', 'payment_status': 'succeeded'}})
+        resp = self.url_open('/api/queue/wave/webhook', data=body.encode(),
+                             headers={'Content-Type': 'application/json',
+                                      'Wave-Signature': 'wrong'})
+        self.assertEqual(resp.status_code, 403)
 
 
 @tagged('post_install', '-at_install')

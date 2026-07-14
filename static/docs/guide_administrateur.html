@@ -317,12 +317,28 @@ librement — ce ne sont que des points de départ.</p>
 <p>Un service peut être <strong>payant</strong> (case « Paiement requis
 » + tarif). Chaque ticket naît alors « paiement en attente ». Deux
 règlements : l'agent <strong>encaisse</strong> au guichet (espèces), ou
-le client paie par <strong>mobile money</strong> depuis l'app. ⚠️
-L'endpoint mobile est aujourd'hui une <strong>simulation</strong> : pour
-un vrai paiement, brancher un agrégateur (Orange/MTN/Wave) sur
-<code>queue.ticket.action_register_payment(method, ref)</code>, confirmé
-par le webhook du prestataire. Aucun blocage du service en cas d'impayé
-(choix métier) — le filtre « À payer » liste les régularisations.</p>
+le client paie par <strong>mobile money</strong> depuis l'app.
+<strong>Trois moyens</strong> côté client : <strong>Wave</strong>,
+<strong>au guichet</strong>, <strong>preuve de paiement</strong> — tous
+soumis à <strong>validation d'un agent</strong> (Opérations → Paiements
+à valider), sauf le paiement <strong>Wave direct</strong> si l'API Wave
+est configurée.</p>
+<p><strong>Configuration Wave</strong> (Paramètres → File d'attente,
+section « Paiement — Wave ») :</p>
+<ul>
+<li><em>Numéro / nom Wave Marchand</em> : affiché au client pour le
+paiement manuel ;</li>
+<li><em>Clé API Wave (Checkout)</em> : si renseignée → paiement
+<strong>direct</strong> (l'app initie la transaction, Wave confirme par
+<strong>webhook</strong> signé, sans validation guichet) ;</li>
+<li><em>Secret du webhook Wave</em> : vérifie la signature des
+notifications Wave (URL du webhook :
+<code>https://VOTRE-DOMAINE/api/queue/wave/webhook</code>). ⚠️ L'appel
+réel à l'API Wave nécessite un compte marchand Wave et n'a pas encore
+été éprouvé en production. Sans clé API, le paiement Wave reste en mode
+« Marchand » (déclaration → validation). Aucun blocage du service en cas
+d'impayé.</li>
+</ul>
 <h2 id="7-données-de-démonstration">7. Données de démonstration</h2>
 <p>Installé avec la démo, le module crée deux établissements complets
 (Hôpital Central, Mairie de Cocody) : services avec canaux variés

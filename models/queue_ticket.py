@@ -87,10 +87,15 @@ class QueueTicket(models.Model):
     PAYMENT_STATE = [
         ('not_required', "Gratuit"),
         ('pending', "Paiement en attente"),
+        ('to_validate', "À valider"),
         ('paid', "Payé"),
         ('refunded', "Remboursé"),
     ]
     PAYMENT_METHOD = [
+        ('wave', "Wave"),
+        ('counter', "Au guichet"),
+        ('proof', "Preuve de paiement"),
+        # Valeurs héritées (anciens tickets / API mobile v1).
         ('cash', "Espèces"),
         ('mobile_money', "Mobile money"),
         ('card', "Carte"),
@@ -107,7 +112,14 @@ class QueueTicket(models.Model):
     paid_at = fields.Datetime("Payé le", copy=False)
     payment_ref = fields.Char(
         "Référence de paiement", copy=False,
-        help="Identifiant de la transaction (agrégateur mobile money, TPE…).")
+        help="Identifiant de la transaction (Wave, virement, TPE…).")
+    payment_proof = fields.Binary("Preuve de paiement", copy=False, attachment=True)
+    payment_proof_filename = fields.Char("Nom du fichier de preuve", copy=False)
+    payment_submitted_at = fields.Datetime(
+        "Paiement déclaré le", copy=False,
+        help="Quand le client a déclaré son paiement (à valider par le guichet).")
+    payment_validated_by = fields.Many2one(
+        'res.users', string="Validé par", copy=False, readonly=True)
     scheduled_time = fields.Datetime(
         "Heure de rendez-vous", copy=False,
         help="Renseignée uniquement pour les tickets de type Rendez-vous.",
@@ -464,26 +476,90 @@ class QueueTicket(models.Model):
             ticket.service_id._notify_upcoming()
         return True
 
-    def action_register_payment(self, method='cash', ref=False):
-        """Enregistre le paiement d'un ticket (encaissement agent au guichet,
-        ou confirmation mobile money). Idempotent : ne re-paie pas."""
-        now = fields.Datetime.now()
+    def _amount_label(self):
+        self.ensure_one()
+        if self.currency_id:
+            return self.currency_id.format(self.payment_amount or 0.0)
+        return str(self.payment_amount or 0.0)
+
+    def _mark_paid(self, method, ref=False, by_user=None):
+        """Passe un ticket à « payé » (validation guichet, encaissement direct
+        ou confirmation Wave API). Idempotent."""
+        self.ensure_one()
+        if self.payment_state == 'paid':
+            return
+        self.write({
+            'payment_state': 'paid',
+            'payment_method': method or self.payment_method,
+            'paid_at': fields.Datetime.now(),
+            'payment_ref': ref or self.payment_ref,
+            'payment_validated_by': (by_user or self.env.user).id,
+        })
+        self.message_post(body=_(
+            "Paiement confirmé : %(montant)s (%(moyen)s).",
+            montant=self._amount_label(),
+            moyen=dict(self.PAYMENT_METHOD).get(self.payment_method, self.payment_method or '—')))
+
+    def action_register_payment(self, method='counter', ref=False):
+        """Encaissement DIRECT par l'agent au guichet (l'agent est le
+        validateur : le paiement passe payé immédiatement). Idempotent."""
         for ticket in self:
             if ticket.payment_state == 'paid':
                 continue
             if ticket.payment_state == 'not_required':
                 raise UserError(_("Ce service est gratuit : rien à encaisser."))
-            ticket.write({
-                'payment_state': 'paid',
-                'payment_method': method,
-                'paid_at': now,
-                'payment_ref': ref or ticket.payment_ref,
-            })
+            ticket._mark_paid(method, ref)
+        return True
+
+    def _submit_payment(self, method, ref=False, proof=False, proof_filename=False):
+        """Le CLIENT déclare un paiement (Wave marchand, au guichet, ou preuve).
+
+        Résultat : « à valider » — un agent doit confirmer au guichet. Seule
+        l'API Wave (voie directe) court-circuite cette étape, gérée ailleurs.
+        """
+        self.ensure_one()
+        if self.payment_state in ('paid', 'not_required'):
+            raise UserError(_("Ce ticket n'attend pas de paiement."))
+        if method not in ('wave', 'counter', 'proof'):
+            raise UserError(_("Moyen de paiement inconnu."))
+        if method == 'proof' and not proof:
+            raise UserError(_("Joignez une preuve de paiement."))
+        vals = {
+            'payment_state': 'to_validate',
+            'payment_method': method,
+            'payment_submitted_at': fields.Datetime.now(),
+            'payment_ref': ref or self.payment_ref,
+        }
+        if method == 'proof':
+            vals.update(payment_proof=proof,
+                        payment_proof_filename=proof_filename or 'preuve')
+        self.write(vals)
+        labels = {'wave': _("Wave marchand"), 'counter': _("au guichet"),
+                  'proof': _("preuve de paiement")}
+        self.message_post(body=_(
+            "Le client a déclaré un paiement (%(moyen)s) — à valider au guichet.",
+            moyen=labels.get(method, method)))
+        return True
+
+    def action_validate_payment(self):
+        """L'agent VALIDE un paiement déclaré (à valider → payé)."""
+        for ticket in self:
+            if ticket.payment_state != 'to_validate':
+                raise UserError(_("Seul un paiement « à valider » peut être validé."))
+            ticket._mark_paid(ticket.payment_method)
+        return True
+
+    def action_reject_payment(self):
+        """L'agent REJETTE un paiement déclaré (à valider → en attente)."""
+        for ticket in self:
+            if ticket.payment_state != 'to_validate':
+                raise UserError(_("Seul un paiement « à valider » peut être rejeté."))
+            ticket.write({'payment_state': 'pending',
+                          'payment_proof': False,
+                          'payment_proof_filename': False})
             ticket.message_post(body=_(
-                "Paiement encaissé : %(montant)s (%(moyen)s).",
-                montant=ticket.currency_id.format(ticket.payment_amount or 0.0)
-                        if ticket.currency_id else (ticket.payment_amount or 0.0),
-                moyen=dict(ticket.PAYMENT_METHOD).get(method, method)))
+                "Paiement rejeté par %s — le client doit régler à nouveau.",
+                ticket.env.user.name))
         return True
 
     def _release_counter(self):

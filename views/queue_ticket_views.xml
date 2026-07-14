@@ -20,6 +20,7 @@
                 <field name="created_at"/>
                 <field name="payment_state" widget="badge" optional="show"
                        decoration-warning="payment_state == 'pending'"
+                       decoration-info="payment_state == 'to_validate'"
                        decoration-success="payment_state == 'paid'"/>
                 <field name="state" widget="badge"
                        decoration-info="state == 'waiting'"
@@ -54,10 +55,18 @@
                             string="Re-mettre en file" class="btn-primary"
                             invisible="state != 'no_show'"
                             help="Le client s'est présenté après avoir été marqué absent : il reprend sa place selon son heure d'arrivée d'origine."/>
+                    <button name="action_validate_payment" type="object"
+                            string="Valider le paiement" class="btn-primary"
+                            invisible="payment_state != 'to_validate'"
+                            help="Confirme le paiement déclaré par le client."/>
+                    <button name="action_reject_payment" type="object"
+                            string="Rejeter le paiement"
+                            invisible="payment_state != 'to_validate'"
+                            confirm="Rejeter ce paiement ? Le client devra régler à nouveau."/>
                     <button name="action_register_payment" type="object"
                             string="Encaisser" class="btn-primary"
                             invisible="payment_state != 'pending'"
-                            help="Enregistre le paiement au guichet (espèces)."/>
+                            help="Encaissement direct au guichet (le paiement passe payé)."/>
                     <button name="action_cancel" type="object" string="Annuler"
                             invisible="state in ('done','no_show','cancelled')"
                             confirm="Annuler ce ticket ?"/>
@@ -73,6 +82,8 @@
                             invisible="state != 'done'"/>
                     <widget name="web_ribbon" title="À payer" bg_color="text-bg-warning"
                             invisible="payment_state != 'pending'"/>
+                    <widget name="web_ribbon" title="Paiement à valider" bg_color="text-bg-info"
+                            invisible="payment_state != 'to_validate'"/>
                     <div class="oe_title">
                         <h1>
                             <field name="priority" widget="priority" class="me-2"/>
@@ -93,8 +104,17 @@
                             <field name="payment_amount" widget="monetary"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="payment_method"
-                                   invisible="payment_state != 'paid'"/>
+                                   invisible="payment_state in ('pending',)"/>
+                            <field name="payment_ref"
+                                   invisible="not payment_ref"/>
+                            <field name="payment_submitted_at"
+                                   invisible="payment_state != 'to_validate'"/>
+                            <field name="payment_proof" filename="payment_proof_filename"
+                                   invisible="not payment_proof"/>
+                            <field name="payment_proof_filename" invisible="1"/>
                             <field name="paid_at" invisible="payment_state != 'paid'"/>
+                            <field name="payment_validated_by"
+                                   invisible="payment_state != 'paid'"/>
                         </group>
                         <group string="Service &amp; guichet">
                             <field name="service_id"
@@ -140,6 +160,8 @@
                         domain="[('state','in',('waiting','called','serving'))]"/>
                 <filter name="to_pay" string="À payer"
                         domain="[('payment_state','=','pending')]"/>
+                <filter name="to_validate" string="Paiements à valider"
+                        domain="[('payment_state','=','to_validate')]"/>
                 <separator/>
                 <filter name="today" string="Aujourd'hui"
                         domain="[('created_at','&gt;=', context_today().strftime('%Y-%m-%d 00:00:00'))]"/>
@@ -158,6 +180,19 @@
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_queue_ticket_search"/>
         <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+    <record id="action_queue_payments_to_validate" model="ir.actions.act_window">
+        <field name="name">Paiements à valider</field>
+        <field name="res_model">queue.ticket</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('payment_state','=','to_validate')]</field>
+        <field name="context">{'search_default_to_validate': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucun paiement en attente de validation</p>
+            <p>Les paiements déclarés par les clients (Wave marchand, au guichet,
+               preuve) apparaissent ici pour être validés au guichet.</p>
+        </field>
     </record>
 
 </odoo>

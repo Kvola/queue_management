@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from . import res_partner
 from . import queue_sector
+from . import queue_wave
 from . import queue_rate_limit
 from . import queue_location
 from . import queue_service

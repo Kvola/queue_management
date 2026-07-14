@@ -58,10 +58,13 @@ Cas particuliers, tant que le ticket est « appelé » :
   place selon son heure d'arrivée d'origine (dans les 2 h qui suivent
   l'appel ; au-delà, il reprend un ticket).
 
-- **Encaisser** — service payant : sur le ticket « à payer », le bouton
-  **Encaisser** enregistre le règlement en espèces (le client peut aussi
-  payer lui-même par mobile money depuis l'app). Le filtre **À payer** de la
-  liste des tickets recense les impayés.
+- **Paiements** — service payant :
+  - **Encaisser** (ticket « à payer ») : encaissement direct au comptoir → payé.
+  - **Valider / Rejeter** (ticket « paiement à valider ») : le client a
+    déclaré un paiement (Wave marchand, au guichet, ou preuve jointe) —
+    vérifiez (numéro Wave crédité, espèces reçues, preuve) puis **Validez**,
+    ou **Rejetez** s'il est invalide. Le menu **Opérations → Paiements à
+    valider** liste tout ce qui attend votre confirmation.
 
 À savoir : un ticket appelé resté **sans réponse** est automatiquement
 marqué absent au bout de quelques minutes (délai réglé par

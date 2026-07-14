@@ -51,6 +51,23 @@ class ResConfigSettings(models.TransientModel):
         help="Un ticket appelé resté sans réponse ce délai passe en Absent "
              "(guichet libéré, client notifié, re-mise en file possible). "
              "0 = désactivé.")
+    # --- Paiement Wave ---
+    queue_wave_merchant_label = fields.Char(
+        "Numéro / nom Wave Marchand",
+        config_parameter='queue_management.wave_merchant_label',
+        help="Affiché au client pour la voie « Wave Marchand » (paiement "
+             "manuel puis validation au guichet).")
+    queue_wave_api_key = fields.Char(
+        "Clé API Wave (Checkout)",
+        config_parameter='queue_management.wave_api_key',
+        help="Si renseignée, le paiement Wave devient DIRECT (l'app initie la "
+             "transaction, Wave confirme par webhook) — sans validation "
+             "guichet. Sinon, repli sur Wave Marchand.")
+    queue_wave_webhook_secret = fields.Char(
+        "Secret du webhook Wave",
+        config_parameter='queue_management.wave_webhook_secret',
+        help="Vérifie la signature des notifications Wave. Indispensable pour "
+             "la voie directe (sinon le webhook est refusé).")
     queue_no_show_delay_min = fields.Integer(
         "Expiration des RDV non honorés (minutes)", default=60,
         config_parameter='queue_management.no_show_delay_min',

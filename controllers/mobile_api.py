@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import base64
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -105,6 +107,9 @@ class QueueMobileApi(http.Controller):
             'payment_state': ticket.payment_state,
             'payment_amount': ticket.payment_amount,
             'currency': ticket.currency_id.symbol or ticket.currency_id.name or '',
+            'payment_method': ticket.payment_method or '',
+            'wave_direct': ticket.env['queue.wave.mixin'].sudo()._wave_api_configured(),
+            'wave_merchant': ticket.env['queue.wave.mixin'].sudo()._wave_merchant_label(),
         }
 
     # --- Authentification par email (OTP) ------------------------------------
@@ -185,12 +190,17 @@ class QueueMobileApi(http.Controller):
              'price': s.price, 'currency': s.currency_id.symbol or s.currency_id.name or ''}
             for s in location.service_ids.filtered('active')
         ]
+        wave = request.env['queue.wave.mixin'].sudo()
         return self._ok(
             # qr_token renvoyé en écho : l'app le conserve pour prouver, à la
             # prise de ticket, qu'elle a bien scanné le QR de ce site.
             site={'id': location.id, 'name': location.name,
                   'city': location.city or '', 'qr_token': location.qr_token},
             services=services,
+            payment={
+                'wave_direct': wave._wave_api_configured(),
+                'wave_merchant': wave._wave_merchant_label(),
+            },
         )
 
     @staticmethod
@@ -360,13 +370,16 @@ class QueueMobileApi(http.Controller):
     @http.route('/api/queue/ticket/pay', type='jsonrpc', auth='public',
                 methods=['POST'], csrf=False)
     def ticket_pay(self, **kw):
-        """Paiement mobile d'un ticket.
+        """Le client déclare/initie un paiement (3 méthodes).
 
-        ⚠️ SIMULATION : marque le ticket payé immédiatement. En production,
-        cette route INITIERAIT le paiement auprès de l'agrégateur mobile money
-        (Orange/MTN/Wave…) et le ticket ne passerait « payé » qu'à la
-        confirmation asynchrone (webhook du PSP). Le point d'extension est
-        ``queue.ticket.action_register_payment(method, ref)``.
+        - method='wave'   : si l'API Wave est configurée → paiement DIRECT
+          (renvoie ``payment_url`` ; Wave confirmera par webhook). Sinon →
+          Wave Marchand : ticket « à valider » + numéro marchand renvoyé.
+        - method='counter': « je paierai au guichet » → « à valider ».
+        - method='proof'  : preuve jointe (base64) → « à valider ».
+
+        Toutes les voies « à valider » attendent la confirmation d'un agent au
+        guichet ; seule l'API Wave court-circuite cette étape.
         """
         customer = self._get_customer(kw)
         if not customer:
@@ -375,13 +388,61 @@ class QueueMobileApi(http.Controller):
             int(kw.get('ticket_id') or 0))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
             return self._err(_("Ticket introuvable."))
-        if ticket.payment_state == 'paid':
+        if ticket.payment_state in ('paid', 'to_validate'):
             return self._ok(ticket=self._ticket_data(ticket))
         if ticket.payment_state != 'pending':
             return self._err(_("Ce ticket n'attend pas de paiement."))
-        ticket.action_register_payment(
-            method='mobile_money', ref='SIMU-%s' % ticket.id)
-        return self._ok(ticket=self._ticket_data(ticket))
+
+        method = kw.get('method') or 'wave'
+        wave = request.env['queue.wave.mixin'].sudo()
+
+        if method == 'wave' and wave._wave_api_configured():
+            # Voie directe : on tente d'ouvrir une session Wave.
+            from odoo.addons.queue_management.models.queue_wave import WaveError
+            try:
+                url = wave._wave_create_checkout(ticket)
+                return self._ok(ticket=self._ticket_data(ticket),
+                                payment_url=url)
+            except WaveError:
+                pass  # repli sur Wave Marchand ci-dessous
+
+        proof_b64 = kw.get('proof')
+        proof = False
+        if method == 'proof':
+            if not proof_b64:
+                return self._err(_("Joignez une preuve de paiement."))
+            try:
+                base64.b64decode(proof_b64)  # validation
+                proof = proof_b64
+            except Exception:
+                return self._err(_("Preuve illisible."))
+        try:
+            ticket._submit_payment(method, ref=kw.get('ref'),
+                                   proof=proof,
+                                   proof_filename=kw.get('proof_filename'))
+        except UserError as exc:
+            return self._err(exc.args[0] if exc.args else _("Paiement impossible."))
+        extra = {}
+        if method == 'wave':
+            extra['merchant'] = wave._wave_merchant_label()
+        return self._ok(ticket=self._ticket_data(ticket), **extra)
+
+    @http.route('/api/queue/wave/webhook', type='http', auth='public',
+                methods=['POST'], csrf=False)
+    def wave_webhook(self, **kw):
+        """Notification de paiement Wave (voie directe). Signature vérifiée."""
+        raw = request.httprequest.get_data()
+        sig = request.httprequest.headers.get('Wave-Signature') \
+            or request.httprequest.headers.get('X-Wave-Signature')
+        wave = request.env['queue.wave.mixin'].sudo()
+        if not wave._wave_verify_signature(raw, sig):
+            return request.make_response('invalid signature', status=403)
+        try:
+            event = json.loads(raw or b'{}')
+        except ValueError:
+            return request.make_response('bad payload', status=400)
+        wave._wave_handle_webhook(event)
+        return request.make_response('ok')
 
     # --- Notifications push ---------------------------------------------------
 

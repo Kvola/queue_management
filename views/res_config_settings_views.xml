@@ -20,6 +20,21 @@
                             <field name="queue_token_ttl_days" class="o_light_label"/>
                         </setting>
                     </block>
+                    <block title="Paiement — Wave">
+                        <setting string="Numéro / nom Wave Marchand"
+                                 help="Affiché au client pour un paiement Wave manuel, validé ensuite au guichet.">
+                            <field name="queue_wave_merchant_label"
+                                   placeholder="Ex. +225 07 00 00 00 00"/>
+                        </setting>
+                        <setting string="Clé API Wave (paiement direct)"
+                                 help="Renseignée → le paiement Wave est confirmé automatiquement par webhook, sans validation guichet. Vide → Wave Marchand.">
+                            <field name="queue_wave_api_key" password="True"/>
+                        </setting>
+                        <setting string="Secret du webhook Wave"
+                                 help="Vérifie la signature des notifications Wave. Requis pour le paiement direct.">
+                            <field name="queue_wave_webhook_secret" password="True"/>
+                        </setting>
+                    </block>
                     <block title="Files et quotas">
                         <setting string="Tickets actifs max par client"
                                  help="Plafond global (files + rendez-vous, tous établissements confondus) — garde anti-abus.">
