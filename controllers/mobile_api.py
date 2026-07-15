@@ -398,7 +398,7 @@ class QueueMobileApi(http.Controller):
 
         if method == 'wave' and wave._wave_api_configured():
             # Voie directe (API Checkout) : session + webhook, sans validation.
-            from odoo.addons.queue_management.models.queue_wave import WaveError
+            from odoo.addons.queue_payment.models.queue_wave import WaveError
             try:
                 url = wave._wave_create_checkout(ticket)
                 return self._ok(ticket=self._ticket_data(ticket),

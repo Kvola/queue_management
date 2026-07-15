@@ -1,156 +1,47 @@
 # -*- coding: utf-8 -*-
-"""Intégration Wave (paiement mobile) — voie directe optionnelle.
+"""Extension Wave spécifique au ticket.
 
-Deux modes selon la configuration (Paramètres → File d'attente) :
+Les helpers Wave génériques (lien marchand, session Checkout, signature du
+webhook) vivent dans le module ``queue_payment`` (``queue.wave.mixin``). Ici on
+ajoute uniquement ce qui touche au **ticket** : construire l'URL de règlement
+d'un ticket, ouvrir une session de paiement pour un ticket, et traiter le
+webhook Wave en rapprochant la session du ticket concerné.
 
-* **Wave Marchand** (par défaut) : le client paie sur le numéro Wave du
-  marchand depuis l'appli Wave, puis déclare son paiement dans l'app. Un agent
-  valide au guichet. Aucune clé API requise.
-* **API Wave** (si une clé Checkout est renseignée) : l'app initie une session
-  de paiement Wave ; le client paie ; Wave confirme par webhook signé →
-  paiement marqué payé automatiquement, sans validation guichet.
-
-L'appel HTTP réel à l'API Wave et la vérification de signature sont implémentés
-mais ne peuvent être testés qu'avec un compte marchand Wave (clé + secret).
+``WaveError`` est ré-exporté pour conserver le chemin d'import historique
+``queue_management.models.queue_wave.WaveError``.
 """
-import hashlib
-import hmac
-import json
 import logging
 
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
-import requests
-
 from odoo import api, models
+from odoo.addons.queue_payment.models.queue_wave import WaveError  # noqa: F401 — ré-export
 
 _logger = logging.getLogger(__name__)
 
-# API Checkout de Wave. URL surchargée par le paramètre
-# queue_management.wave_api_base si besoin (bac à sable).
-_WAVE_API_BASE = "https://api.wave.com/v1"
-_WAVE_TIMEOUT = 15
 
-# Lien marchand Wave par défaut de la plateforme (utilisé si une compagnie
-# n'a pas configuré le sien). Surchargé par le paramètre
-# queue_management.wave_default_link.
-_WAVE_DEFAULT_LINK = "https://pay.wave.com/m/M_ci_sy9lVJUuQUd0/c/ci/"
-
-
-class WaveError(Exception):
-    """Échec Wave (l'appelant retombe sur Wave Marchand)."""
-
-
-class QueueWaveMixin(models.AbstractModel):
-    _name = 'queue.wave.mixin'
-    _description = "Intégration Wave (helpers)"
-
-    @api.model
-    def _wave_param(self, name, default=''):
-        return (self.env['ir.config_parameter'].sudo()
-                .get_param('queue_management.%s' % name) or default).strip()
-
-    @api.model
-    def _wave_api_key(self):
-        return self._wave_param('wave_api_key')
-
-    @api.model
-    def _wave_api_configured(self):
-        """L'API Wave est-elle activée ? (voie directe sans validation guichet)"""
-        return bool(self._wave_api_key())
-
-    @api.model
-    def _wave_merchant_label(self):
-        """Numéro/nom Marchand à afficher pour la voie manuelle."""
-        return self._wave_param('wave_merchant_label')
-
-    @api.model
-    def _wave_api_base(self):
-        return self._wave_param('wave_api_base', _WAVE_API_BASE).rstrip('/')
-
-    # --- Lien de paiement Wave (par compagnie, sinon par défaut) -----------
-
-    @api.model
-    def _wave_default_link(self):
-        return self._wave_param('wave_default_link', _WAVE_DEFAULT_LINK)
-
-    @api.model
-    def _wave_link_for(self, company):
-        """Lien marchand Wave à utiliser : celui de la compagnie, sinon le
-        lien par défaut de la plateforme."""
-        return (company.wave_payment_link or '').strip() or self._wave_default_link()
+class QueueWaveTicketMixin(models.AbstractModel):
+    _inherit = 'queue.wave.mixin'
 
     @api.model
     def _wave_payment_url(self, ticket):
-        """URL Wave prête à payer : lien marchand + ?amount=<montant>."""
-        link = self._wave_link_for(ticket.company_id)
-        if not link:
-            return ''
-        amount = int(round(ticket.payment_amount or 0))
-        parts = urlsplit(link)
-        query = [(k, v) for k, v in parse_qsl(parts.query) if k != 'amount']
-        query.append(('amount', str(amount)))
-        return urlunsplit((parts.scheme, parts.netloc, parts.path,
-                           urlencode(query), parts.fragment))
-
-    # ------------------------------------------------------------------
-    # Appel API Checkout (voie directe)
-    # ------------------------------------------------------------------
+        """URL Wave prête à payer pour un ticket (lien marchand + montant)."""
+        return self._wave_url_for(ticket.company_id, ticket.payment_amount)
 
     def _wave_create_checkout(self, ticket):
-        """Crée une session de paiement Wave et renvoie l'URL de règlement.
+        """Ouvre une session de paiement Wave pour un ticket (voie directe).
 
-        Le client est redirigé vers cette URL (deeplink Wave) ; à la
-        confirmation, Wave appelle notre webhook. La référence de session est
-        stockée dans ``payment_ref`` pour rapprocher le webhook du ticket.
-        Lève ``WaveError`` en cas d'échec (repli sur Wave Marchand).
+        La référence de session est rangée dans ``payment_ref`` pour rapprocher
+        le webhook. Lève ``WaveError`` en cas d'échec (repli sur Wave Marchand).
         """
-        key = self._wave_api_key()
-        if not key:
-            raise WaveError("API Wave non configurée.")
         base_url = (self.env['ir.config_parameter'].sudo()
                     .get_param('web.base.url') or '').rstrip('/')
-        payload = {
-            'amount': str(int(ticket.payment_amount or 0)),
-            'currency': ticket.currency_id.name or 'XOF',
-            'error_url': '%s/queue/app' % base_url,
-            'success_url': '%s/queue/app' % base_url,
-            'client_reference': 'ticket-%s' % ticket.id,
-        }
-        try:
-            resp = requests.post(
-                '%s/checkout/sessions' % self._wave_api_base(),
-                headers={'Authorization': 'Bearer %s' % key,
-                         'Content-Type': 'application/json'},
-                data=json.dumps(payload), timeout=_WAVE_TIMEOUT)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as exc:  # noqa: BLE001 — repli propre
-            _logger.warning("API Wave : échec de création de session : %s", exc)
-            raise WaveError(str(exc))
-        session_id = data.get('id') or data.get('session_id')
-        url = data.get('wave_launch_url') or data.get('payment_url')
-        if not (session_id and url):
-            raise WaveError("Réponse Wave inattendue.")
+        session_id, url = self._wave_checkout_session(
+            ticket.payment_amount,
+            ticket.currency_id.name or 'XOF',
+            'ticket-%s' % ticket.id,
+            '%s/queue/app' % base_url,
+        )
         ticket.sudo().write({'payment_ref': session_id})
         return url
-
-    # ------------------------------------------------------------------
-    # Webhook (confirmation asynchrone)
-    # ------------------------------------------------------------------
-
-    @api.model
-    def _wave_verify_signature(self, raw_body, signature):
-        """Vérifie la signature HMAC-SHA256 du webhook Wave.
-
-        Sans secret configuré ou sans signature, on refuse : un webhook non
-        vérifié permettrait à quiconque de marquer un ticket payé.
-        """
-        secret = self._wave_param('wave_webhook_secret')
-        if not secret or not signature:
-            return False
-        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected, signature)
 
     @api.model
     def _wave_handle_webhook(self, event):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': "Gestionnaire de file d'attente",
-    'version': '19.0.2.3.0',
+    'version': '19.0.2.4.0',
     'category': 'Services',
     'summary': "File d'attente virtuelle multi-établissements (hôpitaux, services, administrations)",
     'description': """
@@ -36,6 +36,7 @@ d'attente & statistiques (Phase 5).
     'depends': [
         'base',
         'mail',
+        'queue_payment',
         # 'push_notification_hub' : dépendance VOLONTAIREMENT souple (non listée).
         # Le push réutilise ce hub quand il est installé, mais queue_management
         # reste installable et fonctionnel sans lui (cf. queue.customer._push).
