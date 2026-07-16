@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="client_portal_page" name="Portail client (web)">
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+                <meta name="theme-color" content="#2563eb"/>
+                <title>File d'attente</title>
+                <t t-if="token">
+                    <link rel="manifest" t-attf-href="/queue/u/{{ token }}/manifest.webmanifest"/>
+                    <link rel="apple-touch-icon" href="/queue_management/static/pwa/icon-192.png"/>
+                </t>
+                <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                           background: #f1f5f9; color: #0f172a; padding-bottom: 3rem; }
+                    header { background: #1e293b; color: #f1f5f9; padding: 1rem 1.1rem;
+                             display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+                    header h1 { font-size: 1.15rem; }
+                    header .city { color: #94a3b8; font-size: .85rem; }
+                    header button { color: #cbd5e1; font-size: .85rem; background: none; border: 0; cursor: pointer; }
+                    .wrap { max-width: 640px; margin: 0 auto; padding: 1rem; }
+                    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: .9rem;
+                            padding: 1rem 1.1rem; margin-bottom: 1rem; }
+                    h2 { font-size: .95rem; text-transform: uppercase; letter-spacing: .04em;
+                         color: #64748b; margin: 1rem 0 .6rem; }
+                    .svc { display: flex; justify-content: space-between; align-items: center;
+                           padding: .7rem 0; border-bottom: 1px solid #f1f5f9; gap: .6rem; }
+                    .svc:last-child { border-bottom: 0; }
+                    .svc .n { font-weight: 600; }
+                    .svc .m { color: #64748b; font-size: .85rem; }
+                    .badge { display: inline-block; font-size: .72rem; padding: .1rem .45rem;
+                             border-radius: 1rem; background: #e0e7ff; color: #3730a3; margin-left: .3rem; }
+                    .badge.pay { background: #fef3c7; color: #92400e; }
+                    .btn { background: #2563eb; color: #fff; border: 0; border-radius: .55rem;
+                           padding: .55rem .9rem; font-weight: 600; font-size: .9rem; cursor: pointer; white-space: nowrap; }
+                    .btn:disabled { opacity: .5; }
+                    .btn.ghost { background: #eef2ff; color: #1e3a8a; }
+                    .btn.red { background: #dc2626; }
+                    input { width: 100%; padding: .6rem .7rem; border: 1px solid #cbd5e1;
+                            border-radius: .55rem; font: inherit; }
+                    label.chk { display: flex; align-items: center; gap: .35rem; font-size: .8rem;
+                                color: #475569; margin-top: .3rem; }
+                    label.chk input { width: auto; }
+                    .ticket { background: #0f172a; color: #f1f5f9; border-radius: .9rem;
+                              padding: 1rem 1.1rem; margin-bottom: .8rem; }
+                    .ticket .num { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+                    .ticket .svcn { color: #cbd5e1; }
+                    .ticket .st { display: inline-block; margin-top: .5rem; font-weight: 600;
+                                  padding: .15rem .6rem; border-radius: 1rem; font-size: .85rem; }
+                    .st.wait { background: #334155; } .st.called { background: #b45309; }
+                    .st.serving { background: #166534; } .st.sched { background: #3730a3; }
+                    .ticket .info { color: #94a3b8; font-size: .9rem; margin-top: .4rem; }
+                    .paybox { background: #fff7ed; border: 1px solid #fed7aa; border-radius: .6rem;
+                              padding: .6rem .7rem; margin-top: .6rem; color: #7c2d12; }
+                    .paybox.paid { background: #dcfce7; border-color: #bbf7d0; color: #166534; text-align: center; font-weight: 600; }
+                    .paylbl { font-weight: 600; margin-bottom: .4rem; }
+                    .row { display: flex; gap: .5rem; align-items: center; }
+                    .row.wrap { flex-wrap: wrap; }
+                    .muted { color: #94a3b8; } .mt { margin-top: .6rem; }
+                    .install { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: .7rem;
+                               padding: .6rem .8rem; font-size: .85rem; display: flex; gap: .5rem;
+                               justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+                    .modal { position: fixed; inset: 0; background: rgba(15,23,42,.6);
+                             display: flex; align-items: flex-end; justify-content: center; z-index: 10; }
+                    .modal-card { background: #fff; width: 100%; max-width: 640px;
+                                  border-radius: 1rem 1rem 0 0; padding: 1.1rem; max-height: 82vh; overflow: auto; }
+                    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+                    .x { background: none; border: 0; font-size: 1.2rem; cursor: pointer; }
+                    .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px,1fr)); gap: .5rem; margin-top: .7rem; }
+                    #toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%);
+                             background: #1e293b; color: #fff; padding: .6rem 1rem; border-radius: .6rem;
+                             opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 92vw; z-index: 11; }
+                    #toast.show { opacity: .96; }
+                    .center { text-align: center; padding: 2rem 1rem; }
+                </style>
+            </head>
+            <body t-att-data-token="token">
+                <header>
+                    <div>
+                        <h1 id="siteName">File d'attente</h1>
+                        <div class="city" id="siteCity"></div>
+                    </div>
+                    <div class="row">
+                        <span id="who" class="muted"></span>
+                        <button id="logoutBtn" style="display:none">Déconnexion</button>
+                    </div>
+                </header>
+                <div class="wrap" id="app">
+                    <div class="center muted">Chargement…</div>
+                </div>
+
+                <div id="apptModal" class="modal" style="display:none">
+                    <div class="modal-card">
+                        <div class="modal-head"><b id="apptTitle">Rendez-vous</b>
+                            <button class="x" id="apptClose">✕</button></div>
+                        <label class="muted">Choisissez une date, puis un créneau</label>
+                        <input type="date" id="apptDate" class="mt"/>
+                        <div id="apptSlots" class="slots"></div>
+                    </div>
+                </div>
+                <input type="file" id="proofInput" accept="image/*" style="display:none"/>
+                <div id="toast"></div>
+
+                <script><![CDATA[
+                    var TOKEN = document.body.getAttribute('data-token') || '';
+                    var site = null, services = [], tickets = [];
+                    var installEvt = null, apptSvc = null, proofTicket = null;
+                    var LS = window.localStorage;
+                    function h(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){
+                        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+                    function toast(m){ var t=document.getElementById('toast'); t.textContent=m;
+                        t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 3200); }
+                    function tok(){ return LS.getItem('q_token') || ''; }
+                    function setSession(token, email, name){ LS.setItem('q_token', token);
+                        LS.setItem('q_email', email||''); LS.setItem('q_name', name||''); }
+                    function clearSession(){ LS.removeItem('q_token'); LS.removeItem('q_email'); LS.removeItem('q_name'); }
+
+                    async function api(path, params){
+                        var r = await fetch('/api/queue/'+path, { method:'POST', credentials:'same-origin',
+                            headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({jsonrpc:'2.0', method:'call', id:1, params: params||{}}) });
+                        var j = await r.json();
+                        if (j.error) throw new Error((j.error.data && j.error.data.message) || j.error.message || 'Erreur');
+                        return j.result || {};
+                    }
+
+                    function renderNoSite(){
+                        document.getElementById('app').innerHTML =
+                            '<div class="card"><h2>Prendre un ticket</h2>'
+                            + '<p class="muted mt">Scannez le QR affiché à l\'entrée du site, ou saisissez son code :</p>'
+                            + '<div class="row mt"><input id="codeIn" placeholder="Code du site"/>'
+                            + '<button class="btn" id="goBtn">Ouvrir</button></div></div>';
+                        document.getElementById('goBtn').onclick = function(){
+                            var c = (document.getElementById('codeIn').value||'').trim();
+                            if (c) location.href = '/queue/u/' + encodeURIComponent(c);
+                        };
+                    }
+
+                    function loginCard(){
+                        var email = LS.getItem('q_email') || '';
+                        return '<div class="card"><h2>Se connecter</h2>'
+                            + '<p class="muted mt">Un code vous est envoyé par email pour prendre et suivre vos tickets.</p>'
+                            + '<div class="mt"><input id="emailIn" type="email" placeholder="Votre email" value="'+h(email)+'"/></div>'
+                            + '<button class="btn" id="sendBtn" style="margin-top:.6rem">Recevoir un code</button>'
+                            + '<div id="otpBox" style="display:none">'
+                            + '<div class="mt"><input id="otpIn" inputmode="numeric" placeholder="Code reçu"/></div>'
+                            + '<button class="btn" id="verifyBtn" style="margin-top:.6rem">Valider</button></div></div>';
+                    }
+                    function wireLogin(){
+                        var sendBtn = document.getElementById('sendBtn');
+                        if (sendBtn) sendBtn.onclick = async function(){
+                            var email = (document.getElementById('emailIn').value||'').trim();
+                            if (!email) return toast('Saisissez votre email');
+                            sendBtn.disabled = true;
+                            try { var res = await api('auth/request_otp', {email: email});
+                                if (res.status === 'error') toast(res.message);
+                                else { LS.setItem('q_email', email);
+                                    document.getElementById('otpBox').style.display = 'block';
+                                    toast(res.message || 'Code envoyé'); }
+                            } catch(e){ toast(e.message); } finally { sendBtn.disabled = false; }
+                        };
+                        var vBtn = document.getElementById('verifyBtn');
+                        if (vBtn) vBtn.onclick = async function(){
+                            var email = (document.getElementById('emailIn').value||'').trim();
+                            var otp = (document.getElementById('otpIn').value||'').trim();
+                            vBtn.disabled = true;
+                            try { var res = await api('auth/verify_otp', {email: email, otp: otp});
+                                if (res.status === 'error') toast(res.message);
+                                else { setSession(res.auth_token, res.customer.email, res.customer.name);
+                                    toast('Bienvenue'); await loadTickets(); render(); }
+                            } catch(e){ toast(e.message); } finally { vBtn.disabled = false; }
+                        };
+                    }
+
+                    // ---- Actions ----
+                    async function takeTicket(serviceId, remote){
+                        if (!tok()) { toast('Connectez-vous d\'abord'); return; }
+                        try { var res = await api('ticket/create',
+                                {auth_token: tok(), service_id: serviceId, qr_token: TOKEN, remote: !!remote});
+                            if (res.status === 'error') { if (res.code === 'auth_required') { clearSession(); render(); }
+                                toast(res.message); return; }
+                            toast(res.message || 'Ticket pris ✓');
+                            await loadTickets(); await loadSite(); render();
+                        } catch(e){ toast(e.message); }
+                    }
+                    async function cancelTicket(id){
+                        try { var res = await api('ticket/cancel', {auth_token: tok(), ticket_id: id});
+                            if (res.status === 'error') { toast(res.message); return; }
+                            await loadTickets(); await loadSite(); render();
+                        } catch(e){ toast(e.message); }
+                    }
+                    async function checkin(id){
+                        try { var res = await api('ticket/checkin', {auth_token: tok(), ticket_id: id});
+                            if (res.status === 'error') { toast(res.message); return; }
+                            toast('Enregistré ✓'); await loadTickets(); renderTicketsInto();
+                        } catch(e){ toast(e.message); }
+                    }
+                    async function pay(id, method, extra){
+                        var params = {auth_token: tok(), ticket_id: id, method: method};
+                        if (extra) for (var k in extra) params[k] = extra[k];
+                        try { var res = await api('ticket/pay', params);
+                            if (res.status === 'error') { toast(res.message); return; }
+                            if (res.payment_url) { window.open(res.payment_url, '_blank');
+                                toast('Réglez sur Wave — un agent validera'); }
+                            else { toast('Paiement déclaré'); }
+                            await loadTickets(); renderTicketsInto();
+                        } catch(e){ toast(e.message); }
+                    }
+                    function payProof(id){ proofTicket = id;
+                        var pi = document.getElementById('proofInput'); pi.value=''; pi.click(); }
+                    async function logout(){
+                        try { await api('auth/logout', {auth_token: tok()}); } catch(e){}
+                        clearSession(); tickets = []; render();
+                    }
+
+                    // ---- Rendez-vous ----
+                    function fmtDate(d){ var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+                        return d.getFullYear()+'-'+m+'-'+day; }
+                    function openAppt(id, name){
+                        apptSvc = id;
+                        document.getElementById('apptTitle').textContent = 'Rendez-vous — ' + name;
+                        var di = document.getElementById('apptDate');
+                        var today = new Date(); var max = new Date(); max.setDate(max.getDate()+14);
+                        di.min = fmtDate(today); di.max = fmtDate(max); di.value = fmtDate(today);
+                        document.getElementById('apptModal').style.display = 'flex';
+                        loadSlots();
+                    }
+                    function closeAppt(){ document.getElementById('apptModal').style.display='none'; apptSvc=null; }
+                    async function loadSlots(){
+                        var box = document.getElementById('apptSlots');
+                        if (!tok()) { box.innerHTML = '<p class="muted">Connectez-vous pour réserver.</p>'; return; }
+                        var date = document.getElementById('apptDate').value;
+                        box.innerHTML = '<p class="muted">Chargement…</p>';
+                        try { var res = await api('slots', {service_id: apptSvc, date: date});
+                            if (res.status === 'error') { box.innerHTML = '<p class="muted">'+h(res.message)+'</p>'; return; }
+                            var slots = res.slots || [];
+                            box.innerHTML = slots.length
+                                ? slots.map(function(s){ return '<button class="btn '+(s.available?'':'ghost')+'"'
+                                    + (s.available?'':' disabled')+' data-slot="'+h(s.time)+'">'+h(s.label)+'</button>'; }).join('')
+                                : '<p class="muted">Aucun créneau ce jour.</p>';
+                        } catch(e){ box.innerHTML = '<p class="muted">'+h(e.message)+'</p>'; }
+                    }
+                    async function book(slot){
+                        try { var res = await api('appointment/book', {auth_token: tok(), service_id: apptSvc, slot: slot});
+                            if (res.status === 'error') { toast(res.message); return; }
+                            toast('Rendez-vous réservé ✓'); closeAppt();
+                            await loadTickets(); await loadSite(); render();
+                        } catch(e){ toast(e.message); }
+                    }
+
+                    // ---- Chargement ----
+                    async function loadSite(){
+                        if (!TOKEN) return;
+                        try { var res = await api('site', {qr_token: TOKEN});
+                            if (res.status === 'ok') { site = res.site; services = res.services || []; } else { site = false; }
+                        } catch(e){}
+                    }
+                    async function loadTickets(){
+                        if (!tok()) { tickets = []; return; }
+                        try { var res = await api('tickets', {auth_token: tok()});
+                            if (res.status === 'ok') tickets = res.tickets || [];
+                            else if (res.code === 'auth_required') { clearSession(); tickets = []; }
+                        } catch(e){}
+                    }
+
+                    // ---- Rendu ----
+                    var ST = {waiting:['En attente','wait'], called:['À vous ! Présentez-vous','called'],
+                              serving:['En cours','serving'], scheduled:['Programmé','sched']};
+                    function ticketHtml(t){
+                        var st = ST[t.state] || [t.state,'wait'];
+                        var pos = (t.state==='waiting' && t.position) ? ('Position '+t.position) : '';
+                        var eta = (t.eta_minutes && t.state==='waiting') ? ('~'+t.eta_minutes+' min') : '';
+                        var meta = [pos,eta].filter(Boolean).join(' · ');
+                        var sched = (t.state==='scheduled' && t.scheduled_time) ? ('Rendez-vous : '+h(t.scheduled_time)) : '';
+                        var pay = '';
+                        if (t.payment_state === 'pending') {
+                            pay = '<div class="paybox"><div class="paylbl">À régler : '+h(t.payment_amount)+' '+h(t.currency)+'</div>'
+                                + '<div class="row wrap">'
+                                + '<button class="btn" data-pay="wave" data-t="'+t.id+'">Payer avec Wave</button>'
+                                + '<button class="btn ghost" data-pay="proof" data-t="'+t.id+'">Preuve de paiement</button>'
+                                + '<button class="btn ghost" data-pay="counter" data-t="'+t.id+'">Payer au guichet</button></div></div>';
+                        } else if (t.payment_state === 'to_validate') {
+                            pay = '<div class="paybox"><div class="paylbl">Paiement déclaré — en attente de validation au guichet.</div></div>';
+                        } else if (t.payment_state === 'paid') {
+                            pay = '<div class="paybox paid">Payé ✓</div>';
+                        }
+                        var actions = '';
+                        if (t.state === 'scheduled') actions += '<button class="btn" data-checkin="'+t.id+'">Je suis arrivé(e)</button>';
+                        if (['waiting','called','scheduled'].indexOf(t.state) >= 0)
+                            actions += '<button class="btn red" data-cancel="'+t.id+'">Annuler</button>';
+                        return '<div class="ticket"><div class="num">'+h(t.name || '—')+'</div>'
+                            + '<div class="svcn">'+h(t.service)+'</div>'
+                            + '<span class="st '+st[1]+'">'+h(st[0])+'</span>'
+                            + (meta ? '<div class="info">'+h(meta)+'</div>' : '')
+                            + (sched ? '<div class="info">'+h(sched)+'</div>' : '')
+                            + pay
+                            + (actions ? '<div class="mt row wrap">'+actions+'</div>' : '')+'</div>';
+                    }
+                    function serviceHtml(s){
+                        var badges = '';
+                        if (s.appointment) badges += '<span class="badge">Rendez-vous</span>';
+                        if (s.payment_required) badges += '<span class="badge pay">'+h(s.price)+' '+h(s.currency)+'</span>';
+                        var remoteChk = s.remote
+                            ? '<label class="chk"><input type="checkbox" data-remote="'+s.id+'"/> Je ne suis pas sur place</label>' : '';
+                        var apptBtn = s.appointment
+                            ? '<button class="btn ghost" data-appt="'+s.id+'" data-name="'+h(s.name)+'">Rendez-vous</button>' : '';
+                        return '<div class="svc"><div><div class="n">'+h(s.name)+badges+'</div>'
+                            + '<div class="m">'+h(s.waiting)+' en attente</div>'+remoteChk+'</div>'
+                            + '<div class="row wrap" style="justify-content:flex-end">'
+                            + '<button class="btn" data-take="'+s.id+'">Ticket</button>'+apptBtn+'</div></div>';
+                    }
+                    function renderTicketsInto(){
+                        var el = document.getElementById('tickets');
+                        if (!el) return;
+                        var active = tickets.filter(function(t){
+                            return ['scheduled','waiting','called','serving'].indexOf(t.state) >= 0; });
+                        el.innerHTML = active.length ? ('<h2>Mes tickets</h2>' + active.map(ticketHtml).join('')) : '';
+                    }
+                    function render(){
+                        if (site) { document.getElementById('siteName').textContent = site.name;
+                            document.getElementById('siteCity').textContent = site.city || ''; }
+                        var logged = !!tok();
+                        document.getElementById('who').textContent = logged ? (LS.getItem('q_email')||'') : '';
+                        document.getElementById('logoutBtn').style.display = logged ? '' : 'none';
+
+                        var app = document.getElementById('app');
+                        if (!TOKEN) { renderNoSite(); return; }
+                        if (site === false) { app.innerHTML = '<div class="center muted">Site introuvable. Vérifiez le QR ou le code.</div>'; return; }
+                        if (!site) { app.innerHTML = '<div class="center muted">Chargement…</div>'; return; }
+
+                        var html = '<div class="install"><span>Vous êtes sur le portail web — rien à installer. '
+                            + 'Vous pouvez aussi <a href="/queue/app">installer l\'application</a>.</span>'
+                            + '<button class="btn ghost" id="installBtn" style="display:none">Installer</button></div>';
+                        html += '<div id="tickets"></div>';
+                        if (!logged) html += loginCard();
+                        html += '<h2>Services</h2><div class="card">'
+                            + (services.length ? services.map(serviceHtml).join('') : '<div class="muted">Aucun service disponible.</div>')
+                            + '</div>';
+                        app.innerHTML = html;
+                        renderTicketsInto();
+                        wireLogin();
+                        var ib = document.getElementById('installBtn');
+                        if (ib && installEvt) { ib.style.display = ''; ib.onclick = function(){ installEvt.prompt(); }; }
+                    }
+
+                    // ---- Événements ----
+                    document.body.addEventListener('click', function(ev){
+                        var t = ev.target.closest('[data-take]');
+                        if (t) { var sid = parseInt(t.getAttribute('data-take'),10);
+                            var chk = document.querySelector('[data-remote="'+sid+'"]');
+                            takeTicket(sid, chk && chk.checked); return; }
+                        var a = ev.target.closest('[data-appt]');
+                        if (a) { openAppt(parseInt(a.getAttribute('data-appt'),10), a.getAttribute('data-name')); return; }
+                        var sl = ev.target.closest('[data-slot]');
+                        if (sl) { book(sl.getAttribute('data-slot')); return; }
+                        var c = ev.target.closest('[data-cancel]');
+                        if (c) { cancelTicket(parseInt(c.getAttribute('data-cancel'),10)); return; }
+                        var ci = ev.target.closest('[data-checkin]');
+                        if (ci) { checkin(parseInt(ci.getAttribute('data-checkin'),10)); return; }
+                        var p = ev.target.closest('[data-pay]');
+                        if (p) { var tid = parseInt(p.getAttribute('data-t'),10); var m = p.getAttribute('data-pay');
+                            if (m === 'proof') payProof(tid); else pay(tid, m); return; }
+                        if (ev.target.id === 'apptClose') { closeAppt(); return; }
+                        if (ev.target.id === 'apptModal') { closeAppt(); return; }
+                    });
+                    document.body.addEventListener('change', function(ev){
+                        if (ev.target.id === 'apptDate') loadSlots();
+                    });
+                    document.getElementById('proofInput').addEventListener('change', function(){
+                        var f = this.files[0]; if (!f || !proofTicket) return;
+                        var reader = new FileReader();
+                        reader.onload = function(){ var b64 = String(reader.result).split(',')[1] || '';
+                            pay(proofTicket, 'proof', {proof: b64, proof_filename: f.name}); };
+                        reader.readAsDataURL(f);
+                    });
+                    document.getElementById('logoutBtn').onclick = logout;
+
+                    // PWA
+                    window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); installEvt = e;
+                        var ib = document.getElementById('installBtn'); if (ib){ ib.style.display=''; ib.onclick=function(){ e.prompt(); }; } });
+                    if (TOKEN && 'serviceWorker' in navigator) {
+                        navigator.serviceWorker.register('/queue/sw.js', {scope:'/queue/u/'}).catch(function(){});
+                    }
+
+                    // démarrage + sondage (seuls les tickets se rafraîchissent, pour ne pas
+                    // effacer une saisie en cours — code OTP, créneau, paiement).
+                    async function tick(){ await loadTickets(); renderTicketsInto(); }
+                    (async function(){ await loadSite(); await loadTickets(); render(); })();
+                    setInterval(tick, 5000);
+                ]]></script>
+            </body>
+        </html>
+    </template>
+</odoo>

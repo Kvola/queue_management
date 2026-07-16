@@ -23,15 +23,17 @@
                         <p style="font-size:20px; color:#475569; margin-bottom:30px;">
                             <t t-if="site.city"><span t-field="site.city"/></t>
                         </p>
-                        <img t-att-src="'/report/barcode/?barcode_type=QR&amp;value=%s&amp;width=520&amp;height=520' % site.qr_token"
+                        <t t-set="portal_url" t-value="site.get_base_url() + '/queue/u/' + site.qr_token"/>
+                        <img t-att-src="'/report/barcode/?barcode_type=QR&amp;value=%s&amp;width=520&amp;height=520' % portal_url"
                              style="width:400px; height:400px;"/>
                         <h2 style="font-size:26px; margin-top:34px;">
                             Scannez pour prendre votre ticket
                         </h2>
                         <p style="font-size:18px; color:#475569; max-width:520px; margin:12px auto 0;">
-                            Ouvrez l'application « File d'attente », touchez
-                            « Prendre un ticket » puis scannez ce code — ou
-                            saisissez le code du site :
+                            Avec l'appareil photo de votre téléphone (le portail
+                            s'ouvre dans le navigateur) ou avec l'application
+                            « File d'attente ». Sans smartphone à jour, saisissez le
+                            code du site :
                             <b style="font-family:monospace;"><span t-field="site.qr_token"/></b>
                         </p>
                     </div>

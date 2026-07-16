@@ -37,6 +37,8 @@
                         · <t t-out="release.apk_size_mb"/> Mo
                     </div>
                     <a class="btn" href="/queue/app/download">Télécharger l'application</a>
+                    <a class="btn" href="/queue/u"
+                       style="background:#334155;">Utiliser sans installer (portail web)</a>
                     <div t-if="release.release_notes" class="notes"><t t-out="release.release_notes"/></div>
                     <div class="hint">
                         Prenez votre ticket, suivez votre position dans la file et

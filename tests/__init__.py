@@ -9,3 +9,4 @@ from . import test_setup_wizard
 from . import test_help_docs
 from . import test_console
 from . import test_payment
+from . import test_client_portal
