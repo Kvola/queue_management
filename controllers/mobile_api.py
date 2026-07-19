@@ -39,14 +39,21 @@ class QueueMobileApi(http.Controller):
 
     @staticmethod
     def _ok(**data):
-        return dict(status='ok', **data)
+        # ``success`` double ``status`` : c'est la clé qu'attend le client
+        # Dart partagé (ebng_odoo_client). Les deux formes coexistent le
+        # temps que toutes les apps migrent.
+        return dict(status='ok', success=True, **data)
 
     @staticmethod
     def _err(message, code=None):
         """Erreur métier. ``code`` machine-lisible optionnel : l'app ne doit
         pas dépendre du libellé français (ex. ``auth_required`` → déconnexion
         automatique côté client)."""
-        res = {'status': 'error', 'message': message}
+        res = {
+            'status': 'error', 'message': message,
+            'success': False,
+            'error': {'message': message, 'code': code},
+        }
         if code:
             res['code'] = code
         return res
@@ -77,6 +84,11 @@ class QueueMobileApi(http.Controller):
 
     def _get_customer(self, kw):
         token = kw.get('auth_token')
+        if not token:
+            # Client Dart partagé : jeton porté par l'en-tête Authorization.
+            header = request.httprequest.headers.get('Authorization') or ''
+            if header.lower().startswith('bearer '):
+                token = header[7:].strip()
         if not token:
             return False
         Customer = request.env['queue.customer'].sudo()
