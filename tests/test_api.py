@@ -276,16 +276,26 @@ class TestQueueApi(HttpCase):
         self.service.write({'remote_enabled': False})
 
     def test_active_tickets_quota(self):
-        """Plafond global de tickets actifs par client (anti-flood)."""
-        from odoo.addons.queue_management.controllers import mobile_api
+        """Plafond global de tickets actifs par client (anti-flood).
+
+        On règle le **paramètre**, pas la constante du module : c'est lui que
+        l'exploitant modifie, et il prend le pas sur la valeur par défaut —
+        forcer la constante ne prouvait donc rien dès qu'il était renseigné.
+        """
         service2 = self.env['queue.service'].create({
             'name': "File 2", 'code': 'AP2', 'location_id': self.location.id})
-        with patch.object(mobile_api, '_MAX_ACTIVE_TICKETS', 1):
+        param = self.env['ir.config_parameter'].sudo()
+        previous = param.get_param('queue_management.max_active_tickets')
+        param.set_param('queue_management.max_active_tickets', '1')
+        try:
             r1 = self._create_ticket(self.service)
             self.assertEqual(r1['status'], 'ok')
             r2 = self._create_ticket(service2)
             self.assertEqual(r2['status'], 'error')
             self.assertIn('trop de tickets', r2['message'])
+        finally:
+            param.set_param('queue_management.max_active_tickets',
+                            previous or '')
         # Nettoyage : on annule le ticket pris pour ne pas gêner les autres tests.
         self._call('/api/queue/ticket/cancel', {
             'auth_token': self.TOKEN, 'ticket_id': r1['ticket']['id']})

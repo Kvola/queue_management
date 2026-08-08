@@ -66,13 +66,13 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='queue_management.wave_merchant_label',
         help="Optionnel — affiché au client si aucun lien Wave n'est disponible.")
     queue_wave_api_key = fields.Char(
-        "Clé API Wave (Checkout)",
+        "Clé API Wave Checkout (plateforme)",
         config_parameter='queue_management.wave_api_key',
         help="Si renseignée, le paiement Wave devient DIRECT (l'app initie la "
              "transaction, Wave confirme par webhook) — sans validation "
              "guichet. Sinon, repli sur Wave Marchand.")
     queue_wave_webhook_secret = fields.Char(
-        "Secret du webhook Wave",
+        "Secret du webhook Wave (plateforme)",
         config_parameter='queue_management.wave_webhook_secret',
         help="Vérifie la signature des notifications Wave. Indispensable pour "
              "la voie directe (sinon le webhook est refusé).")

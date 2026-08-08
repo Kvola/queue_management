@@ -51,14 +51,21 @@ class QueueWaveTicketMixin(models.AbstractModel):
         session_id = data.get('id') or data.get('session_id')
         client_ref = data.get('client_reference') or ''
         if status not in ('succeeded', 'success', 'paid'):
-            return False
+            return super()._wave_handle_webhook(event)
         Ticket = self.env['queue.ticket'].sudo()
-        ticket = session_id and Ticket.search([('payment_ref', '=', session_id)], limit=1)
+        # Cloisonnement par société : le secret d'un commerce ne doit pas
+        # pouvoir confirmer le ticket payé d'un autre.
+        scope = self._wave_company_domain()
+        ticket = session_id and Ticket.search(
+            scope + [('payment_ref', '=', session_id)], limit=1)
         if not ticket and client_ref.startswith('ticket-'):
-            ticket = Ticket.browse(int(client_ref.split('-', 1)[1])).exists()
+            candidate = Ticket.browse(int(client_ref.split('-', 1)[1])).exists()
+            ticket = candidate if self._wave_belongs_to_signing_company(
+                candidate) else Ticket.browse()
         if not ticket:
-            _logger.warning("Webhook Wave : ticket introuvable (session %s)", session_id)
-            return False
+            # Peut appartenir à un autre métier (paiement d'événement) : on
+            # laisse la chaîne continuer plutôt que de conclure à l'échec.
+            return super()._wave_handle_webhook(event)
         ticket._mark_paid('wave', ref=session_id,
                           by_user=self.env.ref('base.user_root'))
         return True

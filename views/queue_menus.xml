@@ -2,6 +2,7 @@
 <odoo>
 
     <menuitem id="menu_queue_root" name="File d'attente"
+              web_icon="queue_management,static/description/icon.png"
               sequence="50"/>
 
     <!-- ═══════════ Sections de premier niveau (ordre = usage quotidien) ═══════════
