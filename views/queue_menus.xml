@@ -9,9 +9,12 @@
          1. Ma console       — poste de travail de l'agent (défini ailleurs, seq 1)
          2. Supervision      — tableau de bord + statistiques
          3. Opérations       — tickets, guichets, clients mobiles
-         4. Transport        — cars inter-urbains (module queue_transport, seq 30)
-         5. Configuration    — structure, catalogue, réglages
-         6. Aide             — guides par rôle (seq 95)
+         4. Configuration    — structure, catalogue, réglages
+         5. Aide             — guides par rôle (seq 95)
+
+         Le transport inter-urbain a quitté cette plateforme : un ticket de file
+         d'attente dit « vous êtes le 12e », un billet de minicar dit « siège 12,
+         Abidjan → Yamoussoukro, payé ». Voir `intercity_transport`.
     -->
 
     <menuitem id="menu_queue_supervision" name="Supervision"
