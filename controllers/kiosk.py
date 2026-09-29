@@ -2,9 +2,11 @@
 import json
 
 from odoo import http
+from odoo.exceptions import UserError
 from odoo.http import request
 
 from .main import QueueDisplayController, secure_public_page
+from .net import client_ip
 
 # Une borne = un appareil (une IP) pour tous les visiteurs : la limite doit
 # absorber une heure de pointe humaine (un ticket toutes les ~5 s) tout en
@@ -54,9 +56,7 @@ class QueueKioskController(http.Controller):
         location = self._get_location(token)
         if not location:
             return request.not_found()
-        ip = (request.httprequest.headers.get('X-Forwarded-For', '')
-              .split(',')[0].strip() or request.httprequest.remote_addr
-              or 'unknown')
+        ip = client_ip()
         limited, _retry = request.env['queue.rate.limit'].sudo(
         ).check_and_record(f"queue_kiosk:{ip}", **_RL_KIOSK_TICKET)
         if limited:
@@ -75,10 +75,18 @@ class QueueKioskController(http.Controller):
             return secure_public_page(request.make_response(
                 json.dumps({'status': 'error', 'message': 'Service invalide.'}),
                 headers=[('Content-Type', 'application/json; charset=utf-8')]))
-        ticket = request.env['queue.ticket'].sudo().create({
-            'service_id': service.id,
-            'channel': 'kiosk',
-        })
+        try:
+            ticket = request.env['queue.ticket'].sudo().create({
+                'service_id': service.id,
+                'channel': 'kiosk',
+            })
+        except UserError as exc:
+            # Établissement suspendu, par exemple : la borne attend du JSON,
+            # une page d'erreur HTML la laisserait muette.
+            return secure_public_page(request.make_response(
+                json.dumps({'status': 'error', 'message': exc.args[0] if exc.args
+                            else "Service momentanément indisponible."}),
+                headers=[('Content-Type', 'application/json; charset=utf-8')]))
         payload = {
             'status': 'ok',
             'ticket': {

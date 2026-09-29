@@ -15,6 +15,7 @@ from odoo import http
 from odoo.http import request
 
 from .main import secure_public_page
+from .net import client_ip
 
 _logger = logging.getLogger(__name__)
 
@@ -41,9 +42,7 @@ class QueueAppDownloadController(http.Controller):
     @http.route('/queue/app/download', type='http', auth='public',
                 methods=['GET'], sitemap=False)
     def download(self, **kw):
-        ip = (request.httprequest.headers.get('X-Forwarded-For', '')
-              .split(',')[0].strip() or request.httprequest.remote_addr
-              or 'unknown')
+        ip = client_ip()
         limited, retry_after = request.env['queue.rate.limit'].sudo(
         ).check_and_record(f"queue_apk_dl:{ip}", **_RL_APK_DOWNLOAD)
         if limited:

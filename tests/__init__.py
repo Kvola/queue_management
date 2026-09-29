@@ -11,3 +11,4 @@ from . import test_console
 from . import test_payment
 from . import test_client_portal
 from . import test_api_envelope
+from . import test_security_hardening

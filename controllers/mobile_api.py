@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import base64
-import json
 import logging
 from datetime import datetime, timedelta
 
@@ -8,6 +7,11 @@ from odoo import _, http, fields
 from odoo.exceptions import UserError
 from odoo.http import request
 from odoo.tools import email_normalize
+from odoo.tools.mimetypes import guess_mimetype
+
+from odoo.addons.queue_payment.controllers.wave_webhook import QueueWaveWebhook
+
+from .net import client_ip
 
 _logger = logging.getLogger(__name__)
 
@@ -24,6 +28,10 @@ _RL_OTP_VERIFY = dict(max_requests=60, window_seconds=300, block_seconds=300)
 # détenir, tous établissements confondus. Personne ne fait la queue à 5
 # guichets à la fois : au-delà, c'est un abus.
 _MAX_ACTIVE_TICKETS = 5
+
+# Preuves de paiement acceptées : une photo (reçu, capture d'écran Wave) ou un
+# PDF. Tout autre fichier est refusé avant d'être stocké.
+_PROOF_MIMETYPES = ('image/', 'application/pdf')
 
 
 class QueueMobileApi(http.Controller):
@@ -60,15 +68,8 @@ class QueueMobileApi(http.Controller):
 
     @staticmethod
     def _client_ip():
-        """IP du client, en tenant compte d'un éventuel reverse proxy."""
-        headers = request.httprequest.headers
-        forwarded = headers.get('X-Forwarded-For', '')
-        if forwarded:
-            return forwarded.split(',')[0].strip()
-        real_ip = headers.get('X-Real-IP', '')
-        if real_ip:
-            return real_ip.strip()
-        return request.httprequest.remote_addr or 'unknown'
+        """IP du client (cf. ``net.client_ip`` : l'en-tête n'est pas cru)."""
+        return client_ip()
 
     def _rate_limited(self, scope, max_requests, window_seconds, block_seconds):
         """Renvoie une réponse d'erreur si l'IP appelante dépasse la limite."""
@@ -81,6 +82,29 @@ class QueueMobileApi(http.Controller):
                 "Trop de tentatives. Réessayez dans %s minute(s).",
                 max(retry_after // 60, 1)))
         return None
+
+    @staticmethod
+    def _int(kw, key):
+        """Identifiant entier transmis par l'app, 0 s'il est illisible.
+
+        Une valeur non numérique levait une erreur 500 au lieu de
+        « introuvable ».
+        """
+        try:
+            return int(kw.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _unavailable(exc):
+        """Refus métier (établissement suspendu, quota…) en réponse lisible.
+
+        Sans cela l'app recevait une erreur JSON-RPC brute, hors de
+        l'enveloppe qu'elle sait lire, et affichait un message technique.
+        """
+        return QueueMobileApi._err(
+            exc.args[0] if exc.args else _("Service momentanément indisponible."),
+            code='unavailable')
 
     def _get_customer(self, kw):
         token = kw.get('auth_token')
@@ -120,7 +144,8 @@ class QueueMobileApi(http.Controller):
             'payment_amount': ticket.payment_amount,
             'currency': ticket.currency_id.symbol or ticket.currency_id.name or '',
             'payment_method': ticket.payment_method or '',
-            'wave_direct': ticket.env['queue.wave.mixin'].sudo()._wave_api_configured(),
+            'wave_direct': ticket.env['queue.wave.mixin'].sudo()._wave_api_configured(
+                company=ticket.company_id),
             'wave_merchant': ticket.env['queue.wave.mixin'].sudo()._wave_merchant_label(),
         }
 
@@ -210,7 +235,7 @@ class QueueMobileApi(http.Controller):
                   'city': location.city or '', 'qr_token': location.qr_token},
             services=services,
             payment={
-                'wave_direct': wave._wave_api_configured(),
+                'wave_direct': wave._wave_api_configured(company=location.company_id),
                 'wave_merchant': wave._wave_merchant_label(),
             },
         )
@@ -239,7 +264,7 @@ class QueueMobileApi(http.Controller):
         if not customer:
             return self._err(_("Non authentifié."), code='auth_required')
         service = request.env['queue.service'].sudo().browse(
-            int(kw.get('service_id') or 0))
+            self._int(kw, 'service_id'))
         if not service.exists() or not service.active:
             return self._err(_("Service invalide."))
         # Le jeton du QR reste exigé : il prouve que le client a scanné le
@@ -269,11 +294,14 @@ class QueueMobileApi(http.Controller):
             return self._err(_(
                 "Vous avez trop de tickets en cours. "
                 "Terminez ou annulez-en avant d'en prendre un autre."))
-        ticket = request.env['queue.ticket'].sudo().create({
-            'service_id': service.id,
-            'partner_id': customer.partner_id.id,
-            'channel': 'remote' if remote else 'mobile',
-        })
+        try:
+            ticket = request.env['queue.ticket'].sudo().create({
+                'service_id': service.id,
+                'partner_id': customer.partner_id.id,
+                'channel': 'remote' if remote else 'mobile',
+            })
+        except UserError as exc:
+            return self._unavailable(exc)
         return self._ok(ticket=self._ticket_data(ticket))
 
     @http.route('/api/queue/ticket/status', type='jsonrpc', auth='public',
@@ -282,7 +310,7 @@ class QueueMobileApi(http.Controller):
         customer = self._get_customer(kw)
         if not customer:
             return self._err(_("Non authentifié."), code='auth_required')
-        ticket = request.env['queue.ticket'].sudo().browse(int(kw.get('ticket_id') or 0))
+        ticket = request.env['queue.ticket'].sudo().browse(self._int(kw, 'ticket_id'))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
             return self._err(_("Ticket introuvable."))
         return self._ok(ticket=self._ticket_data(ticket))
@@ -293,7 +321,7 @@ class QueueMobileApi(http.Controller):
         customer = self._get_customer(kw)
         if not customer:
             return self._err(_("Non authentifié."), code='auth_required')
-        ticket = request.env['queue.ticket'].sudo().browse(int(kw.get('ticket_id') or 0))
+        ticket = request.env['queue.ticket'].sudo().browse(self._int(kw, 'ticket_id'))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
             return self._err(_("Ticket introuvable."))
         if ticket.state not in ('scheduled', 'waiting', 'called'):
@@ -319,7 +347,7 @@ class QueueMobileApi(http.Controller):
                 methods=['POST'], csrf=False)
     def slots(self, **kw):
         service = request.env['queue.service'].sudo().browse(
-            int(kw.get('service_id') or 0))
+            self._int(kw, 'service_id'))
         if not service.exists() or not service.appointment_enabled:
             return self._err(_("Ce service ne propose pas de rendez-vous."))
         try:
@@ -345,7 +373,7 @@ class QueueMobileApi(http.Controller):
         if not customer:
             return self._err(_("Non authentifié."), code='auth_required')
         service = request.env['queue.service'].sudo().browse(
-            int(kw.get('service_id') or 0))
+            self._int(kw, 'service_id'))
         if not service.exists():
             return self._err(_("Service invalide."))
         try:
@@ -360,7 +388,8 @@ class QueueMobileApi(http.Controller):
         try:
             ticket = service._book_appointment(customer.partner_id, slot_dt)
         except UserError as exc:
-            return self._err(exc.args[0] if exc.args else _("Réservation impossible."))
+            return self._err(exc.args[0] if exc.args else _("Réservation impossible."),
+                             code='unavailable')
         return self._ok(ticket=self._ticket_data(ticket))
 
     @http.route('/api/queue/ticket/checkin', type='jsonrpc', auth='public',
@@ -370,7 +399,7 @@ class QueueMobileApi(http.Controller):
         if not customer:
             return self._err(_("Non authentifié."), code='auth_required')
         ticket = request.env['queue.ticket'].sudo().browse(
-            int(kw.get('ticket_id') or 0))
+            self._int(kw, 'ticket_id'))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
             return self._err(_("Rendez-vous introuvable."))
         try:
@@ -397,7 +426,7 @@ class QueueMobileApi(http.Controller):
         if not customer:
             return self._err(_("Non authentifié."), code='auth_required')
         ticket = request.env['queue.ticket'].sudo().browse(
-            int(kw.get('ticket_id') or 0))
+            self._int(kw, 'ticket_id'))
         if not ticket.exists() or ticket.partner_id != customer.partner_id:
             return self._err(_("Ticket introuvable."))
         if ticket.payment_state in ('paid', 'to_validate'):
@@ -408,7 +437,7 @@ class QueueMobileApi(http.Controller):
         method = kw.get('method') or 'wave'
         wave = request.env['queue.wave.mixin'].sudo()
 
-        if method == 'wave' and wave._wave_api_configured():
+        if method == 'wave' and wave._wave_api_configured(company=ticket.company_id):
             # Voie directe (API Checkout) : session + webhook, sans validation.
             from odoo.addons.queue_payment.models.queue_wave import WaveError
             try:
@@ -423,11 +452,10 @@ class QueueMobileApi(http.Controller):
         if method == 'proof':
             if not proof_b64:
                 return self._err(_("Joignez une preuve de paiement."))
-            try:
-                base64.b64decode(proof_b64)  # validation
-                proof = proof_b64
-            except Exception:
-                return self._err(_("Preuve illisible."))
+            refused = self._refuse_proof(proof_b64)
+            if refused:
+                return refused
+            proof = proof_b64
         try:
             ticket._submit_payment(method, ref=kw.get('ref'),
                                    proof=proof,
@@ -443,21 +471,33 @@ class QueueMobileApi(http.Controller):
         return self._ok(ticket=self._ticket_data(ticket), **extra)
 
     @http.route('/api/queue/wave/webhook', type='http', auth='public',
-                methods=['POST'], csrf=False)
+                methods=['POST'], csrf=False, save_session=False)
     def wave_webhook(self, **kw):
-        """Notification de paiement Wave (voie directe). Signature vérifiée."""
-        raw = request.httprequest.get_data()
-        sig = request.httprequest.headers.get('Wave-Signature') \
-            or request.httprequest.headers.get('X-Wave-Signature')
-        wave = request.env['queue.wave.mixin'].sudo()
-        if not wave._wave_verify_signature(raw, sig):
-            return request.make_response('invalid signature', status=403)
+        """Ancienne adresse du webhook Wave, conservée pour les comptes
+        marchands déjà déclarés.
+
+        Elle passe désormais par la réception du socle : secret cherché
+        société par société, traitement cloisonné à la société qui a signé,
+        mêmes codes de réponse. Elle ne vérifiait avant que le secret de la
+        plateforme et laissait le traitement chercher dans toutes les
+        sociétés.
+        """
+        return QueueWaveWebhook()._receive(company_id=None)
+
+    def _refuse_proof(self, proof_b64):
+        """Réponse d'erreur si la preuve n'est pas une image ou un PDF de
+        taille raisonnable ; ``None`` si elle est acceptable."""
         try:
-            event = json.loads(raw or b'{}')
-        except ValueError:
-            return request.make_response('bad payload', status=400)
-        wave._wave_handle_webhook(event)
-        return request.make_response('ok')
+            request.env['queue.payment']._check_proof_size(proof_b64)
+        except UserError as exc:
+            return self._err(exc.args[0])
+        try:
+            raw = base64.b64decode(proof_b64, validate=True)
+        except Exception:  # noqa: BLE001 — base64 invalide, quelle qu'en soit la forme
+            return self._err(_("Preuve illisible."))
+        if not raw or not guess_mimetype(raw).startswith(_PROOF_MIMETYPES):
+            return self._err(_("La preuve doit être une photo ou un PDF."))
+        return None
 
     # --- Notifications push ---------------------------------------------------
 

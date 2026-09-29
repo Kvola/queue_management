@@ -172,7 +172,7 @@ class TestPaymentApi(HttpCase):
         resp = self.url_open('/api/queue/wave/webhook', data=body.encode(),
                              headers={'Content-Type': 'application/json',
                                       'Wave-Signature': 'wrong'})
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 401)
 
 
 @tagged('post_install', '-at_install')

@@ -60,7 +60,10 @@ class ResConfigSettings(models.TransientModel):
     queue_wave_default_link = fields.Char(
         "Lien Wave par défaut (plateforme)",
         config_parameter='queue_management.wave_default_link',
-        help="Utilisé quand une compagnie n'a pas renseigné son propre lien.")
+        help="Utilisé quand une compagnie n'a pas renseigné son propre lien. "
+             "Partagé par tous les métiers (événements, associations…). "
+             "Vide : seule la file d'attente retombe sur le compte marchand "
+             "de son opérateur ; les autres métiers n'affichent pas de Wave.")
     queue_wave_merchant_label = fields.Char(
         "Numéro / nom Wave Marchand",
         config_parameter='queue_management.wave_merchant_label',

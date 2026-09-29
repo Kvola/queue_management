@@ -546,6 +546,8 @@ class QueueTicket(models.Model):
             raise UserError(_("Moyen de paiement inconnu."))
         if method == 'proof' and not proof:
             raise UserError(_("Joignez une preuve de paiement."))
+        if proof:
+            self.env['queue.payment']._check_proof_size(proof)
         vals = {
             'payment_state': 'to_validate',
             'payment_method': method,
