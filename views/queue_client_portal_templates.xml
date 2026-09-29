@@ -6,7 +6,7 @@
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
                 <meta name="theme-color" content="#2563eb"/>
-                <title>File d'attente</title>
+                <title>Kvla File</title>
                 <t t-if="token">
                     <link rel="manifest" t-attf-href="/queue/u/{{ token }}/manifest.webmanifest"/>
                     <link rel="apple-touch-icon" href="/queue_management/static/pwa/icon-192.png"/>
@@ -79,7 +79,7 @@
             <body t-att-data-token="token">
                 <header>
                     <div>
-                        <h1 id="siteName">File d'attente</h1>
+                        <h1 id="siteName">Kvla File</h1>
                         <div class="city" id="siteCity"></div>
                     </div>
                     <div class="row">

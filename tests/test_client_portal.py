@@ -11,7 +11,7 @@ class TestClientPortalPages(HttpCase):
     def test_portal_page_renders(self):
         resp = self.url_open('/queue/u/abc123')
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("File d'attente", resp.text)
+        self.assertIn('Kvla File', resp.text)
         self.assertIn('data-token="abc123"', resp.text)
         # Fonctions W2 présentes dans la page (rendez-vous + paiement par preuve).
         self.assertIn('apptModal', resp.text)

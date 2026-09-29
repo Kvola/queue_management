@@ -45,8 +45,8 @@ class QueueClientPortal(http.Controller):
                 type='http', auth='public', sitemap=False)
     def manifest(self, token, **kw):
         data = {
-            'name': "File d'attente",
-            'short_name': "File",
+            'name': "Kvla File",
+            'short_name': "Kvla File",
             'start_url': '/queue/u/%s' % token,
             'scope': '/queue/u/',
             'display': 'standalone',
