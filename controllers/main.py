@@ -61,8 +61,10 @@ class QueueDisplayController(http.Controller):
                 'called': bool(shown and shown.state == 'called'),
             })
 
-        waiting = location.service_ids.mapped('ticket_ids').filtered(
-            lambda t: t.state == 'waiting')
+        # Les seuls tickets en attente du site, pas tout son historique : cet
+        # écran est relu toutes les 3 secondes.
+        waiting = request.env['queue.ticket'].sudo().search([
+            ('location_id', '=', location.id), ('state', '=', 'waiting')])
         upcoming = [
             {'ticket': t.name, 'service': t.service_id.name}
             for t in waiting.sorted(key=lambda t: t._scheduling_key())[:6]

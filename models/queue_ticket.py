@@ -185,13 +185,20 @@ class QueueTicket(models.Model):
     @api.depends('state', 'priority', 'created_at', 'scheduled_time',
                  'service_id', 'service_id.ticket_ids.state')
     def _compute_position(self):
+        # L'ordre d'une file est calculé UNE fois par file, puis lu pour chaque
+        # ticket : le recalculer ticket par ticket rendait la liste des tickets
+        # (ou « Mes tickets » d'un client) quadratique en taille de file.
+        ranks = {}
         for ticket in self:
             if ticket.state != 'waiting' or not ticket.service_id:
                 ticket.position = 0
                 continue
-            ordered = ticket.service_id._get_ordered_waiting()
-            ids = ordered.ids
-            ticket.position = ids.index(ticket.id) + 1 if ticket.id in ids else 0
+            service = ticket.service_id
+            if service.id not in ranks:
+                ranks[service.id] = {
+                    tid: rank for rank, tid in enumerate(
+                        service._get_ordered_waiting().ids, start=1)}
+            ticket.position = ranks[service.id].get(ticket._origin.id, 0)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -223,7 +230,11 @@ class QueueTicket(models.Model):
         if (self.channel == 'appointment' and self.scheduled_time
                 and self.scheduled_time <= fields.Datetime.now()):
             weight = max(weight, 2)
-        return (-weight, self.created_at or self.create_date)
+        # L'identifiant départage deux tickets pris dans la même seconde (un
+        # afflux à la borne) : sans lui, leur ordre dépendait de l'ordre de
+        # lecture en base, et deux écrans pouvaient appeler dans un ordre
+        # différent.
+        return (-weight, self.created_at or self.create_date, self._origin.id or 0)
 
     # --- Notifications push --------------------------------------------------
 

@@ -47,8 +47,8 @@ class TestAppDistribution(HttpCase):
     def test_public_screens_show_the_install_qr(self):
         """Borne et écran de salle proposent l'app — dès maintenant, car la
         version navigateur existe même sans APK publié."""
-        token = self.location.qr_token
-        for path in ('/queue/kiosk/%s' % token, '/queue/display/%s' % token):
+        for path in ('/queue/kiosk/%s' % self.location.kiosk_token,
+                     '/queue/display/%s' % self.location.qr_token):
             body = self.url_open(path).text
             self.assertIn('/report/barcode/?barcode_type=QR', body, path)
             self.assertIn('%2Fqueue%2Fapp', body, path)

@@ -361,7 +361,9 @@ class QueueMobileApi(http.Controller):
                 continue  # on ne propose pas un créneau déjà passé
             slots.append({
                 'time': fields.Datetime.to_string(slot_dt),
-                'label': slot_dt.strftime('%H:%M'),
+                # L'heure du SITE : l'usager lit « 08:30 » comme on l'affiche
+                # à l'accueil, pas l'heure UTC du stockage.
+                'label': service._utc_to_local(slot_dt).strftime('%H:%M'),
                 'available': available,
             })
         return self._ok(date=kw.get('date'), slots=slots)

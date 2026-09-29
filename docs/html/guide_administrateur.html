@@ -230,18 +230,27 @@ sociétés autorisées de chaque utilisateur. Ne rattachez jamais un
 utilisateur d'un établissement à la société d'un autre.</p>
 <h2 id="2-distribuer-lapplication-mobile">2. Distribuer l'application
 mobile</h2>
-<p><strong>Configuration → App mobile</strong> : téléversez l'APK,
-renseignez la version, <strong>Publier</strong>. Effets immédiats :</p>
-<ul>
-<li>la page publique <code>/queue/app</code> sert cette version (bouton,
-taille, SHA-256) ;</li>
-<li>le QR « installez l'app » apparaît sur toutes les bornes et écrans
-de salle.</li>
-</ul>
-<p>Une seule version publiée à la fois ; le compteur de téléchargements
-est sur la fiche. Le jour du passage au Play Store : renseignez « URL du
-store » dans les Paramètres — la page publique redirige, <strong>aucun
-QR imprimé à refaire</strong>.</p>
+<p>L'application s'appelle <strong>Kvla File</strong> et se distribue
+par le catalogue commun des applications : page publique
+<code>/apps/kvla-file</code> (APK Android, version navigateur
+<code>/queue/u</code>, guide du visiteur en page et en PDF).</p>
+<ol type="1">
+<li>Construisez l'APK : <code>sh build_prod_apk.sh</code> (il refuse de
+signer sans la clé de production, et vérifie la signature et l'adresse
+du serveur).</li>
+<li><strong>Configuration → App mobile</strong> → Nouveau : version (ex.
+<code>1.5.0+7</code>), fichier APK, notes de version →
+<strong>Publier</strong>.</li>
+</ol>
+<p>Effets immédiats : <code>/apps/kvla-file</code> sert cette version ;
+les applications déjà installées affichent une <strong>bannière de mise
+à jour</strong> ; le QR « installez l'app » des bornes et écrans de
+salle mène à la page (il est affiché même sans APK, la version
+navigateur existant toujours). L'ancienne adresse
+<code>/queue/app</code>, imprimée sur des affiches, redirige vers le
+catalogue. Le jour du passage au Play Store : renseignez « URL du store
+» dans les Paramètres — <code>/queue/app</code> y redirige,
+<strong>aucun QR imprimé à refaire</strong>.</p>
 <h2 id="3-réglages-de-la-plateforme">3. Réglages de la plateforme</h2>
 <p><strong>Configuration → Paramètres</strong> :</p>
 <table>

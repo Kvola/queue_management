@@ -412,14 +412,14 @@ class TestQueueKiosk(HttpCase):
         })
 
     def test_kiosk_page_renders(self):
-        resp = self.url_open('/queue/kiosk/%s' % self.location.qr_token)
+        resp = self.url_open('/queue/kiosk/%s' % self.location.kiosk_token)
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Borne Site", resp.text)
         self.assertIn("Borne Svc", resp.text)
 
     def test_public_pages_have_security_headers(self):
         """Pages publiques (borne + affichage) : CSP stricte + nosniff."""
-        for path in ('/queue/kiosk/%s' % self.location.qr_token,
+        for path in ('/queue/kiosk/%s' % self.location.kiosk_token,
                      '/queue/display/%s' % self.location.qr_token,
                      '/queue/display/%s/data' % self.location.qr_token):
             resp = self.url_open(path)
@@ -432,7 +432,7 @@ class TestQueueKiosk(HttpCase):
 
     def test_kiosk_creates_anonymous_ticket(self):
         resp = self.url_open(
-            '/queue/kiosk/%s/ticket' % self.location.qr_token,
+            '/queue/kiosk/%s/ticket' % self.location.kiosk_token,
             data={'service_id': self.service.id})
         body = resp.json()
         self.assertEqual(body['status'], 'ok')
@@ -444,7 +444,7 @@ class TestQueueKiosk(HttpCase):
 
     def test_kiosk_rejects_foreign_service(self):
         resp = self.url_open(
-            '/queue/kiosk/%s/ticket' % self.location.qr_token,
+            '/queue/kiosk/%s/ticket' % self.location.kiosk_token,
             data={'service_id': 999999})
         self.assertEqual(resp.json()['status'], 'error')
 
@@ -457,11 +457,11 @@ class TestQueueKiosk(HttpCase):
                          'block_seconds': 60}):
             for _ in range(2):
                 resp = self.url_open(
-                    '/queue/kiosk/%s/ticket' % self.location.qr_token,
+                    '/queue/kiosk/%s/ticket' % self.location.kiosk_token,
                     data={'service_id': self.service.id})
                 self.assertEqual(resp.json()['status'], 'ok')
             resp = self.url_open(
-                '/queue/kiosk/%s/ticket' % self.location.qr_token,
+                '/queue/kiosk/%s/ticket' % self.location.kiosk_token,
                 data={'service_id': self.service.id})
             self.assertEqual(resp.json()['status'], 'error')
         self.env['queue.rate.limit'].reset_key('queue_kiosk:127.0.0.1')
@@ -473,7 +473,7 @@ class TestQueueKiosk(HttpCase):
         """La borne renvoie position, ETA et l'info de paiement (service payant)."""
         self.service.write({'payment_required': True, 'price': 1500.0})
         resp = self.url_open(
-            '/queue/kiosk/%s/ticket' % self.location.qr_token,
+            '/queue/kiosk/%s/ticket' % self.location.kiosk_token,
             data={'service_id': self.service.id})
         t = resp.json()['ticket']
         self.assertIn('position', t)

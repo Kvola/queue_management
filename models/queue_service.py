@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, time, timedelta
 
+import pytz
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -68,8 +70,8 @@ class QueueService(models.Model):
     last_number_date = fields.Date("Date du dernier n°", copy=False)
 
     # --- Rendez-vous (Phase 4b) ---
-    # NB : les heures d'ouverture sont interprétées dans le fuseau du serveur
-    # (UTC). Pour un déploiement hors UTC, prévoir une conversion de fuseau.
+    # Les heures d'ouverture sont des heures LOCALES du site (``location.tz``) ;
+    # les créneaux, eux, sont stockés en UTC comme toute date Odoo.
     appointment_enabled = fields.Boolean("Rendez-vous activés", tracking=True)
     slot_duration = fields.Integer(
         "Durée d'un créneau (min)", default=30,
@@ -92,17 +94,29 @@ class QueueService(models.Model):
         "Le préfixe doit être unique par site.",
     )
 
+    # Les comptes passent par la base, pas par ``ticket_ids`` : parcourir la
+    # relation charge TOUT l'historique du service (des milliers de tickets
+    # clôturés au bout de quelques mois), et l'écran de salle, le tableau de
+    # bord et la borne relisent ces comptes toutes les quelques secondes.
     @api.depends('ticket_ids.state')
     def _compute_waiting_count(self):
+        counts = self._count_tickets([('state', '=', 'waiting')])
         for service in self:
-            service.waiting_count = len(
-                service.ticket_ids.filtered(lambda t: t.state == 'waiting')
-            )
+            service.waiting_count = counts.get(service._origin.id, 0)
 
     @api.depends('ticket_ids')
     def _compute_ticket_count(self):
+        counts = self._count_tickets([])
         for service in self:
-            service.ticket_count = len(service.ticket_ids)
+            service.ticket_count = counts.get(service._origin.id, 0)
+
+    def _count_tickets(self, domain):
+        ids = [sid for sid in self._origin.ids if sid]
+        if not ids:
+            return {}
+        groups = self.env['queue.ticket'].sudo()._read_group(
+            [('service_id', 'in', ids)] + domain, ['service_id'], ['__count'])
+        return {service.id: count for service, count in groups}
 
     def action_view_tickets(self):
         self.ensure_one()
@@ -147,12 +161,33 @@ class QueueService(models.Model):
             " WHERE id = %s FOR UPDATE",
             (self.id,))
         last_number, last_number_date = self.env.cr.fetchone()
-        today = fields.Date.context_today(self)
+        # Le jour du SITE, pas celui de l'utilisateur qui crée le ticket (la
+        # borne est anonyme, l'agent peut être réglé sur un autre fuseau).
+        today = self._local_today()
         next_number = 1 if last_number_date != today else (last_number or 0) + 1
         # sudo : le compteur est de la plomberie interne — un agent (lecture
         # seule sur la file) doit pouvoir créer un ticket au guichet.
         self.sudo().write({'last_number': next_number, 'last_number_date': today})
         return f"{(self.code or '?').strip().upper()}-{next_number:03d}"
+
+    # --- Fuseau du site -------------------------------------------------------
+
+    def _tz(self):
+        try:
+            return pytz.timezone(self.location_id.tz or 'Africa/Abidjan')
+        except pytz.UnknownTimeZoneError:
+            return pytz.timezone('Africa/Abidjan')
+
+    def _local_to_utc(self, local_dt):
+        """Heure locale du site (naïve) → UTC naïve, comme on stocke."""
+        return self._tz().localize(local_dt).astimezone(pytz.utc).replace(tzinfo=None)
+
+    def _utc_to_local(self, utc_dt):
+        """UTC naïve (stockage) → heure locale du site, naïve."""
+        return pytz.utc.localize(utc_dt).astimezone(self._tz()).replace(tzinfo=None)
+
+    def _local_today(self):
+        return self._utc_to_local(fields.Datetime.now()).date()
 
     def _remote_available(self):
         """Le distant est-il réellement ouvert ? Hiérarchie : l'interrupteur
@@ -169,7 +204,14 @@ class QueueService(models.Model):
         l'ordonnancement (réutilisée par le calcul de position du ticket).
         """
         self.ensure_one()
-        waiting = self.ticket_ids.filtered(lambda t: t.state == 'waiting')
+        # Recherche bornée aux tickets en attente, et non parcours de tout
+        # l'historique (cf. _compute_waiting_count). `_origin` : un guichet en
+        # cours de création (onchange) présente ses files sous un NewId.
+        service_id = self._origin.id
+        if not service_id:
+            return self.env['queue.ticket']
+        waiting = self.env['queue.ticket'].search([
+            ('service_id', '=', service_id), ('state', '=', 'waiting')])
         return waiting.sorted(key=lambda t: t._scheduling_key())
 
     def _get_next_waiting(self):
@@ -191,8 +233,9 @@ class QueueService(models.Model):
         """Créneaux d'une journée : liste ordonnée de (datetime, places libres).
 
         Ne renvoie que les créneaux entiers contenus dans une plage d'ouverture.
-        ``day`` est une ``date``. Les datetimes renvoyés sont naïfs (UTC, comme
-        le stockage Odoo).
+        ``day`` est une ``date`` LOCALE du site ; les plages d'ouverture sont
+        des heures locales. Les datetimes renvoyés sont naïfs en UTC, comme le
+        stockage Odoo (``_utc_to_local`` pour les afficher).
         """
         self.ensure_one()
         if not self.appointment_enabled or self.slot_duration <= 0:
@@ -202,14 +245,18 @@ class QueueService(models.Model):
         if not hours:
             return []
 
-        # Réservations déjà posées ce jour-là (toutes non clôturées).
-        day_start = datetime.combine(day, time.min)
-        day_end = datetime.combine(day, time.max)
+        # Réservations déjà posées ce jour-là (toutes non clôturées) : une
+        # recherche bornée à la journée, pas un parcours de tout l'historique.
+        day_start = self._local_to_utc(datetime.combine(day, time.min))
+        day_end = self._local_to_utc(datetime.combine(day, time.max))
         booked = {}
-        for ticket in self.ticket_ids:
-            if (ticket.channel == 'appointment' and ticket.scheduled_time
-                    and ticket.state in ('scheduled', 'waiting', 'called', 'serving')
-                    and day_start <= ticket.scheduled_time <= day_end):
+        if self._origin.id:
+            for ticket in self.env['queue.ticket'].search([
+                    ('service_id', '=', self._origin.id),
+                    ('channel', '=', 'appointment'),
+                    ('state', 'in', ('scheduled', 'waiting', 'called', 'serving')),
+                    ('scheduled_time', '>=', day_start),
+                    ('scheduled_time', '<=', day_end)]):
                 booked[ticket.scheduled_time] = booked.get(ticket.scheduled_time, 0) + 1
 
         step = timedelta(minutes=self.slot_duration)
@@ -219,8 +266,9 @@ class QueueService(models.Model):
             cursor = datetime.combine(day, self._float_to_time(window.hour_from))
             end = datetime.combine(day, self._float_to_time(window.hour_to))
             while cursor + step <= end:
-                used = booked.get(cursor, 0)
-                slots.append((cursor, max(capacity - used, 0)))
+                slot_utc = self._local_to_utc(cursor)
+                used = booked.get(slot_utc, 0)
+                slots.append((slot_utc, max(capacity - used, 0)))
                 cursor += step
         return slots
 
@@ -261,7 +309,7 @@ class QueueService(models.Model):
                 raise UserError(_(
                     "Vous avez déjà %d rendez-vous à venir sur ce service. "
                     "Annulez-en un avant d'en réserver un autre.", active))
-        available = dict(self._slots_for_date(slot_dt.date()))
+        available = dict(self._slots_for_date(self._utc_to_local(slot_dt).date()))
         if slot_dt not in available:
             raise UserError(_("Ce créneau n'existe pas."))
         if available[slot_dt] <= 0:

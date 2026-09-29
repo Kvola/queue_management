@@ -95,7 +95,7 @@ class TestPublicDoorsHardening(HttpCase):
     def test_rotating_forwarded_for_does_not_evade_the_kiosk_limit(self):
         """12 tickets/min par borne : changer le premier élément de
         l'en-tête ne remet plus le compteur à zéro."""
-        url = '/queue/kiosk/%s/ticket' % self.location.qr_token
+        url = '/queue/kiosk/%s/ticket' % self.location.kiosk_token
         answers = []
         for i in range(13):
             resp = self.url_open(url, data={'service_id': self.service.id},

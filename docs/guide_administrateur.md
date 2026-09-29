@@ -25,16 +25,22 @@ la société d'un autre.
 
 ## 2. Distribuer l'application mobile
 
-**Configuration → App mobile** : téléversez l'APK, renseignez la version,
-**Publier**. Effets immédiats :
+L'application s'appelle **Kvla File** et se distribue par le catalogue
+commun des applications : page publique `/apps/kvla-file` (APK Android,
+version navigateur `/queue/u`, guide du visiteur en page et en PDF).
 
-- la page publique `/queue/app` sert cette version (bouton, taille, SHA-256) ;
-- le QR « installez l'app » apparaît sur toutes les bornes et écrans de salle.
+1. Construisez l'APK : `sh build_prod_apk.sh` (il refuse de signer sans la
+   clé de production, et vérifie la signature et l'adresse du serveur).
+2. **Configuration → App mobile** → Nouveau : version (ex. `1.5.0+7`),
+   fichier APK, notes de version → **Publier**.
 
-Une seule version publiée à la fois ; le compteur de téléchargements est sur
-la fiche. Le jour du passage au Play Store : renseignez « URL du store »
-dans les Paramètres — la page publique redirige, **aucun QR imprimé à
-refaire**.
+Effets immédiats : `/apps/kvla-file` sert cette version ; les applications
+déjà installées affichent une **bannière de mise à jour** ; le QR « installez
+l'app » des bornes et écrans de salle mène à la page (il est affiché même
+sans APK, la version navigateur existant toujours). L'ancienne adresse
+`/queue/app`, imprimée sur des affiches, redirige vers le catalogue. Le jour
+du passage au Play Store : renseignez « URL du store » dans les Paramètres —
+`/queue/app` y redirige, **aucun QR imprimé à refaire**.
 
 ## 3. Réglages de la plateforme
 

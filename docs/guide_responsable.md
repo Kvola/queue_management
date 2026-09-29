@@ -23,7 +23,9 @@ Transport, Télécom, Commerce). Sur un site existant, le bouton
      (fiche du site, coupe tout d'un coup) puis le réglage **de chaque
      service** — le distant n'est ouvert que si les deux le permettent ;
    - **Rendez-vous** : créneaux réservables (durée, capacité par créneau,
-     quota de RDV actifs par client, plages d'ouverture par jour) ;
+     quota de RDV actifs par client, plages d'ouverture par jour). Les plages
+     sont en **heure locale du site** : réglez le **fuseau horaire** sur la
+     fiche du site (Abidjan par défaut) si l'établissement est ailleurs ;
    - **Tarification** : cochez « Paiement requis » et saisissez le tarif —
      chaque ticket naît alors « paiement en attente ». Le client paie depuis
      l'application (mobile money) ou vous encaissez au guichet (bouton
@@ -48,7 +50,11 @@ Depuis la fiche du site, deux écrans publics à mettre en plein écran :
   service** ;
 - **Borne tactile** : prise de ticket pour les clients sans smartphone —
   touchez un service, le ticket s'affiche avec position, attente estimée et,
-  pour un service payant, le **montant à régler au guichet**.
+  pour un service payant, le **montant à régler au guichet**. La borne a sa
+  **propre adresse**, distincte du QR d'entrée (onglet « Borne tactile » de
+  la fiche) : ouvrez-la avec le bouton sur l'appareil posé à l'entrée. Si
+  l'adresse a été divulguée ou la borne volée, **régénérez-la** puis
+  rouvrez la borne.
 
 *(Le carillon de l'écran d'affichage nécessite que le navigateur autorise le
 son — en mode plein écran/kiosque, ou après un premier appui sur l'écran.)*

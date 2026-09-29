@@ -3,6 +3,7 @@ import secrets
 from datetime import datetime, time
 
 from odoo import _, api, fields, models
+from odoo.addons.base.models.res_partner import _tz_get
 
 
 class QueueLocation(models.Model):
@@ -32,6 +33,14 @@ class QueueLocation(models.Model):
              "des files. Coché, chaque file décide (son propre réglage "
              "« Tickets à distance »).")
 
+    # Les heures d'ouverture, les créneaux de rendez-vous et la remise à zéro
+    # quotidienne des numéros se lisent dans CE fuseau. Ils étaient lus en
+    # UTC : juste à Abidjan et à Dakar, décalé d'une heure à Douala ou à
+    # Cotonou — un rendez-vous de 8 h y aurait été proposé à 9 h.
+    tz = fields.Selection(
+        _tz_get, string="Fuseau horaire", required=True,
+        default='Africa/Abidjan', tracking=True,
+        help="Fuseau des heures d'ouverture et des rendez-vous de ce site.")
     street = fields.Char("Adresse")
     city = fields.Char("Ville")
 
@@ -43,6 +52,14 @@ class QueueLocation(models.Model):
         default=lambda self: secrets.token_urlsafe(16),
         help="Identifiant encodé dans le QR code du site. Régénérable.",
     )
+    # Jeton de la BORNE, distinct de celui de l'affiche : le QR d'entrée est
+    # photographiable par n'importe qui, et avec le même jeton on pouvait
+    # créer à distance des tickets anonymes par la borne, en ignorant les
+    # réglages « à distance » du site.
+    kiosk_token = fields.Char(
+        "Jeton de la borne", copy=False, readonly=True, index=True,
+        default=lambda self: secrets.token_urlsafe(16),
+        help="Identifiant de l'adresse de la borne tactile. Régénérable.")
     qr_html = fields.Html(
         "QR d'entrée", compute='_compute_qr_html',
         sanitize=False, sanitize_attributes=False,
@@ -60,6 +77,10 @@ class QueueLocation(models.Model):
     _qr_token_uniq = models.Constraint(
         'UNIQUE(qr_token)',
         "Le jeton QR doit être unique.",
+    )
+    _kiosk_token_uniq = models.Constraint(
+        'UNIQUE(kiosk_token)',
+        "Le jeton de borne doit être unique.",
     )
 
     @api.depends('service_ids', 'counter_ids')
@@ -130,6 +151,12 @@ class QueueLocation(models.Model):
             location.qr_token = secrets.token_urlsafe(16)
         return True
 
+    def action_regenerate_kiosk_token(self):
+        """Change l'adresse de la borne (borne volée, adresse divulguée)."""
+        for location in self:
+            location.kiosk_token = secrets.token_urlsafe(16)
+        return True
+
     def action_open_display(self):
         """Ouvre l'écran d'affichage public du site (à mettre en plein écran)."""
         self.ensure_one()
@@ -144,7 +171,7 @@ class QueueLocation(models.Model):
         self.ensure_one()
         return {
             'type': 'ir.actions.act_url',
-            'url': f'/queue/kiosk/{self.qr_token}',
+            'url': f'/queue/kiosk/{self.kiosk_token}',
             'target': 'new',
         }
 

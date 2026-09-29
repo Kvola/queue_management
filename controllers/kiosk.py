@@ -26,8 +26,10 @@ class QueueKioskController(http.Controller):
     def _get_location(self, token):
         if not token:
             return request.env['queue.location']
+        # Le jeton de la BORNE, pas celui de l'affiche d'entrée : le QR est
+        # photographiable, et la borne délivre des tickets sans compte.
         return request.env['queue.location'].sudo().search(
-            [('qr_token', '=', token), ('active', '=', True)], limit=1)
+            [('kiosk_token', '=', token), ('active', '=', True)], limit=1)
 
     def _services(self, location):
         return [

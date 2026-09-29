@@ -70,6 +70,7 @@
                         <group string="Localisation">
                             <field name="street" placeholder="Rue, quartier…"/>
                             <field name="city" placeholder="Ville"/>
+                            <field name="tz"/>
                         </group>
                     </group>
                     <notebook>
@@ -112,6 +113,23 @@
                             <group>
                                 <field name="qr_token" readonly="1"/>
                             </group>
+                        </page>
+                        <page string="Borne tactile" name="kiosk">
+                            <p class="text-muted">
+                                La borne a sa <b>propre adresse</b>, distincte du
+                                QR d'entrée : ce QR est photographiable par
+                                n'importe qui, et la borne délivre des tickets
+                                sans compte. Ouvrez-la avec le bouton « Borne
+                                tactile » sur l'appareil posé à l'entrée. Si
+                                l'adresse a été divulguée (ou la borne volée),
+                                régénérez-la puis rouvrez la borne.
+                            </p>
+                            <group>
+                                <field name="kiosk_token" readonly="1"/>
+                            </group>
+                            <button name="action_regenerate_kiosk_token" type="object"
+                                    string="Régénérer l'adresse de la borne"
+                                    confirm="La borne actuelle cessera de fonctionner jusqu'à ce que vous la rouvriez avec la nouvelle adresse. Continuer ?"/>
                         </page>
                     </notebook>
                 </sheet>
