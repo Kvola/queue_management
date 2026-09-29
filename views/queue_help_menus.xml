@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Guides utilisateur (HTML servis depuis static/, PDF dans docs/pdf/).
-         Chaque rôle voit les guides qui le concernent ; le guide client est
-         visible de tout le personnel (pour renseigner les visiteurs). -->
+    <!-- Guides utilisateur. Ceux du personnel passent par /queue/guide/<nom>
+         (connexion + groupe du rôle) ; le guide du visiteur est celui, public,
+         du catalogue — visible de tout le personnel pour renseigner le public. -->
 
     <record id="action_help_client" model="ir.actions.act_url">
-        <field name="name">Guide du client mobile</field>
-        <field name="url">/queue_management/static/docs/guide_client_mobile.html</field>
+        <field name="name">Guide du visiteur (Kvla File)</field>
+        <field name="url">/apps/kvla-file/guide</field>
         <field name="target">new</field>
     </record>
     <record id="action_help_agent" model="ir.actions.act_url">
         <field name="name">Guide de l'agent de guichet</field>
-        <field name="url">/queue_management/static/docs/guide_agent.html</field>
+        <field name="url">/queue/guide/agent</field>
         <field name="target">new</field>
     </record>
     <record id="action_help_manager" model="ir.actions.act_url">
         <field name="name">Guide du responsable</field>
-        <field name="url">/queue_management/static/docs/guide_responsable.html</field>
+        <field name="url">/queue/guide/responsable</field>
         <field name="target">new</field>
     </record>
     <record id="action_help_admin" model="ir.actions.act_url">
         <field name="name">Guide de l'administrateur</field>
-        <field name="url">/queue_management/static/docs/guide_administrateur.html</field>
+        <field name="url">/queue/guide/administrateur</field>
         <field name="target">new</field>
     </record>
 
@@ -33,7 +33,7 @@
     <menuitem id="menu_queue_help_agent" name="Guide de l'agent"
               parent="menu_queue_help" action="action_help_agent"
               sequence="10" groups="queue_management.group_queue_agent"/>
-    <menuitem id="menu_queue_help_client" name="Guide du client mobile"
+    <menuitem id="menu_queue_help_client" name="Guide du visiteur (Kvla File)"
               parent="menu_queue_help" action="action_help_client"
               sequence="20" groups="queue_management.group_queue_agent"/>
     <menuitem id="menu_queue_help_manager" name="Guide du responsable"

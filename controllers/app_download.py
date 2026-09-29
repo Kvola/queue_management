@@ -1,27 +1,43 @@
 # -*- coding: utf-8 -*-
-"""Distribution publique de l'app mobile.
+"""Anciennes adresses de l'app mobile, tenues en vie.
 
-* ``GET /queue/app`` : page d'installation (version publiée, bouton, SHA-256,
-  instructions). C'est l'URL encodée dans les QR — si le paramètre système
-  ``queue_management.app_store_url`` est défini (passage au Play Store), la
-  page redirige vers le store sans qu'aucun QR imprimé ne devienne obsolète.
-* ``GET /queue/app/download`` : binaire APK de la version publiée,
-  rate-limité par IP.
+L'app se distribue désormais par le catalogue commun
+(``mobile_app_release``) : page ``/apps/kvla-file``, téléchargement, guide et
+version navigateur. Mais ``/queue/app`` est encodée dans les QR déjà imprimés
+et affichés dans les salles d'attente : elle ne doit jamais mourir.
+
+* ``GET /queue/app`` redirige vers le store si le paramètre
+  ``queue_management.app_store_url`` est réglé (passage au Play Store), sinon
+  vers la page du catalogue.
+* ``GET /queue/app/download`` redirige vers le téléchargement du catalogue,
+  qui sert le fichier sans le charger en mémoire et tient le compteur.
+
+Le QR de la borne et de l'écran de salle continue d'encoder ``/queue/app`` :
+c'est la seule adresse qui suit un passage au store sans réimpression.
 """
-import base64
-import logging
-
 from odoo import http
 from odoo.http import request
 
-from .main import secure_public_page
-from .net import client_ip
+APP_SLUG = 'kvla-file'
 
-_logger = logging.getLogger(__name__)
 
-# Téléchargements APK par IP : large pour un hall d'attente derrière un NAT,
-# bloquant pour un aspirateur de bande passante (l'APK pèse des dizaines de Mo).
-_RL_APK_DOWNLOAD = dict(max_requests=15, window_seconds=60, block_seconds=120)
+def store_url(env):
+    """URL de store (Play Store…) : si définie, ``/queue/app`` y mène."""
+    return (env['ir.config_parameter'].sudo()
+            .get_param('queue_management.app_store_url') or '').strip()
+
+
+def app_available(env):
+    """L'app a-t-elle quelque chose à offrir ? (pilote les QR publics)
+
+    Un APK publié ou une version navigateur suffit ; sans l'un ni l'autre, un
+    QR mènerait à une page vide.
+    """
+    if store_url(env):
+        return True
+    app = env.ref('queue_management.mobile_app_kvla_file',
+                  raise_if_not_found=False)
+    return bool(app and app.sudo().active and app.sudo().is_distributable())
 
 
 class QueueAppDownloadController(http.Controller):
@@ -29,45 +45,12 @@ class QueueAppDownloadController(http.Controller):
     @http.route('/queue/app', type='http', auth='public',
                 methods=['GET'], sitemap=False)
     def landing(self, **kw):
-        Release = request.env['queue.app.release'].sudo()
-        store_url = Release._store_url()
-        if store_url:
-            return request.redirect(store_url, code=302, local=False)
-        release = Release._get_published()
-        if not release or not release.apk_file:
-            return request.not_found()
-        return secure_public_page(request.render(
-            'queue_management.app_landing_page', {'release': release}))
+        url = store_url(request.env)
+        if url:
+            return request.redirect(url, code=302, local=False)
+        return request.redirect('/apps/%s' % APP_SLUG, code=302)
 
     @http.route('/queue/app/download', type='http', auth='public',
                 methods=['GET'], sitemap=False)
     def download(self, **kw):
-        ip = client_ip()
-        limited, retry_after = request.env['queue.rate.limit'].sudo(
-        ).check_and_record(f"queue_apk_dl:{ip}", **_RL_APK_DOWNLOAD)
-        if limited:
-            return request.make_response(
-                "Trop de téléchargements depuis cette adresse. Réessayez plus tard.",
-                headers=[('Content-Type', 'text/plain; charset=utf-8'),
-                         ('Retry-After', str(retry_after))],
-                status=429)
-
-        release = request.env['queue.app.release'].sudo()._get_published()
-        if not release or not release.apk_file:
-            return request.not_found()
-        try:
-            data = base64.b64decode(release.apk_file)
-        except Exception:
-            _logger.exception("APK release %s : binaire illisible", release.id)
-            return request.not_found()
-        release.increment_download()
-        filename = (release.apk_file_name
-                    or 'queue_mobile-v%s.apk' % (release.version or '0'))
-        return request.make_response(data, headers=[
-            ('Content-Type', 'application/vnd.android.package-archive'),
-            ('Content-Disposition',
-             'attachment; filename="%s"' % filename.replace('"', '')),
-            ('Content-Length', str(len(data))),
-            ('X-Content-Type-Options', 'nosniff'),
-            ('Cache-Control', 'public, max-age=3600'),
-        ])
+        return request.redirect('/apps/%s/download' % APP_SLUG, code=302)

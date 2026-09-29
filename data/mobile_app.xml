@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La déclaration au catalogue `/apps`.
+
+     SANS `noupdate` : tout ce qui est décrit ici appartient au code. Ce qui
+     appartient à l'opérateur — les VERSIONS, avec leur APK, et la note de
+     contact — n'y figure pas.
+-->
+<odoo>
+    <data>
+
+        <record id="mobile_app_kvla_file" model="mobile.app">
+            <field name="name">Kvla File</field>
+            <field name="slug">kvla-file</field>
+            <field name="sequence">80</field>
+            <field name="summary">Prenez votre ticket depuis votre téléphone et suivez votre tour sans rester debout dans la salle</field>
+            <field name="icon" type="base64" file="queue_management/static/description/icon.png"/>
+            <field name="min_android">8.0</field>
+            <!-- Le portail client EST la version navigateur : mêmes
+                 adresses d'API, même parcours. `/queue/u` demande le code du
+                 site ; le QR d'entrée mène directement au bon site. -->
+            <field name="pwa_url">/queue/u</field>
+            <field name="first_run_note">Scannez le QR code affiché à l'entrée de l'établissement, puis connectez-vous avec votre adresse e-mail : un code vous y est envoyé, aucun mot de passe à retenir.</field>
+            <!-- Sans `guide_template_xmlid`, la page existe mais ne rend rien.
+                 Éprouvé par `tests/test_user_guide.py`. -->
+            <field name="guide_template_xmlid">queue_management.user_guide_content</field>
+            <field name="guide_report_xmlid">queue_management.action_report_user_guide</field>
+            <field name="description" type="html">
+                <div>
+                    <p>
+                        À l'hôpital, à la mairie, à la gare : on arrive, on
+                        prend un numéro, et l'on reste debout une heure à
+                        guetter l'écran de peur de manquer son tour.
+                    </p>
+                    <p>
+                        <strong>Kvla File garde votre place pour vous.</strong>
+                        Scannez le QR code de l'entrée, choisissez votre
+                        service : votre numéro, votre position et l'attente
+                        estimée s'affichent et se mettent à jour tout seuls.
+                    </p>
+                    <p>
+                        <strong>Le téléphone vous prévient.</strong>
+                        « Bientôt votre tour », puis « C'est à vous ! » avec le
+                        numéro du guichet. Vous pouvez attendre dehors, à
+                        l'ombre, ou finir une course.
+                    </p>
+                    <p>
+                        <strong>Rendez-vous et paiement.</strong> Quand le
+                        service le propose, réservez un créneau ou réglez par
+                        Wave avant d'arriver au guichet.
+                    </p>
+                    <p>
+                        <strong>Aucun mot de passe.</strong> Un code reçu par
+                        e-mail suffit pour se connecter. Pas d'Android ?
+                        La même application s'ouvre dans le navigateur.
+                    </p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+</odoo>

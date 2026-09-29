@@ -331,7 +331,7 @@
                         if (!site) { app.innerHTML = '<div class="center muted">Chargement…</div>'; return; }
 
                         var html = '<div class="install"><span>Vous êtes sur le portail web — rien à installer. '
-                            + 'Vous pouvez aussi <a href="/queue/app">installer l\'application</a>.</span>'
+                            + 'Vous pouvez aussi <a href="/apps/kvla-file">installer l\'application</a>.</span>'
                             + '<button class="btn ghost" id="installBtn" style="display:none">Installer</button></div>';
                         html += '<div id="tickets"></div>';
                         if (!logged) html += loginCard();

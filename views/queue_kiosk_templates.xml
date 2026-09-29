@@ -56,7 +56,7 @@
                     <img t-att-src="app_qr" alt="QR installation de l'app"/>
                     <div>
                         <b>📱 Suivez votre file depuis votre téléphone</b><br/>
-                        Scannez ce code pour installer l'application.
+                        Scannez ce code : l'application Android, ou la même dans votre navigateur.
                     </div>
                 </div>
 

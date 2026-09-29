@@ -244,7 +244,7 @@ class TestQueue(TransactionCase):
     def test_chatter_on_all_form_models(self):
         """Tous les modèles à formulaire portent le chatter (mail.thread)."""
         for model in ('queue.location', 'queue.service', 'queue.counter',
-                      'queue.customer', 'queue.app.release', 'queue.ticket'):
+                      'queue.customer', 'queue.ticket'):
             self.assertIn('message_ids', self.env[model]._fields, model)
 
     def test_sensitive_fields_are_tracked(self):
@@ -258,7 +258,6 @@ class TestQueue(TransactionCase):
             'queue.location': {'name', 'company_id', 'active'},
             'queue.counter': {'agent_id', 'active'},
             'queue.customer': {'email', 'active'},
-            'queue.app.release': {'is_active', 'version'},
             'queue.ticket': {'state'},
         }
         for model, fields_expected in tracked.items():

@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 import json
+from urllib.parse import quote
 
 from odoo import fields, http
 from odoo.http import request
+
+from .app_download import app_available
 
 # Défense en profondeur des pages publiques (borne, affichage) : elles sont
 # autonomes (styles/scripts inline, aucune ressource externe) — on interdit
@@ -85,10 +88,19 @@ class QueueDisplayController(http.Controller):
         }
 
     @staticmethod
-    def _app_qr_src():
-        """Src de l'image QR « installez l'app », ou False si rien à servir."""
-        Release = request.env['queue.app.release'].sudo()
-        return Release._landing_available() and Release._qr_src(size=220)
+    def _app_qr_src(size=220):
+        """Src de l'image QR « installez l'app », ou False si rien à servir.
+
+        Le QR encode ``/queue/app`` et non la page du catalogue : c'est
+        l'adresse qui suivra un passage au store sans réimprimer d'affiche.
+        L'image est servie par la même origine (``img-src 'self'`` de la CSP).
+        """
+        if not app_available(request.env):
+            return False
+        landing = '%s/queue/app' % request.env['queue.location'].sudo(
+        ).get_base_url().rstrip('/')
+        return ('/report/barcode/?barcode_type=QR&value=%s&width=%d&height=%d'
+                % (quote(landing, safe=''), size, size))
 
     @http.route('/queue/display/<string:token>', type='http', auth='public', sitemap=False)
     def display(self, token, **kw):

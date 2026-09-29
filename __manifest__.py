@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': "Gestionnaire de file d'attente",
-    'version': '19.0.2.10.0',
+    'version': '19.0.3.0.0',
     'category': 'Services',
     'summary': "File d'attente virtuelle multi-établissements (hôpitaux, services, administrations)",
     'description': """
@@ -37,6 +37,9 @@ d'attente & statistiques (Phase 5).
         'base',
         'mail',
         'queue_payment',
+        # Distribution de l'app (« Kvla File ») : page, APK, guide, version
+        # navigateur — le catalogue commun à toutes les applications.
+        'mobile_app_release',
         # 'push_notification_hub' : dépendance VOLONTAIREMENT souple (non listée).
         # Le push réutilise ce hub quand il est installé, mais queue_management
         # reste installable et fonctionnel sans lui (cf. queue.customer._push).
@@ -61,8 +64,6 @@ d'attente & statistiques (Phase 5).
         'views/queue_sector_views.xml',
         'views/queue_stats_views.xml',
         'views/queue_customer_views.xml',
-        'views/queue_app_release_views.xml',
-        'views/queue_app_templates.xml',
         'views/queue_dashboard_views.xml',
         'views/res_config_settings_views.xml',
         'views/queue_setup_wizard_views.xml',
@@ -70,6 +71,11 @@ d'attente & statistiques (Phase 5).
         'views/queue_help_menus.xml',
         'views/queue_console_views.xml',
         'report/queue_location_qr_report.xml',
+        # Le guide AVANT la fiche du catalogue qui le désigne par xmlid.
+        'report/user_guide.xml',
+        'data/mobile_app.xml',
+        # Après la fiche : l'action du menu la désigne par ref().
+        'views/queue_app_views.xml',
         'data/queue_cron.xml',
     ],
     'assets': {

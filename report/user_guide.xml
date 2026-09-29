@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         LE GUIDE DE KVLA FILE — UNE SEULE SOURCE
+
+         La structure ici ; l'habillage dans la page du catalogue
+         (`/apps/kvla-file/guide`), l'impression dans le PDF ci-dessous.
+         Aucune couleur dans ce gabarit : chaque sortie a la sienne.
+
+         Il s'adresse au visiteur d'un établissement — patient, usager,
+         voyageur — pas à l'agent derrière le guichet. Les guides du personnel
+         restent derrière la connexion (`/queue/guide/<nom>`).
+
+         Il remplace `docs/guide_client_mobile.md`, qui ignorait le paiement
+         et la version navigateur.
+    ═══════════════════════════════════════════════════════════════════ -->
+    <template id="user_guide_content" name="Guide Kvla File — contenu">
+        <t>
+            <h2>Ce que fait cette application</h2>
+            <p>
+                Vous arrivez à l'hôpital, à la mairie ou à la gare : au lieu
+                de rester debout devant l'écran des numéros,
+                <strong>vous prenez votre ticket sur votre téléphone</strong>
+                et vous suivez votre tour d'où vous voulez. L'application vous
+                prévient quand votre tour approche, puis quand c'est à vous.
+            </p>
+
+            <div class="attention">
+                <h3>Les trois choses à savoir avant tout le reste</h3>
+                <p>
+                    <strong>Tout part du QR code de l'entrée.</strong> Chaque
+                    établissement affiche le sien à l'accueil. C'est lui qui
+                    dit à l'application où vous êtes et quels services vous
+                    sont proposés.
+                </p>
+                <p>
+                    <strong>Aucun mot de passe.</strong> Vous vous connectez
+                    avec votre adresse e-mail : un code à 6 chiffres vous y est
+                    envoyé. Vous restez connecté environ trois mois sur ce
+                    téléphone.
+                </p>
+                <p>
+                    <strong>Pas d'Android ? Rien à installer.</strong> La même
+                    application s'ouvre dans le navigateur, sur iPhone comme
+                    sur ordinateur.
+                </p>
+            </div>
+
+            <h2>Installer, ou ne rien installer</h2>
+            <ol>
+                <li>
+                    Scannez avec l'appareil photo le QR code
+                    <strong>« Suivez votre file depuis votre téléphone »</strong>
+                    affiché sur la borne ou l'écran de la salle d'attente, ou
+                    ouvrez <code>/apps/kvla-file</code>.
+                </li>
+                <li>
+                    Touchez <strong>Installer sur Android</strong> et installez
+                    le fichier. Android peut demander d'autoriser l'installation
+                    d'applications depuis votre navigateur : acceptez, c'est
+                    l'application de cette page.
+                </li>
+                <li>
+                    Sur iPhone ou ordinateur, touchez
+                    <strong>Ouvrir dans le navigateur</strong>. Scanner le QR
+                    code de l'entrée avec l'appareil photo ouvre aussi
+                    directement la page du site.
+                </li>
+            </ol>
+
+            <h2>Se connecter</h2>
+            <ol>
+                <li>Saisissez votre adresse e-mail et demandez un code.</li>
+                <li>
+                    Le code arrive par e-mail ; il reste valable 10 minutes.
+                    Rien reçu ? Regardez dans les courriers indésirables. Le
+                    bouton de renvoi se réactive au bout d'une minute.
+                </li>
+                <li>Saisissez le code : vous êtes connecté.</li>
+            </ol>
+
+            <h2>Prendre un ticket sur place</h2>
+            <ol>
+                <li>
+                    Touchez <strong>Prendre un ticket</strong>, puis
+                    <strong>Scanner le QR du site</strong>. Si la caméra ne
+                    fonctionne pas, saisissez le code du site écrit sous le QR.
+                </li>
+                <li>
+                    <strong>Quel service souhaitez-vous ?</strong> Chaque
+                    service indique combien de personnes attendent, et s'il
+                    propose des rendez-vous.
+                </li>
+                <li>
+                    Sur l'écran du service, touchez
+                    <strong>Prendre un ticket</strong>. Votre numéro, votre
+                    position dans la file et l'attente estimée s'affichent.
+                </li>
+            </ol>
+
+            <h2>Suivre son tour</h2>
+            <p>
+                L'écran du ticket se met à jour tout seul. Deux notifications
+                vous préviennent : <strong>« Bientôt votre tour »</strong> quand
+                vous approchez, puis <strong>« C'est à vous ! »</strong> avec
+                le guichet où vous présenter. Le téléphone vibre et sonne à ce
+                moment-là.
+            </p>
+            <p>
+                Vous pouvez <strong>annuler</strong> votre ticket tant que
+                l'agent n'a pas commencé à vous servir : la place revient aux
+                suivants.
+            </p>
+
+            <h2>Revenir sans rescanner, et prendre son ticket à distance</h2>
+            <p>
+                Chaque site scanné s'ajoute à l'accueil, dans
+                <strong>Mes sites</strong>. Touchez-le pour revoir ses
+                services ; un appui long propose de l'oublier.
+            </p>
+            <p>
+                Quand l'établissement le permet, vous pouvez prendre votre
+                ticket <strong>avant de partir de chez vous</strong> : une
+                bannière « à distance » s'affiche, et l'attente estimée vous
+                dit quand vous mettre en route. Les services marqués
+                <strong>sur place uniquement</strong> demandent d'être dans les
+                locaux.
+            </p>
+
+            <h2>Prendre rendez-vous</h2>
+            <ol>
+                <li>
+                    Sur un service qui affiche <strong>RDV possible</strong>,
+                    touchez <strong>Prendre rendez-vous</strong>, choisissez un
+                    jour puis un créneau libre.
+                </li>
+                <li>
+                    Le jour venu, une fois sur place, ouvrez le rendez-vous et
+                    touchez <strong>Je suis arrivé(e) — m'enregistrer</strong> :
+                    vous recevez votre numéro et entrez dans la file, en
+                    priorité si votre heure est passée.
+                </li>
+                <li>
+                    Sans enregistrement dans l'heure qui suit l'heure prévue,
+                    le rendez-vous expire et vous en êtes prévenu.
+                </li>
+            </ol>
+
+            <h2>Payer un service payant</h2>
+            <p>
+                Le tarif s'affiche sur l'écran du service. Une fois le ticket
+                pris, <strong>Choisissez un moyen de paiement</strong> :
+            </p>
+            <div class="tableau">
+                <table>
+                    <tr><th>Moyen</th><th>Ce qui se passe</th></tr>
+                    <tr>
+                        <td><strong>Wave</strong></td>
+                        <td>
+                            L'application Wave s'ouvre avec le montant. Selon
+                            l'établissement, le paiement est confirmé tout de
+                            suite, ou vérifié par l'agent au guichet.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Au guichet</strong></td>
+                        <td>Vous réglez au comptoir quand on vous appelle.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Preuve de paiement</strong></td>
+                        <td>
+                            Joignez une photo du reçu ou une capture d'écran
+                            (photo ou PDF). L'agent la vérifie.
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <p>
+                Tant que l'agent n'a pas vérifié, le ticket indique
+                « Paiement déclaré — en attente de validation au guichet ».
+                Votre place dans la file ne dépend pas du paiement.
+            </p>
+
+            <h2>En cas de problème</h2>
+            <div class="tableau">
+                <table>
+                    <tr><th>Vous voyez</th><th>Ce que cela veut dire</th></tr>
+                    <tr>
+                        <td>« L'email n'a pas pu être envoyé »</td>
+                        <td>Incident d'envoi momentané : réessayez dans un instant.</td>
+                    </tr>
+                    <tr>
+                        <td>« Trop de tentatives »</td>
+                        <td>Protection contre les abus : patientez le délai indiqué.</td>
+                    </tr>
+                    <tr>
+                        <td>Écran noir au moment de scanner</td>
+                        <td>
+                            La caméra est refusée : autorisez-la dans les
+                            réglages du téléphone, ou saisissez le code du site.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Bandeau « Hors ligne »</td>
+                        <td>
+                            La connexion est perdue : l'application réessaie
+                            seule et affiche les dernières informations reçues.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Retour à l'écran de connexion</td>
+                        <td>La session a expiré : reconnectez-vous avec un nouveau code.</td>
+                    </tr>
+                    <tr>
+                        <td>« Vous avez trop de tickets en cours »</td>
+                        <td>Terminez ou annulez un ticket avant d'en prendre un autre.</td>
+                    </tr>
+                    <tr>
+                        <td>« Service momentanément indisponible »</td>
+                        <td>
+                            L'établissement ne délivre pas de ticket en ce
+                            moment : adressez-vous à l'accueil.
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </t>
+    </template>
+
+    <template id="report_user_guide">
+        <t t-call="web.html_container">
+            <!-- `docs`, et non `doc` : le rendu expose le RECORDSET. -->
+            <t t-foreach="docs" t-as="doc">
+            <!-- `web.basic_layout` pose le `div.article` que l'impression
+                 cherche. Sans lui, Odoo transmet le corps brut à wkhtmltopdf,
+                 sans déclaration d'encodage : chaque accent sort en
+                 « tÃ©lÃ©phone ». La page s'affiche, le test passe, et seul
+                 qui lit le PDF le voit. -->
+            <t t-call="web.basic_layout">
+            <div class="page">
+                <style>
+                    .page { font-family: Helvetica, Arial, sans-serif;
+                            color: #1a1a1a; font-size: 11pt; line-height: 1.5; }
+                    .page h1 { font-size: 20pt; margin: 0 0 4px; }
+                    .page h2 { font-size: 13pt; margin: 20px 0 8px;
+                               border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+                    .page h3 { font-size: 11pt; margin: 14px 0 6px; color: #1d4ed8; }
+                    .page table { width: 100%; border-collapse: collapse;
+                                  margin: 0 0 14px; font-size: 9.5pt; }
+                    .page th, .page td { border: 1px solid #ddd; padding: 6px 8px;
+                                         text-align: left; vertical-align: top; }
+                    .page th { background: #f5f5f5; }
+                    .page .attention { border-left: 3px solid #2563eb;
+                                       background: #f5f8ff; padding: 10px 14px;
+                                       margin: 0 0 14px; }
+                    .page code { background: #f0f0f0; padding: 1px 4px; font-size: 9.5pt; }
+                    .page .capture { text-align: center; margin: 0 0 16px; }
+                    .page .capture img { max-width: 62mm; border: 1px solid #ddd;
+                                         border-radius: 4px; }
+                    .page .titre { border-bottom: 2px solid #2563eb;
+                                   padding-bottom: 10px; margin-bottom: 18px; }
+                    .page .pied { margin-top: 26px; padding-top: 10px;
+                                  border-top: 1px solid #ddd; font-size: 9pt;
+                                  color: #666; }
+                </style>
+                <div class="titre">
+                    <h1>Guide d'utilisation</h1>
+                    <div t-esc="doc.name"/>
+                </div>
+
+                <!-- Les captures doivent être INCORPORÉES : wkhtmltopdf
+                     rappellerait sinon le serveur, qui ne peut pas répondre
+                     pendant qu'il rend ce rapport. -->
+                <t t-set="guide_image_mode" t-value="'data'"/>
+                <t t-set="app" t-value="doc"/>
+                <t t-call="queue_management.user_guide_content"/>
+
+                <div class="pied" t-if="doc.support_note">
+                    <t t-esc="doc.support_note"/>
+                </div>
+            </div>
+            </t>
+            </t>
+        </t>
+    </template>
+
+    <record id="action_report_user_guide" model="ir.actions.report">
+        <field name="name">Guide utilisateur — Kvla File</field>
+        <field name="model">mobile.app</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">queue_management.report_user_guide</field>
+        <field name="report_file">queue_management.report_user_guide</field>
+        <field name="print_report_name">'Guide - %s' % (object.name)</field>
+        <field name="binding_model_id" eval="False"/>
+    </record>
+
+</odoo>
