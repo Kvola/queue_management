@@ -9,6 +9,9 @@ personne ne vérifie au chargement : ces tests le font.
 `TransactionCase` fige la suite (wkhtmltopdf rappelle le serveur, qui attend
 la transaction du test).
 """
+import os
+import re
+
 from odoo.tests import HttpCase, tagged
 
 
@@ -61,6 +64,38 @@ class TestUserGuide(HttpCase):
             'queue_management.action_report_user_guide', res_ids=self.app.ids)
         self.assertEqual(content_type, 'pdf')
         self.assertTrue(pdf.startswith(b'%PDF'))
+
+    def test_every_screenshot_of_the_guide_exists(self):
+        """Une capture manquante ne lève RIEN : un cadre vide au milieu du
+        texte, là où l'on montrait le geste."""
+        source = self.env.ref('queue_management.user_guide_content').arch
+        chemins = re.findall(r'''t-set="chemin"\s+t-value="'([^']+)'"''', source)
+        self.assertGreaterEqual(len(chemins), 8, "Le guide a perdu ses captures.")
+        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for chemin in chemins:
+            self.assertTrue(chemin.startswith('queue_management/'), chemin)
+            self.assertTrue(
+                os.path.exists(os.path.join(racine, chemin.split('/', 1)[1])),
+                "Capture absente : %s — relancez "
+                "./sync_queue_guide_screenshots.sh" % chemin)
+
+    def test_the_page_shows_the_screenshots(self):
+        body = self.url_open('/apps/kvla-file/guide').text
+        self.assertIn('/queue_management/static/guide/kvla-file-ticket.png', body)
+        png = self.url_open('/queue_management/static/guide/kvla-file-ticket.png')
+        self.assertEqual(png.status_code, 200)
+        self.assertEqual(png.headers.get('Content-Type'), 'image/png')
+
+    def test_the_printed_guide_embeds_its_screenshots(self):
+        """Le PDF PORTE les images : wkhtmltopdf ne peut pas les redemander à
+        un serveur occupé à rendre ce même rapport — l'impression réussirait
+        alors sans une seule image."""
+        pdf, _type = self.env.ref(
+            'queue_management.action_report_user_guide',
+        ).with_context(force_report_rendering=True)._render_qweb_pdf(
+            'queue_management.action_report_user_guide', res_ids=self.app.ids)
+        images = pdf.count(b'/Subtype /Image') + pdf.count(b'/Subtype/Image')
+        self.assertGreaterEqual(images, 8)
 
     def test_the_printed_html_declares_its_encoding(self):
         """Ce que reçoit wkhtmltopdf doit dire « UTF-8 ».

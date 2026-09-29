@@ -79,6 +79,10 @@
                 </li>
                 <li>Saisissez le code : vous êtes connecté.</li>
             </ol>
+            <t t-call="mobile_app_release.guide_capture">
+                <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-connexion.png'"/>
+                <t t-set="alt" t-value="'L’écran de connexion : une adresse e-mail, un code'"/>
+            </t>
 
             <h2>Prendre un ticket sur place</h2>
             <ol>
@@ -98,6 +102,16 @@
                     position dans la file et l'attente estimée s'affichent.
                 </li>
             </ol>
+            <div class="paire">
+                <t t-call="mobile_app_release.guide_capture">
+                    <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-services.png'"/>
+                    <t t-set="alt" t-value="'La liste des services d’un hôpital, avec l’attente de chacun'"/>
+                </t>
+                <t t-call="mobile_app_release.guide_capture">
+                    <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-service.png'"/>
+                    <t t-set="alt" t-value="'Un service payant : tarif, prise de ticket ou de rendez-vous'"/>
+                </t>
+            </div>
 
             <h2>Suivre son tour</h2>
             <p>
@@ -107,6 +121,16 @@
                 le guichet où vous présenter. Le téléphone vibre et sonne à ce
                 moment-là.
             </p>
+            <div class="paire">
+                <t t-call="mobile_app_release.guide_capture">
+                    <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-ticket.png'"/>
+                    <t t-set="alt" t-value="'Le ticket : numéro, position dans la file, attente estimée'"/>
+                </t>
+                <t t-call="mobile_app_release.guide_capture">
+                    <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-appel.png'"/>
+                    <t t-set="alt" t-value="'C’est à vous : le guichet où se présenter'"/>
+                </t>
+            </div>
             <p>
                 Vous pouvez <strong>annuler</strong> votre ticket tant que
                 l'agent n'a pas commencé à vous servir : la place revient aux
@@ -119,6 +143,10 @@
                 <strong>Mes sites</strong>. Touchez-le pour revoir ses
                 services ; un appui long propose de l'oublier.
             </p>
+            <t t-call="mobile_app_release.guide_capture">
+                <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-accueil.png'"/>
+                <t t-set="alt" t-value="'L’accueil : mes sites et mes tickets en cours'"/>
+            </t>
             <p>
                 Quand l'établissement le permet, vous pouvez prendre votre
                 ticket <strong>avant de partir de chez vous</strong> : une
@@ -146,12 +174,20 @@
                     le rendez-vous expire et vous en êtes prévenu.
                 </li>
             </ol>
+            <t t-call="mobile_app_release.guide_capture">
+                <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-rendez-vous.png'"/>
+                <t t-set="alt" t-value="'Le choix d’un jour puis d’un créneau libre'"/>
+            </t>
 
             <h2>Payer un service payant</h2>
             <p>
                 Le tarif s'affiche sur l'écran du service. Une fois le ticket
                 pris, <strong>Choisissez un moyen de paiement</strong> :
             </p>
+            <t t-call="mobile_app_release.guide_capture">
+                <t t-set="chemin" t-value="'queue_management/static/guide/kvla-file-paiement.png'"/>
+                <t t-set="alt" t-value="'Les trois moyens de paiement d’un ticket'"/>
+            </t>
             <div class="tableau">
                 <table>
                     <tr><th>Moyen</th><th>Ce qui se passe</th></tr>
@@ -255,9 +291,16 @@
                                        background: #f5f8ff; padding: 10px 14px;
                                        margin: 0 0 14px; }
                     .page code { background: #f0f0f0; padding: 1px 4px; font-size: 9.5pt; }
-                    .page .capture { text-align: center; margin: 0 0 16px; }
-                    .page .capture img { max-width: 62mm; border: 1px solid #ddd;
+                    .page .capture { text-align: center; margin: 0 0 16px;
+                                     page-break-inside: avoid; }
+                    .page .capture img { max-width: 48mm; border: 1px solid #ddd;
                                          border-radius: 4px; }
+                    /* Deux écrans qui se suivent (liste → détail, attente →
+                       appel) se lisent côte à côte ; empilés, ils coûtaient
+                       une page chacun. */
+                    .page .paire { text-align: center; page-break-inside: avoid; }
+                    .page .paire .capture { display: inline-block; width: 46%;
+                                            vertical-align: top; }
                     .page .titre { border-bottom: 2px solid #2563eb;
                                    padding-bottom: 10px; margin-bottom: 18px; }
                     .page .pied { margin-top: 26px; padding-top: 10px;
@@ -285,6 +328,22 @@
         </t>
     </template>
 
+    <!-- Marges d'un document, pas d'une facture : le format par défaut
+         réserve ~40 mm en tête de chaque page pour un en-tête que ce guide
+         n'a pas — une bande blanche au-dessus de chaque page. -->
+    <record id="paperformat_user_guide" model="report.paperformat">
+        <field name="name">Guide Kvla File (A4)</field>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">14</field>
+        <field name="margin_bottom">14</field>
+        <field name="margin_left">14</field>
+        <field name="margin_right">14</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
+
     <record id="action_report_user_guide" model="ir.actions.report">
         <field name="name">Guide utilisateur — Kvla File</field>
         <field name="model">mobile.app</field>
@@ -293,6 +352,7 @@
         <field name="report_file">queue_management.report_user_guide</field>
         <field name="print_report_name">'Guide - %s' % (object.name)</field>
         <field name="binding_model_id" eval="False"/>
+        <field name="paperformat_id" ref="paperformat_user_guide"/>
     </record>
 
 </odoo>
