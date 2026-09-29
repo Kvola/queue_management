@@ -150,7 +150,8 @@ class TestPaymentApi(HttpCase):
         # Un ticket dont la référence Wave est connue.
         ticket = self.env['queue.ticket'].create({
             'service_id': self.service.id, 'partner_id': self.customer.partner_id.id})
-        ticket.write({'payment_state': 'to_validate', 'payment_ref': 'SESS-1'})
+        # La session Wave est portée par le paiement du socle (voie directe).
+        ticket._current_payment('wave').provider_ref = 'SESS-1'
         self.env['ir.config_parameter'].sudo().set_param(
             'queue_management.wave_webhook_secret', 'topsecret')
         body = json.dumps({'type': 'checkout.session.completed',
@@ -163,6 +164,7 @@ class TestPaymentApi(HttpCase):
         self.assertEqual(resp.status_code, 200)
         ticket.invalidate_recordset(['payment_state'])
         self.assertEqual(ticket.payment_state, 'paid')
+        self.assertEqual(ticket.sudo().payment_id.state, 'paid')
 
     def test_wave_webhook_rejects_bad_signature(self):
         import json

@@ -67,6 +67,11 @@
                             string="Encaisser" class="btn-primary"
                             invisible="payment_state != 'pending'"
                             help="Encaissement direct au guichet (le paiement passe payé)."/>
+                    <button name="action_open_refund_wizard" type="object"
+                            string="Rembourser"
+                            groups="queue_management.group_queue_manager"
+                            invisible="payment_state != 'paid'"
+                            help="Rendre l'argent de ce ticket (service non rendu, ticket annulé) et en garder la trace."/>
                     <button name="action_cancel" type="object" string="Annuler"
                             invisible="state in ('done','no_show','cancelled')"
                             confirm="Annuler ce ticket ?"/>
@@ -115,6 +120,12 @@
                             <field name="paid_at" invisible="payment_state != 'paid'"/>
                             <field name="payment_validated_by"
                                    invisible="payment_state != 'paid'"/>
+                            <field name="payment_id"
+                                   groups="queue_management.group_queue_manager"
+                                   invisible="not payment_id"/>
+                            <field name="refund_count"
+                                   groups="queue_management.group_queue_manager"
+                                   invisible="not refund_count"/>
                         </group>
                         <group string="Service &amp; guichet">
                             <field name="service_id"

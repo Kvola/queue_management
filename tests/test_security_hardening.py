@@ -115,18 +115,23 @@ class TestPublicDoorsHardening(HttpCase):
         self.assertEqual(resp.status_code, 401)
 
     def test_cancelled_ticket_is_not_revived_by_wave(self):
+        """Wave confirme après l'annulation : l'argent est bien arrivé. Il est
+        enregistré (sans quoi il disparaîtrait des comptes), le ticket reste
+        annulé et le dossier dit qu'il faut rembourser."""
         ticket = self._ticket()
-        ticket.write({'payment_ref': 'SESS-CANCEL'})
+        ticket._current_payment('wave').provider_ref = 'SESS-CANCEL'
         ticket.action_cancel()
         resp = self._webhook({'data': {'id': 'SESS-CANCEL',
                                        'payment_status': 'succeeded'}})
         self.assertEqual(resp.status_code, 200)
         ticket.invalidate_recordset()
-        self.assertNotEqual(ticket.payment_state, 'paid')
+        self.assertEqual(ticket.state, 'cancelled')
+        self.assertEqual(ticket.sudo().payment_id.state, 'paid')
+        self.assertIn('rembourser', ' '.join(ticket.message_ids.mapped('body')))
 
     def test_partial_amount_is_not_confirmed(self):
         ticket = self._ticket()
-        ticket.write({'payment_ref': 'SESS-PART'})
+        ticket._current_payment('wave').provider_ref = 'SESS-PART'
         self._webhook({'data': {'id': 'SESS-PART', 'amount': '100',
                                 'payment_status': 'succeeded'}})
         ticket.invalidate_recordset()

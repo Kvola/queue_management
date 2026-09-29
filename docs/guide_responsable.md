@@ -80,7 +80,22 @@ ayant au moins un ticket chez vous, avec leur historique (bouton Tickets).
 **Archiver** un client bloque immédiatement sa session mobile (abus).
 Les clients s'inscrivent eux-mêmes dans l'app — vous n'avez rien à créer.
 
-## 4. Traçabilité
+## 4. Paiements et remboursements
+
+Chaque paiement de ticket est enregistré dans le **socle de paiement** de la
+plateforme, comme ceux des autres services : la fiche du ticket montre le
+**Paiement** correspondant (montant, moyen, qui l'a validé, preuve jointe,
+commission du prestataire le cas échéant). Un paiement rejeté reste au
+dossier avec sa preuve ; le client en déclare simplement un nouveau.
+
+**Rembourser** (bouton sur un ticket payé) : rendez l'argent au client —
+espèces ou envoi Wave depuis votre téléphone —, puis enregistrez-le ici avec
+son motif. Rien n'est viré automatiquement ; on ne peut pas rendre plus que
+ce qui a été payé, et le ticket passe « Remboursé » une fois tout rendu.
+Si Wave confirme un paiement sur un ticket déjà **annulé**, l'argent est
+enregistré et le ticket le signale « à rembourser ».
+
+## 5. Traçabilité
 
 Chaque fiche (site, file, guichet, client, ticket) porte un **chatter** :
 les changements sensibles y sont historisés automatiquement — qui a activé

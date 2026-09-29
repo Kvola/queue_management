@@ -20,3 +20,6 @@ access_queue_service_template_manager,queue.service.template.manager,model_queue
 access_queue_service_template_system,queue.service.template.system,model_queue_service_template,base.group_system,1,1,1,1
 access_queue_service_from_template_manager,queue.service.from.template.manager,model_queue_service_from_template_wizard,group_queue_manager,1,1,1,1
 access_mobile_app_release_queue_operator,mobile.app.release (opérateur file d attente),mobile_app_release.model_mobile_app_release,base.group_system,1,1,1,1
+access_queue_ticket_refund_manager,queue.ticket.refund.manager,model_queue_ticket_refund_wizard,group_queue_manager,1,1,1,1
+access_queue_payment_queue_manager,queue.payment (responsable file d attente),queue_payment.model_queue_payment,group_queue_manager,1,0,0,0
+access_queue_refund_queue_manager,queue.refund (responsable file d attente),queue_payment.model_queue_refund,group_queue_manager,1,0,0,0

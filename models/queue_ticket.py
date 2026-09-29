@@ -16,7 +16,8 @@ class QueueTicket(models.Model):
 
     _name = 'queue.ticket'
     _description = "Ticket de file d'attente"
-    _inherit = ['mail.thread']
+    # Remboursable par le socle (``queue.refund``) : trace, plafond, crochets.
+    _inherit = ['mail.thread', 'queue.refundable.mixin']
     _order = 'create_date desc'
 
     PRIORITY = [
@@ -113,8 +114,26 @@ class QueueTicket(models.Model):
     payment_ref = fields.Char(
         "Référence de paiement", copy=False,
         help="Identifiant de la transaction (Wave, virement, TPE…).")
-    payment_proof = fields.Binary("Preuve de paiement", copy=False, attachment=True)
-    payment_proof_filename = fields.Char("Nom du fichier de preuve", copy=False)
+    # L'argent passe par le socle : ``queue.payment`` est la seule source de
+    # vérité (commissions, imputations, remboursements, webhook Wave). Les
+    # champs ci-dessus restent le VOCABULAIRE du ticket — celui que lisent
+    # l'app, la console et le portail — et ne sont écrits que par les crochets
+    # que le socle déclenche (``_on_payment_*``).
+    payment_id = fields.Many2one(
+        'queue.payment', string="Paiement", copy=False, readonly=True,
+        index=True, groups='queue_management.group_queue_manager',
+        help="Encaissement en cours ou réglé de ce ticket (socle de paiement).")
+    # Les remboursements (hérités du mixin) sont l'affaire du responsable : un
+    # agent n'a pas accès à ``queue.refund``, lire ces champs lui lèverait une
+    # erreur d'accès à l'ouverture d'un ticket.
+    refund_ids = fields.Many2many(groups='queue_management.group_queue_manager')
+    refund_count = fields.Integer(groups='queue_management.group_queue_manager')
+    # La preuve vit sur le paiement : elle y reste après un rejet, comme
+    # pièce du dossier, sans plus s'afficher sur le ticket.
+    payment_proof = fields.Binary(
+        "Preuve de paiement", related='payment_id.proof', readonly=True)
+    payment_proof_filename = fields.Char(
+        related='payment_id.proof_filename', readonly=True)
     payment_submitted_at = fields.Datetime(
         "Paiement déclaré le", copy=False,
         help="Quand le client a déclaré son paiement (à valider par le guichet).")
@@ -515,23 +534,66 @@ class QueueTicket(models.Model):
             return self.currency_id.format(self.payment_amount or 0.0)
         return str(self.payment_amount or 0.0)
 
+    # ------------------------------------------------------------------
+    # Paiement — par le socle ``queue.payment``
+    #
+    # Chaque geste (déclaration du client, validation, rejet, encaissement
+    # direct, webhook Wave) agit sur le paiement du socle ; le ticket n'est
+    # mis à jour QUE par les crochets ``_on_payment_*`` que le socle appelle.
+    # Un seul chemin d'écriture : un webhook rejoué ou une double validation
+    # ne peut plus créditer deux fois, et commissions, remboursements et
+    # rapprochement Wave valent pour les tickets comme pour le reste.
+    # ------------------------------------------------------------------
+
+    _OPEN_PAYMENT_STATES = ('draft', 'pending', 'to_validate')
+
+    def _payment_partner(self):
+        self.ensure_one()
+        return self.partner_id
+
+    def _current_payment(self, method=None):
+        """Le paiement du socle de ce ticket, créé au besoin.
+
+        Réutilisé s'il est encore ouvert pour le bon montant (ou déjà réglé) ;
+        un paiement rejeté, annulé ou d'un autre montant n'est jamais repris.
+        """
+        self.ensure_one()
+        ticket = self.sudo()
+        payment = ticket.payment_id
+        currency = ticket.currency_id or ticket.company_id.currency_id
+        if payment and (payment.state == 'paid' or (
+                payment.state in self._OPEN_PAYMENT_STATES
+                and currency.compare_amounts(payment.amount,
+                                             ticket.payment_amount) == 0)):
+            if method and payment.state != 'paid' and payment.method != method:
+                payment.method = method
+            return payment
+        payment = self.env['queue.payment'].sudo().create({
+            'company_id': ticket.company_id.id,
+            'currency_id': currency.id,
+            'partner_id': ticket.partner_id.id or False,
+            'amount': ticket.payment_amount,
+            'method': method or 'counter',
+            'state': 'pending',
+            'res_model': self._name,
+            'res_id': ticket.id,
+        })
+        # Commission du prestataire (Wave…) selon les réglages de la société :
+        # sans taux réglé, elle est nulle et rien ne change.
+        payment._apply_provider_fee()
+        ticket.payment_id = payment
+        return payment
+
     def _mark_paid(self, method, ref=False, by_user=None):
-        """Passe un ticket à « payé » (validation guichet, encaissement direct
-        ou confirmation Wave API). Idempotent."""
+        """Confirme le paiement du ticket (encaissement direct, webhook).
+        Idempotent : un ticket payé le reste, rien n'est recrédité."""
         self.ensure_one()
         if self.payment_state == 'paid':
             return
-        self.write({
-            'payment_state': 'paid',
-            'payment_method': method or self.payment_method,
-            'paid_at': fields.Datetime.now(),
-            'payment_ref': ref or self.payment_ref,
-            'payment_validated_by': (by_user or self.env.user).id,
-        })
-        self.message_post(body=_(
-            "Paiement confirmé : %(montant)s (%(moyen)s).",
-            montant=self._amount_label(),
-            moyen=dict(self.PAYMENT_METHOD).get(self.payment_method, self.payment_method or '—')))
+        payment = self._current_payment(method)
+        if ref:
+            ref = self.env['queue.wave.mixin'].sudo()._wave_safe_ref(payment, ref)
+        payment._mark_paid(ref=ref or None, by_user=by_user or self.env.user)
 
     def action_register_payment(self, method='counter', ref=False):
         """Encaissement DIRECT par l'agent au guichet (l'agent est le
@@ -541,7 +603,12 @@ class QueueTicket(models.Model):
                 continue
             if ticket.payment_state == 'not_required':
                 raise UserError(_("Ce service est gratuit : rien à encaisser."))
-            ticket._mark_paid(method, ref)
+            payment = ticket._current_payment(method)
+            if ref:
+                payment._check_ref_unused(ref)
+                payment.provider_ref = ref
+            # `sudo()` garde l'utilisateur : c'est bien l'agent qui valide.
+            payment.action_validate()
         return True
 
     def _submit_payment(self, method, ref=False, proof=False, proof_filename=False):
@@ -557,18 +624,16 @@ class QueueTicket(models.Model):
             raise UserError(_("Moyen de paiement inconnu."))
         if method == 'proof' and not proof:
             raise UserError(_("Joignez une preuve de paiement."))
-        if proof:
-            self.env['queue.payment']._check_proof_size(proof)
-        vals = {
+        payment = self._current_payment(method)
+        # Le socle borne la preuve et refuse une référence déjà déclarée.
+        payment._submit(method=method, ref=ref or None, proof=proof or None,
+                        proof_filename=proof_filename or ('preuve' if proof else None))
+        self.sudo().write({
             'payment_state': 'to_validate',
             'payment_method': method,
             'payment_submitted_at': fields.Datetime.now(),
             'payment_ref': ref or self.payment_ref,
-        }
-        if method == 'proof':
-            vals.update(payment_proof=proof,
-                        payment_proof_filename=proof_filename or 'preuve')
-        self.write(vals)
+        })
         labels = {'wave': _("Wave marchand"), 'counter': _("au guichet"),
                   'proof': _("preuve de paiement")}
         self.message_post(body=_(
@@ -581,7 +646,7 @@ class QueueTicket(models.Model):
         for ticket in self:
             if ticket.payment_state != 'to_validate':
                 raise UserError(_("Seul un paiement « à valider » peut être validé."))
-            ticket._mark_paid(ticket.payment_method)
+            ticket._current_payment().action_validate()
         return True
 
     def action_reject_payment(self):
@@ -589,13 +654,95 @@ class QueueTicket(models.Model):
         for ticket in self:
             if ticket.payment_state != 'to_validate':
                 raise UserError(_("Seul un paiement « à valider » peut être rejeté."))
-            ticket.write({'payment_state': 'pending',
-                          'payment_proof': False,
-                          'payment_proof_filename': False})
-            ticket.message_post(body=_(
-                "Paiement rejeté par %s — le client doit régler à nouveau.",
-                ticket.env.user.name))
+            ticket._current_payment().action_reject(
+                reason=_("Rejeté au guichet par %s.", ticket.env.user.name))
         return True
+
+    # --- Crochets appelés par ``queue.payment`` ------------------------------
+
+    def _on_payment_paid(self, payment):
+        for ticket in self:
+            if ticket.payment_state == 'paid':
+                continue
+            methods = dict(self.PAYMENT_METHOD)
+            ticket.write({
+                'payment_state': 'paid',
+                'payment_id': payment.id,
+                'payment_method': payment.method if payment.method in methods
+                else ticket.payment_method,
+                'paid_at': payment.paid_at or fields.Datetime.now(),
+                'payment_ref': payment.provider_ref or ticket.payment_ref,
+                'payment_validated_by': (payment.validated_by
+                                         or self.env.user).id,
+            })
+            ticket.message_post(body=_(
+                "Paiement confirmé : %(montant)s (%(moyen)s).",
+                montant=ticket._amount_label(),
+                moyen=methods.get(ticket.payment_method,
+                                  ticket.payment_method or '—')))
+            if ticket.state == 'cancelled':
+                # L'argent est arrivé (Wave confirme après coup) sur un ticket
+                # annulé : on ne ressuscite pas le ticket, on le dit.
+                ticket.message_post(body=_(
+                    "Ce ticket était annulé : le paiement reçu est à "
+                    "rembourser."))
+
+    def _on_payment_rejected(self, payment):
+        for ticket in self:
+            if ticket.payment_state != 'to_validate':
+                continue
+            ticket.write({'payment_state': 'pending', 'payment_id': False})
+            ticket.message_post(body=_(
+                "Paiement rejeté (%(motif)s) — le client doit régler à nouveau.",
+                motif=payment.rejection_reason or _("motif non précisé")))
+
+    def _on_payment_cancelled(self, payment):
+        for ticket in self:
+            if ticket.payment_state == 'to_validate':
+                ticket.write({'payment_state': 'pending', 'payment_id': False})
+
+    def _on_payment_reverted(self, payment):
+        """Une validation défaite (preuve falsifiée découverte après coup)."""
+        for ticket in self:
+            if ticket.payment_state != 'paid':
+                continue
+            ticket.write({'payment_state': 'pending', 'payment_id': False,
+                          'paid_at': False, 'payment_validated_by': False})
+            ticket.message_post(body=_(
+                "Validation du paiement défaite : le ticket est de nouveau à "
+                "régler."))
+
+    # --- Remboursement (socle ``queue.refund``) -------------------------------
+
+    def _refundable_amount(self):
+        """On ne rend jamais plus que ce que les paiements réglés ont apporté."""
+        self.ensure_one()
+        paid = sum(self.env['queue.payment'].sudo().search([
+            ('res_model', '=', self._name), ('res_id', '=', self.id),
+            ('state', '=', 'paid')]).mapped('amount'))
+        return max(0.0, paid - self._refunded_total())
+
+    def _on_refund_registered(self, refund):
+        super()._on_refund_registered(refund)
+        if self.payment_state == 'paid' and self.currency_id.is_zero(
+                self._refundable_amount()):
+            self.payment_state = 'refunded'
+
+    def _on_refund_cancelled(self, refund):
+        super()._on_refund_cancelled(refund)
+        if self.payment_state == 'refunded':
+            self.payment_state = 'paid'
+
+    def action_open_refund_wizard(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Rembourser"),
+            'res_model': 'queue.ticket.refund.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_ticket_id': self.id},
+        }
 
     def _release_counter(self):
         for ticket in self:
